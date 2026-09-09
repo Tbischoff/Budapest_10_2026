@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Budapest Map 2026</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <div>
+          <div class="eyebrow">Budapest · 03.–07.10.2026</div>
+          <h1>Budapest Map</h1>
+        </div>
+        <button id="mobileClose" class="icon-button mobile-only" aria-label="Menü schließen">✕</button>
+      </div>
+
+      <p class="intro">
+        Persönliche Karte mit Restaurants, Bars, Sehenswürdigkeiten,
+        Thermen und Local-Tipps.
+      </p>
+
+      <div class="search-wrap">
+        <input id="searchInput" type="search" placeholder="Ort suchen …" autocomplete="off" />
+      </div>
+
+      <section class="panel">
+        <div class="panel-title-row">
+          <h2>Kategorien</h2>
+          <button id="toggleAllBtn" class="text-button">Alle aus</button>
+        </div>
+        <div id="categoryFilters" class="filter-list"></div>
+      </section>
+
+      <section class="panel">
+        <h2>Zusätzliche Filter</h2>
+        <label class="filter-row">
+          <input id="localOnly" type="checkbox" />
+          <span>⭐ Nur Local-Tipps</span>
+        </label>
+        <label class="filter-row">
+          <input id="favoritesOnly" type="checkbox" />
+          <span>♥ Nur Favoriten</span>
+        </label>
+        <label class="filter-row">
+          <input id="unvisitedOnly" type="checkbox" />
+          <span>○ Nur noch nicht besucht</span>
+        </label>
+      </section>
+
+      <section class="panel">
+        <div class="panel-title-row">
+          <h2>Orte</h2>
+          <span id="visibleCount" class="count-badge">0</span>
+        </div>
+        <div id="placeList" class="place-list"></div>
+      </section>
+
+      <section class="panel">
+        <h2>In Budapest probieren</h2>
+        <div id="tryList"></div>
+      </section>
+
+      <div class="sidebar-footer">
+        <button id="resetStateBtn" class="secondary-button">Besucht/Favoriten zurücksetzen</button>
+      </div>
+    </aside>
+
+    <main class="map-wrap">
+      <div id="map"></div>
+
+      <div class="top-actions">
+        <button id="mobileMenuBtn" class="floating-button mobile-only">☰ Orte</button>
+        <button id="fitBtn" class="floating-button">Alle anzeigen</button>
+      </div>
+
+      <div id="statusBox" class="status-box">Karte wird geladen …</div>
+    </main>
+  </div>
+
+  <script src="places.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
