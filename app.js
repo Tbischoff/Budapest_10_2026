@@ -37,7 +37,9 @@ async function bootstrap() {
       throw new Error("Ortsdaten konnten nicht geladen werden. Prüfe, ob places.js vorhanden ist.");
     }
 
-    placesData = window.BUDAPEST_PLACES_DATA;
+    // Kopie verwenden, damit die statischen Daten aus places.js unverändert bleiben.
+    placesData = JSON.parse(JSON.stringify(window.BUDAPEST_PLACES_DATA));
+    mergeLocalPlaces();
 
     renderCategoryFilters();
     renderTryList();
@@ -228,6 +230,7 @@ function openPlace(place) {
       <div class="info-meta">
         ${CATEGORY_ICONS[place.category] || "•"} ${escapeHtml(categoryLabel(place.category))}
         ${place.localTip ? " · ⭐ Local-Tipp" : ""}
+        ${place.isLocalPlace ? " · 📌 Eigener Ort" : ""}
       </div>
       <div>${escapeHtml(place.address || "")}</div>
       ${place.notes ? `<div class="info-note">${escapeHtml(place.notes)}</div>` : ""}
@@ -235,6 +238,7 @@ function openPlace(place) {
         <a class="primary" href="${mapsUrl}" target="_blank" rel="noopener">Google Maps öffnen</a>
         <button onclick="toggleFavorite('${place.id}')">${saved.favorite ? "♥ Favorit" : "♡ Favorit"}</button>
         <button onclick="toggleVisited('${place.id}')">${saved.visited ? "✓ Besucht" : "○ Als besucht markieren"}</button>
+        ${place.isLocalPlace ? `<button class="danger" onclick="deleteLocalPlace('${place.id}')">Löschen</button>` : ""}
       </div>
     </div>
   `;
@@ -242,6 +246,170 @@ function openPlace(place) {
   infoWindow.setContent(html);
   infoWindow.open({ map, anchor: marker });
   map.panTo(marker.getPosition());
+}
+
+
+const LOCAL_PLACES_KEY = "budapestLocalPlaces";
+
+function loadLocalPlaces() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(LOCAL_PLACES_KEY));
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveLocalPlaces(items) {
+  localStorage.setItem(LOCAL_PLACES_KEY, JSON.stringify(items));
+}
+
+function mergeLocalPlaces() {
+  const localPlaces = loadLocalPlaces();
+
+  for (const place of localPlaces) {
+    if (!placesData.places.some(existing => existing.id === place.id)) {
+      placesData.places.push(place);
+    }
+  }
+}
+
+function createLocalPlaceId() {
+  if (window.crypto?.randomUUID) {
+    return `local-${crypto.randomUUID()}`;
+  }
+  return `local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function openAddPlaceDialog() {
+  const dialog = document.getElementById("addPlaceDialog");
+  const form = document.getElementById("addPlaceForm");
+
+  form.reset();
+  document.getElementById("placeCategory").value = "food";
+  document.getElementById("placeFormMessage").textContent = "";
+
+  if (typeof dialog.showModal === "function") {
+    dialog.showModal();
+  } else {
+    dialog.setAttribute("open", "");
+  }
+}
+
+function closeAddPlaceDialog() {
+  const dialog = document.getElementById("addPlaceDialog");
+  if (typeof dialog.close === "function") dialog.close();
+  else dialog.removeAttribute("open");
+}
+
+async function handleAddPlace(event) {
+  event.preventDefault();
+
+  const submitButton = document.getElementById("savePlaceBtn");
+  const message = document.getElementById("placeFormMessage");
+
+  const name = document.getElementById("placeName").value.trim();
+  const address = document.getElementById("placeAddress").value.trim();
+  const category = document.getElementById("placeCategory").value;
+  const notes = document.getElementById("placeNotes").value.trim();
+  const localTip = document.getElementById("placeLocalTip").checked;
+
+  if (!name || !address) {
+    message.textContent = "Bitte Name und Adresse eintragen.";
+    return;
+  }
+
+  submitButton.disabled = true;
+  submitButton.textContent = "Adresse wird geprüft …";
+  message.textContent = "";
+
+  try {
+    const draft = {
+      id: createLocalPlaceId(),
+      name,
+      address,
+      category,
+      notes,
+      localTip,
+      tags: ["eigener Ort"],
+      status: "local",
+      source: "localStorage",
+      isLocalPlace: true,
+      createdAt: new Date().toISOString()
+    };
+
+    const position = await geocodePlaceWithRetry(draft);
+
+    if (!position) {
+      message.textContent = "Die Adresse konnte nicht gefunden werden. Bitte prüfe die Schreibweise.";
+      return;
+    }
+
+    draft.lat = position.lat;
+    draft.lng = position.lng;
+
+    const localPlaces = loadLocalPlaces();
+    localPlaces.push(draft);
+    saveLocalPlaces(localPlaces);
+
+    placesData.places.push(draft);
+    cachePosition(draft.id, position);
+
+    const marker = new google.maps.Marker({
+      map,
+      position,
+      title: draft.name,
+      label: {
+        text: CATEGORY_ICONS[draft.category] || "•",
+        fontSize: "17px"
+      }
+    });
+
+    marker.addListener("click", () => openPlace(draft));
+    markers.set(draft.id, marker);
+
+    // Falls die gewählte Kategorie vorher deaktiviert war, soll der neue Ort
+    // trotzdem sichtbar sein.
+    activeCategories.add(draft.category);
+    const categoryCheckbox = document.querySelector(
+      `#categoryFilters input[value="${CSS.escape(draft.category)}"]`
+    );
+    if (categoryCheckbox) categoryCheckbox.checked = true;
+
+    applyFilters();
+    updateToggleAllText();
+    closeAddPlaceDialog();
+
+    map.panTo(position);
+    map.setZoom(Math.max(map.getZoom(), 16));
+    openPlace(draft);
+    setStatus(`„${draft.name}“ wurde lokal gespeichert.`);
+  } finally {
+    submitButton.disabled = false;
+    submitButton.textContent = "Ort speichern";
+  }
+}
+
+function deleteLocalPlace(id) {
+  const place = placesData.places.find(p => p.id === id);
+  if (!place?.isLocalPlace) return;
+
+  if (!confirm(`„${place.name}“ wirklich löschen?`)) return;
+
+  const marker = markers.get(id);
+  if (marker) marker.setMap(null);
+  markers.delete(id);
+
+  const localPlaces = loadLocalPlaces().filter(item => item.id !== id);
+  saveLocalPlaces(localPlaces);
+
+  placesData.places = placesData.places.filter(item => item.id !== id);
+  delete state.places[id];
+  saveState();
+
+  applyFilters();
+  infoWindow.close();
+  setStatus(`„${place.name}“ wurde gelöscht.`);
 }
 
 function renderCategoryFilters() {
@@ -299,7 +467,7 @@ function renderPlaceList(filteredPlaces) {
     card.innerHTML = `
       <div class="place-card-title">
         <span>${CATEGORY_ICONS[place.category] || "•"} ${escapeHtml(place.name)}</span>
-        <span>${saved.favorite ? "♥" : ""}${place.localTip ? " ⭐" : ""}</span>
+        <span>${saved.favorite ? "♥" : ""}${place.localTip ? " ⭐" : ""}${place.isLocalPlace ? " 📌" : ""}</span>
       </div>
       <div class="place-card-meta">
         ${escapeHtml(categoryLabel(place.category))}
@@ -377,6 +545,14 @@ function wireControls() {
   document.getElementById("favoritesOnly").addEventListener("change", applyFilters);
   document.getElementById("unvisitedOnly").addEventListener("change", applyFilters);
   document.getElementById("fitBtn").addEventListener("click", fitVisibleMarkers);
+  document.getElementById("addPlaceBtn").addEventListener("click", openAddPlaceDialog);
+  document.getElementById("cancelPlaceBtn").addEventListener("click", closeAddPlaceDialog);
+  document.getElementById("addPlaceForm").addEventListener("submit", handleAddPlace);
+
+  const addPlaceDialog = document.getElementById("addPlaceDialog");
+  addPlaceDialog.addEventListener("click", event => {
+    if (event.target === addPlaceDialog) closeAddPlaceDialog();
+  });
 
   document.getElementById("toggleAllBtn").addEventListener("click", () => {
     const checkboxes = document.querySelectorAll("#categoryFilters input[type=checkbox]");
@@ -507,3 +683,4 @@ function escapeHtml(value) {
 
 window.toggleFavorite = toggleFavorite;
 window.toggleVisited = toggleVisited;
+window.deleteLocalPlace = deleteLocalPlace;

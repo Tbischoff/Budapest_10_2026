@@ -73,12 +73,80 @@
 
       <div class="top-actions">
         <button id="mobileMenuBtn" class="floating-button mobile-only">☰ Orte</button>
+        <button id="addPlaceBtn" class="floating-button primary-floating">＋ Ort hinzufügen</button>
         <button id="fitBtn" class="floating-button">Alle anzeigen</button>
       </div>
 
+      <div class="map-legend">
+        <span><i class="legend-dot food"></i>Essen</span>
+        <span><i class="legend-dot bar"></i>Bars</span>
+        <span><i class="legend-dot sight"></i>Sehenswürdigkeiten</span>
+        <span><i class="legend-star">★</i>Local-Tipp</span>
+      </div>
       <div id="statusBox" class="status-box">Karte wird geladen …</div>
     </main>
   </div>
+
+
+  <dialog id="addPlaceDialog" class="place-dialog">
+    <form id="addPlaceForm" class="place-form" method="dialog">
+      <div class="dialog-head">
+        <div>
+          <div class="eyebrow">Lokal auf diesem Gerät</div>
+          <h2>Ort hinzufügen</h2>
+        </div>
+        <button id="cancelPlaceBtn" class="icon-button" type="button" aria-label="Schließen">✕</button>
+      </div>
+
+      <label class="form-field">
+        <span>Name *</span>
+        <input id="placeName" type="text" required placeholder="z. B. Kleine Kaffeerösterei" />
+      </label>
+
+      <label class="form-field">
+        <span>Adresse *</span>
+        <input id="placeAddress" type="text" required placeholder="Straße, Hausnummer, Budapest" />
+      </label>
+
+      <label class="form-field">
+        <span>Kategorie</span>
+        <select id="placeCategory">
+          <option value="food">🍴 Essen</option>
+          <option value="cafe">☕ Café</option>
+          <option value="bar">🍸 Bar</option>
+          <option value="sight">🏛️ Sehenswürdigkeit</option>
+          <option value="culture">🎭 Kultur</option>
+          <option value="leisure">🌳 Freizeit</option>
+          <option value="thermal">♨️ Therme</option>
+          <option value="viewpoint">🌇 Aussicht</option>
+          <option value="transport">🚇 Verkehr</option>
+          <option value="area">📍 Gebiet</option>
+          <option value="other">• Sonstiges</option>
+        </select>
+      </label>
+
+      <label class="form-field">
+        <span>Notiz</span>
+        <textarea id="placeNotes" rows="3" placeholder="Optional"></textarea>
+      </label>
+
+      <label class="filter-row form-check">
+        <input id="placeLocalTip" type="checkbox" />
+        <span>⭐ Als Local-Tipp markieren</span>
+      </label>
+
+      <p class="form-hint">
+        Der Ort wird nur im lokalen Speicher dieses Browsers gespeichert.
+      </p>
+      <div id="placeFormMessage" class="form-message" aria-live="polite"></div>
+
+      <div class="dialog-actions">
+        <button id="cancelPlaceBtnBottom" class="secondary-button" type="button"
+          onclick="document.getElementById('addPlaceDialog').close()">Abbrechen</button>
+        <button id="savePlaceBtn" class="primary-button" type="submit">Ort speichern</button>
+      </div>
+    </form>
+  </dialog>
 
   <script src="places.js"></script>
   <script src="app.js"></script>
