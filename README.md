@@ -4,7 +4,7 @@ Persönliche interaktive Reiseplanung für Budapest vom **03.–07.10.2026**.
 
 Die Anwendung läuft als statische Webseite über **GitHub Pages** und verwendet Google Maps.
 
-## Aktueller Stand: v0.7.1
+## Aktueller Stand: v0.8
 
 Enthalten sind unter anderem:
 
@@ -18,10 +18,10 @@ Enthalten sind unter anderem:
 - optionale Uhrzeiten / Zeitfenster
 - aktueller Standort
 - Entfernung und Sortierung nach Nähe
-- Tagesroute auf der Karte
-- Öffnen einer Tagesroute in Google Maps
+- **echte Fußroute eines Tages über die Google Routes API**
+- Gesamtdistanz und geschätzte Gehzeit
+- Öffnen der Tagesroute in Google Maps
 - AdvancedMarkerElement
-- responsive Darstellung
 
 ## Projektstruktur
 
@@ -38,58 +38,60 @@ Budapest_10_2026/
 │   └── places.json
 └── docs/
     ├── STRUCTURE.md
+    ├── GOOGLE_ROUTES_SETUP.md
     └── tests/
 ```
 
-Details: `docs/STRUCTURE.md`
+## Google APIs
+
+Für v0.8 werden benötigt:
+
+- Maps JavaScript API
+- Geocoding API
+- **Routes API**
+
+Beim API-Key müssen diese APIs freigegeben sein. Der Key sollte außerdem auf die
+GitHub-Pages-Domain eingeschränkt bleiben.
+
+Details stehen in `docs/GOOGLE_ROUTES_SETUP.md`.
+
+## Tagesroute
+
+Bei einem konkreten Reisetag mit mindestens zwei geplanten Orten kann
+**„🚶 Fußroute anzeigen“** ausgewählt werden.
+
+Die Anwendung sendet erst bei diesem Klick eine Anfrage an die Routes API.
+
+Die Route verwendet:
+
+- Start = erster geplanter Ort
+- Ziel = letzter geplanter Ort
+- Zwischenstopps = alle Orte dazwischen
+- Reihenfolge = manuell geplante Reihenfolge
+- Reisemodus = `WALKING`
+
+Angezeigt werden zusätzlich Gesamtdistanz und geschätzte Gehzeit.
+
+Google unterstützt bis zu 25 Zwischenstopps, also maximal 27 Orte in einer Route.
+Ab 11 Zwischenstopps gelten bei Google andere Abrechnungsbedingungen.
 
 ## GitHub Pages
 
-Repository:
+`Settings → Pages → Deploy from a branch → main → /(root)`
 
-`https://github.com/Tbischoff/Budapest_10_2026`
-
-GitHub Pages:
-
-`https://tbischoff.github.io/Budapest_10_2026/`
-
-Bereitstellung:
-
-**Settings → Pages → Deploy from a branch → main → /(root)**
-
-Nach Änderungen auf dem Mac kann ein Hard Reload mit
+Nach Änderungen auf dem Mac kann ein Hard Reload helfen:
 
 `Cmd + Shift + R`
 
-hilfreich sein.
-
-## Google Maps API
-
-Der API-Key liegt clientseitig in `assets/js/app.js` und ist damit im Browser sichtbar.
-Er sollte in der Google Cloud Console unbedingt auf die GitHub-Pages-Domain und die
-benötigten APIs beschränkt sein.
-
 ## Speicherung
 
-Persönliche Daten liegen aktuell im `localStorage` des jeweiligen Browsers, unter anderem:
-
-- Tageszuordnung
-- Reihenfolge
-- Uhrzeiten
-- Besucht-Status
-- eigene Orte
-- Geocoding-Cache
+Persönliche Daten liegen aktuell im `localStorage` des jeweiligen Browsers.
 
 Eine geräteübergreifende Datenbank ist für eine spätere Version vorgesehen.
 
 ## Entwicklung
 
-Die Entwicklung erfolgt in kleinen Versionen mit anschließender Abnahme.
-
-Aktuell:
-
-- v0.7: Tagesroute
-- **v0.7.1: Projektstruktur**
-- geplant: v0.8 Mobile UI / Bedienoptimierung
-
-Abnahmetests liegen unter `docs/tests/`.
+- v0.7: Tagesroute als Planungs-Luftlinie
+- v0.7.1: Projektstruktur
+- **v0.8: echte Fußroute über Routes API**
+- geplant: v0.9 Mobile UI / Bedienoptimierung

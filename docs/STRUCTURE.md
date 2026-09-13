@@ -54,3 +54,9 @@ Versionierte Test-/Abnahmebeschreibungen.
 
 Code, Styling, Daten, Icons und Dokumentation sind voneinander getrennt. Das macht spätere
 Erweiterungen wie Datenbank, mobile Oberfläche oder PWA deutlich übersichtlicher.
+
+
+## Zusätzliche technische Dokumentation
+
+### `docs/GOOGLE_ROUTES_SETUP.md`
+Einrichtung und Freigabe der Google Routes API für die echte Tagesroute.
