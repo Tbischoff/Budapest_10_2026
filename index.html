@@ -4,8 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Budapest Map 2026</title>
-  <link rel="icon" href="favicon.svg" type="image/svg+xml" />
-  <link rel="stylesheet" href="style.css" />
+  <link rel="icon" href="assets/icons/favicon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="assets/css/style.css" />
 </head>
 <body>
   <div class="app-shell">
@@ -53,6 +53,22 @@
           <h2>Tagesplanung</h2>
         </div>
         <div id="dayFilters" class="day-filter-list"></div>
+
+        <div class="route-panel">
+          <div id="routeInfo" class="route-info">Wähle einen Reisetag aus.</div>
+          <div class="route-actions">
+            <button id="routeToggleBtn" class="route-button" type="button" disabled>
+              🗺️ Route anzeigen
+            </button>
+            <button id="routeGoogleBtn" class="route-button secondary-route-button" type="button" disabled>
+              Google Maps
+            </button>
+          </div>
+          <div class="route-hint">
+            Die Linie auf dieser Karte verbindet die Orte nur als Luftlinie.
+            Google Maps berechnet anschließend eine echte Fußroute.
+          </div>
+        </div>
       </section>
 
       <section class="panel">
@@ -165,7 +181,7 @@
     </form>
   </dialog>
 
-  <script src="places.js"></script>
-  <script src="app.js"></script>
+  <script src="data/places.js"></script>
+  <script src="assets/js/app.js"></script>
 </body>
 </html>
