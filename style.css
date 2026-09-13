@@ -585,3 +585,86 @@ h2 {
 
 
 /* v0.5.1: AdvancedMarkerElement nutzt PinElement-Inhalte direkt aus der Maps API. */
+
+
+.info-time {
+  margin-top: 6px;
+  color: #7c3aed;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.time-editor {
+  margin-top: 10px;
+  padding: 10px;
+  border: 1px solid #e4ded5;
+  background: #faf8f4;
+  border-radius: 10px;
+}
+
+.time-editor-disabled {
+  opacity: .72;
+}
+
+.time-editor-title {
+  font-size: 12px;
+  font-weight: 800;
+  margin-bottom: 8px;
+}
+
+.time-editor-hint {
+  font-size: 11px;
+  color: #6c7479;
+}
+
+.time-editor-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.time-editor-row label {
+  display: grid;
+  gap: 4px;
+  font-size: 10px;
+  color: #6c7479;
+}
+
+.time-editor-row input[type="time"] {
+  width: 100%;
+  border: 1px solid #d8d2ca;
+  border-radius: 8px;
+  background: #fff;
+  color: #263136;
+  padding: 7px 8px;
+  font: inherit;
+  font-size: 12px;
+}
+
+.time-editor-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.time-editor-actions button {
+  border: 1px solid #2f625d;
+  background: #2f625d;
+  color: #fff;
+  border-radius: 8px;
+  padding: 7px 8px;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.time-editor-actions .secondary-time-button {
+  background: #fff;
+  color: #5e666b;
+  border-color: #d8d2ca;
+}
+
+@media (max-width: 520px) {
+  .time-editor-row {
+    grid-template-columns: 1fr;
+  }
+}

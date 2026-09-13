@@ -302,7 +302,11 @@ function openPlace(place) {
       ${userPosition && distanceToPlace(place) != null
         ? `<div class="info-distance">📍 ${escapeHtml(formatDistance(distanceToPlace(place)))} Luftlinie entfernt</div>`
         : ""}
+      ${saved.plannedDay && formatPlannedTime(saved)
+        ? `<div class="info-time">🕐 ${escapeHtml(formatPlannedTime(saved))}</div>`
+        : ""}
       ${place.notes ? `<div class="info-note">${escapeHtml(place.notes)}</div>` : ""}
+      ${plannedTimeEditorHtml(place, saved)}
       <div class="info-actions">
         <a class="primary" href="${mapsUrl}" target="_blank" rel="noopener">Google Maps öffnen</a>
         <select class="day-select" onchange="setPlannedDay('${place.id}', this.value)">
@@ -615,6 +619,124 @@ function orderControlsHtml(place, saved) {
   `;
 }
 
+
+function normalizeTimeValue(value) {
+  const trimmed = String(value || "").trim();
+  if (!trimmed) return "";
+
+  const match = trimmed.match(/^([01]\d|2[0-3]):([0-5]\d)$/);
+  return match ? `${match[1]}:${match[2]}` : "";
+}
+
+function formatPlannedTime(saved) {
+  const start = normalizeTimeValue(saved.startTime || "");
+  const end = normalizeTimeValue(saved.endTime || "");
+
+  if (start && end) return `${start}–${end}`;
+  if (start) return start;
+  if (end) return `bis ${end}`;
+  return "";
+}
+
+function setPlannedTime(id, startTime, endTime) {
+  const item = ensurePlaceState(id);
+
+  const normalizedStart = normalizeTimeValue(startTime);
+  const normalizedEnd = normalizeTimeValue(endTime);
+
+  if (startTime && !normalizedStart) {
+    setStatus("Ungültige Startzeit. Bitte HH:MM verwenden.");
+    return false;
+  }
+
+  if (endTime && !normalizedEnd) {
+    setStatus("Ungültige Endzeit. Bitte HH:MM verwenden.");
+    return false;
+  }
+
+  if (normalizedStart && normalizedEnd && normalizedEnd < normalizedStart) {
+    setStatus("Die Endzeit darf nicht vor der Startzeit liegen.");
+    return false;
+  }
+
+  if (normalizedStart) item.startTime = normalizedStart;
+  else delete item.startTime;
+
+  if (normalizedEnd) item.endTime = normalizedEnd;
+  else delete item.endTime;
+
+  saveState();
+  applyFilters();
+
+  const place = placesData.places.find(p => p.id === id);
+  if (place) openPlace(place);
+
+  const formatted = formatPlannedTime(item);
+  setStatus(
+    formatted
+      ? `Zeit für „${place?.name || "Ort"}“ gespeichert: ${formatted}.`
+      : `Zeitangabe für „${place?.name || "Ort"}“ entfernt.`
+  );
+
+  return true;
+}
+
+function clearPlannedTime(id) {
+  const item = ensurePlaceState(id);
+  delete item.startTime;
+  delete item.endTime;
+  saveState();
+  applyFilters();
+
+  const place = placesData.places.find(p => p.id === id);
+  if (place) openPlace(place);
+
+  setStatus(`Zeitangabe für „${place?.name || "Ort"}“ entfernt.`);
+}
+
+function plannedTimeEditorHtml(place, saved) {
+  if (!saved.plannedDay) {
+    return `
+      <div class="time-editor time-editor-disabled">
+        <div class="time-editor-title">🕐 Uhrzeit</div>
+        <div class="time-editor-hint">Zuerst einen Reisetag auswählen.</div>
+      </div>
+    `;
+  }
+
+  const start = normalizeTimeValue(saved.startTime || "");
+  const end = normalizeTimeValue(saved.endTime || "");
+
+  return `
+    <div class="time-editor">
+      <div class="time-editor-title">🕐 Uhrzeit / Zeitfenster</div>
+      <div class="time-editor-row">
+        <label>
+          <span>Von</span>
+          <input id="startTime-${place.id}" type="time" value="${escapeHtml(start)}" />
+        </label>
+        <label>
+          <span>Bis</span>
+          <input id="endTime-${place.id}" type="time" value="${escapeHtml(end)}" />
+        </label>
+      </div>
+      <div class="time-editor-actions">
+        <button
+          type="button"
+          onclick="setPlannedTime(
+            '${place.id}',
+            document.getElementById('startTime-${place.id}').value,
+            document.getElementById('endTime-${place.id}').value
+          )"
+        >Zeit speichern</button>
+        ${(start || end)
+          ? `<button type="button" class="secondary-time-button" onclick="clearPlannedTime('${place.id}')">Entfernen</button>`
+          : ""}
+      </div>
+    </div>
+  `;
+}
+
 function renderDayFilters() {
   const container = document.getElementById("dayFilters");
   if (!container) return;
@@ -698,12 +820,16 @@ function setPlannedDay(id, dayId) {
     if (previousDay !== dayId) {
       item.plannedDay = dayId;
       item.plannedOrder = nextOrderForDay(dayId);
+      delete item.startTime;
+      delete item.endTime;
     } else if (!item.plannedOrder) {
       item.plannedOrder = nextOrderForDay(dayId);
     }
   } else {
     delete item.plannedDay;
     delete item.plannedOrder;
+    delete item.startTime;
+    delete item.endTime;
   }
 
   if (previousDay && previousDay !== dayId) {
@@ -967,6 +1093,7 @@ function renderPlaceList(filteredPlaces) {
         ${escapeHtml(categoryLabel(place.category))}
         ${userPosition && distanceToPlace(place) != null ? ` · 📍 ${escapeHtml(formatDistance(distanceToPlace(place)))} entfernt` : ""}
         ${saved.plannedDay ? ` · 🗓️ ${escapeHtml(dayLongLabel(saved.plannedDay))}` : ""}
+        ${saved.plannedDay && formatPlannedTime(saved) ? ` · 🕐 ${escapeHtml(formatPlannedTime(saved))}` : ""}
         ${saved.visited ? " · ✓ besucht" : ""}
       </div>
       ${place.notes ? `<div class="place-card-note">${escapeHtml(place.notes)}</div>` : ""}
@@ -1177,5 +1304,7 @@ function escapeHtml(value) {
 
 window.toggleVisited = toggleVisited;
 window.setPlannedDay = setPlannedDay;
+window.setPlannedTime = setPlannedTime;
+window.clearPlannedTime = clearPlannedTime;
 window.movePlaceInDay = movePlaceInDay;
 window.deleteLocalPlace = deleteLocalPlace;
