@@ -2,7 +2,7 @@
 
 Persönliche interaktive Reiseplanung für Budapest vom **03.–07.10.2026**.
 
-## Aktueller Stand: v0.9.1
+## Aktueller Stand: v0.9.2
 
 Neu in v0.8: echte Fußroute eines geplanten Tages über die Google Routes API inklusive Gesamtdistanz und geschätzter Gehzeit.
 
@@ -95,3 +95,18 @@ Hotfix für Android/Chrome:
 - Maps-Resize bei Größen- und Orientierungsänderungen
 
 Keine fachliche Änderung gegenüber v0.9.
+
+
+## v0.9.2 – Mobile Interaction Hotfix
+
+Behoben wurde ein Z-Index-/Stacking-Context-Problem auf Android.
+
+Der abgedunkelte Hintergrund (`mobileScrim`) lag in v0.9.1 über dem Bottom Sheet
+und fing Klicks auf die Inhalte von `Plan` und `Orte` ab.
+
+Jetzt gilt mobil:
+
+- Karte: unterste Ebene
+- Scrim: über der Karte
+- Bottom Sheet: über dem Scrim
+- Bottom Navigation: oberste Ebene

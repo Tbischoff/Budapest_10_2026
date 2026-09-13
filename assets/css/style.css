@@ -1139,3 +1139,37 @@ h2 {
     inset: 0 0 var(--mobile-nav-height) 0;
   }
 }
+
+
+/* =========================================================
+   v0.9.2 – Mobile Interaction Hotfix
+   Scrim liegt über der Karte, aber unter dem Bottom Sheet.
+   ========================================================= */
+
+@media (max-width: 820px) {
+  .app-shell {
+    z-index: 1;
+  }
+
+  .map-wrap {
+    z-index: 1;
+  }
+
+  .mobile-scrim {
+    z-index: 10 !important;
+  }
+
+  .sidebar {
+    z-index: 20 !important;
+    pointer-events: auto !important;
+  }
+
+  .mobile-bottom-nav {
+    z-index: 30 !important;
+  }
+
+  .sidebar.open,
+  .sidebar.open * {
+    pointer-events: auto;
+  }
+}
