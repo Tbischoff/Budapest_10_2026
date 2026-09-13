@@ -2,7 +2,7 @@
 
 Persönliche interaktive Reiseplanung für Budapest vom **03.–07.10.2026**.
 
-## Aktueller Stand: v0.9
+## Aktueller Stand: v0.9.1
 
 Neu in v0.8: echte Fußroute eines geplanten Tages über die Google Routes API inklusive Gesamtdistanz und geschätzter Gehzeit.
 
@@ -83,3 +83,15 @@ Am unteren Bildschirmrand stehen drei Bereiche zur Verfügung:
 - Infofenster und „Ort hinzufügen“-Dialog für Touch optimiert
 
 Die Desktopansicht bleibt weiterhin als klassische Seitenleiste erhalten.
+
+
+## v0.9.1 – Android Map Visibility Hotfix
+
+Hotfix für Android/Chrome:
+
+- Kartenfläche wird mobil fest an den Viewport gebunden
+- Abhängigkeit von `100dvh` für die sichtbare Kartenfläche entfernt
+- Maps-Resize nach Wechsel zwischen Karte/Plan/Orte
+- Maps-Resize bei Größen- und Orientierungsänderungen
+
+Keine fachliche Änderung gegenüber v0.9.

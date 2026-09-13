@@ -1561,6 +1561,18 @@ function wireControls() {
   window.addEventListener("resize", () => {
     if (!isMobileLayout()) {
       setMobileView("map");
+    } else if (map) {
+      window.setTimeout(() => {
+        google.maps.event.trigger(map, "resize");
+      }, 100);
+    }
+  });
+
+  window.addEventListener("orientationchange", () => {
+    if (map) {
+      window.setTimeout(() => {
+        google.maps.event.trigger(map, "resize");
+      }, 200);
     }
   });
 }
@@ -1617,6 +1629,12 @@ function setMobileView(view) {
 
   if (showSheet) {
     sidebar.scrollTop = 0;
+  }
+
+  if (map) {
+    window.setTimeout(() => {
+      google.maps.event.trigger(map, "resize");
+    }, 100);
   }
 }
 
