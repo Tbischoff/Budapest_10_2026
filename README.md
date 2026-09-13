@@ -2,7 +2,7 @@
 
 Persönliche interaktive Reiseplanung für Budapest vom **03.–07.10.2026**.
 
-## Aktueller Stand: v0.9.2
+## Aktueller Stand: v0.9.3
 
 Neu in v0.8: echte Fußroute eines geplanten Tages über die Google Routes API inklusive Gesamtdistanz und geschätzter Gehzeit.
 
@@ -110,3 +110,13 @@ Jetzt gilt mobil:
 - Scrim: über der Karte
 - Bottom Sheet: über dem Scrim
 - Bottom Navigation: oberste Ebene
+
+
+## v0.9.3 – Mobile Auto-Close
+
+Mobile UX-Anpassung:
+
+- Wird im Tab **Plan** ein konkreter Reisetag ausgewählt, schließt sich das Bottom Sheet automatisch.
+- Die Anwendung wechselt direkt zurück zur Karte.
+- `Alle` und `Noch offen` schließen den Tab bewusst nicht automatisch.
+- Kategorien und andere Mehrfachfilter bleiben ebenfalls geöffnet, damit mehrere Auswahländerungen nacheinander möglich sind.

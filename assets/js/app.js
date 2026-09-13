@@ -1090,6 +1090,12 @@ function renderDayFilters() {
 
       applyFilters();
       updateRouteControls();
+
+      // Auf dem Smartphone nach Auswahl eines konkreten Reisetages
+      // direkt zurück zur Karte wechseln.
+      if (isMobileLayout() && TRIP_DAYS.some(day => day.id === selectedDayFilter)) {
+        setMobileView("map");
+      }
     });
 
     container.appendChild(button);
