@@ -2,7 +2,7 @@
 const CONFIG = {
   // Google Maps JavaScript API key eintragen.
   // Für GitHub Pages bitte unbedingt per HTTP-Referrer auf deine Domain beschränken.
-  googleMapsApiKey: "YAIzaSyCw_nRXt7NWjHw-lHTHZb8N8jmvl2iQFkg",
+  googleMapsApiKey: "AIzaSyCw_nRXt7NWjHw-lHTHZb8N8jmvl2iQFkg",
   initialCenter: { lat: 47.4979, lng: 19.0402 },
   initialZoom: 12
 };
