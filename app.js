@@ -2,7 +2,7 @@
 const CONFIG = {
   // Google Maps JavaScript API key eintragen.
   // Für GitHub Pages bitte unbedingt per HTTP-Referrer auf deine Domain beschränken.
-  googleMapsApiKey: "AIzaSyCw_nRXt7NWjHw-lHTHZb8N8jmvl2iQFkg",
+  googleMapsApiKey: "YOUR_GOOGLE_MAPS_API_KEY",
   initialCenter: { lat: 47.4979, lng: 19.0402 },
   initialZoom: 12
 };
@@ -30,6 +30,9 @@ const TRIP_DAYS = [
 ];
 
 let selectedDayFilter = "all";
+let userPosition = null;
+let userLocationMarker = null;
+let sortByDistance = false;
 
 let map;
 let geocoder;
@@ -244,6 +247,9 @@ function openPlace(place) {
         ${place.isLocalPlace ? " · 📌 Eigener Ort" : ""}
       </div>
       <div>${escapeHtml(place.address || "")}</div>
+      ${userPosition && distanceToPlace(place) != null
+        ? `<div class="info-distance">📍 ${escapeHtml(formatDistance(distanceToPlace(place)))} Luftlinie entfernt</div>`
+        : ""}
       ${place.notes ? `<div class="info-note">${escapeHtml(place.notes)}</div>` : ""}
       <div class="info-actions">
         <a class="primary" href="${mapsUrl}" target="_blank" rel="noopener">Google Maps öffnen</a>
@@ -564,11 +570,182 @@ function renderTryList() {
   }
 }
 
+
+function requestUserLocation() {
+  const button = document.getElementById("locateBtn");
+  const locationText = document.getElementById("locationText");
+
+  if (!navigator.geolocation) {
+    setStatus("Dein Browser unterstützt keine Standortbestimmung.");
+    locationText.textContent = "Standort wird von diesem Browser nicht unterstützt.";
+    return;
+  }
+
+  button.disabled = true;
+  button.textContent = "📍 Standort wird ermittelt …";
+  locationText.textContent = "Standort wird ermittelt …";
+
+  navigator.geolocation.getCurrentPosition(
+    position => {
+      userPosition = {
+        lat: position.coords.latitude,
+        lng: position.coords.longitude
+      };
+
+      updateUserLocationMarker();
+      updateDistanceControls();
+      applyFilters();
+
+      map.panTo(userPosition);
+      if (map.getZoom() < 14) map.setZoom(14);
+
+      const accuracy = Math.round(position.coords.accuracy || 0);
+      locationText.textContent = accuracy
+        ? `Standort aktiv · Genauigkeit ca. ${accuracy} m`
+        : "Standort aktiv";
+
+      button.disabled = false;
+      button.textContent = "📍 Standort aktualisieren";
+      setStatus("Standort aktualisiert. Entfernungen werden angezeigt.");
+    },
+    error => {
+      button.disabled = false;
+      button.textContent = "📍 Mein Standort";
+
+      let message = "Standort konnte nicht ermittelt werden.";
+      if (error.code === error.PERMISSION_DENIED) {
+        message = "Standortfreigabe wurde abgelehnt. Du kannst sie in den Browser-Einstellungen wieder erlauben.";
+      } else if (error.code === error.POSITION_UNAVAILABLE) {
+        message = "Der aktuelle Standort ist momentan nicht verfügbar.";
+      } else if (error.code === error.TIMEOUT) {
+        message = "Die Standortabfrage hat zu lange gedauert. Bitte versuche es erneut.";
+      }
+
+      locationText.textContent = message;
+      setStatus(message);
+    },
+    {
+      enableHighAccuracy: true,
+      timeout: 12000,
+      maximumAge: 30000
+    }
+  );
+}
+
+function updateUserLocationMarker() {
+  if (!userPosition) return;
+
+  if (!userLocationMarker) {
+    userLocationMarker = new google.maps.Marker({
+      map,
+      position: userPosition,
+      title: "Mein Standort",
+      zIndex: 9999,
+      icon: {
+        path: google.maps.SymbolPath.CIRCLE,
+        scale: 9,
+        fillColor: "#2563eb",
+        fillOpacity: 1,
+        strokeColor: "#ffffff",
+        strokeWeight: 3
+      }
+    });
+  } else {
+    userLocationMarker.setPosition(userPosition);
+    userLocationMarker.setMap(map);
+  }
+}
+
+function distanceToPlace(place) {
+  if (!userPosition) return null;
+
+  const marker = markers.get(place.id);
+  if (!marker) return null;
+
+  const pos = marker.getPosition();
+  if (!pos) return null;
+
+  return haversineDistanceKm(
+    userPosition.lat,
+    userPosition.lng,
+    pos.lat(),
+    pos.lng()
+  );
+}
+
+function haversineDistanceKm(lat1, lng1, lat2, lng2) {
+  const earthRadiusKm = 6371;
+  const toRad = value => value * Math.PI / 180;
+
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRad(lat1)) *
+      Math.cos(toRad(lat2)) *
+      Math.sin(dLng / 2) *
+      Math.sin(dLng / 2);
+
+  return earthRadiusKm * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function formatDistance(distanceKm) {
+  if (distanceKm == null || !Number.isFinite(distanceKm)) return "";
+
+  if (distanceKm < 1) {
+    return `${Math.round(distanceKm * 1000)} m`;
+  }
+
+  if (distanceKm < 10) {
+    return `${distanceKm.toFixed(1).replace(".", ",")} km`;
+  }
+
+  return `${Math.round(distanceKm)} km`;
+}
+
+function updateDistanceControls() {
+  const sortButton = document.getElementById("distanceSortBtn");
+  if (!sortButton) return;
+
+  sortButton.disabled = !userPosition;
+  sortButton.title = userPosition
+    ? "Orte nach Luftlinienentfernung sortieren"
+    : "Zuerst Standort freigeben";
+
+  sortButton.classList.toggle("active", sortByDistance && Boolean(userPosition));
+}
+
+function toggleDistanceSort() {
+  if (!userPosition) {
+    setStatus("Bitte zuerst „Mein Standort“ verwenden.");
+    return;
+  }
+
+  sortByDistance = !sortByDistance;
+  updateDistanceControls();
+  applyFilters();
+}
+
 function renderPlaceList(filteredPlaces) {
   const container = document.getElementById("placeList");
   container.innerHTML = "";
 
-  filteredPlaces.forEach(place => {
+  const placesForDisplay = [...filteredPlaces];
+
+  if (sortByDistance && userPosition) {
+    placesForDisplay.sort((a, b) => {
+      const distanceA = distanceToPlace(a);
+      const distanceB = distanceToPlace(b);
+
+      if (distanceA == null && distanceB == null) return 0;
+      if (distanceA == null) return 1;
+      if (distanceB == null) return -1;
+      return distanceA - distanceB;
+    });
+  }
+
+  placesForDisplay.forEach(place => {
     const saved = state.places[place.id] || {};
     const card = document.createElement("div");
     card.className = "place-card";
@@ -579,6 +756,7 @@ function renderPlaceList(filteredPlaces) {
       </div>
       <div class="place-card-meta">
         ${escapeHtml(categoryLabel(place.category))}
+        ${userPosition && distanceToPlace(place) != null ? ` · 📍 ${escapeHtml(formatDistance(distanceToPlace(place)))} entfernt` : ""}
         ${saved.plannedDay ? ` · 🗓️ ${escapeHtml(dayLongLabel(saved.plannedDay))}` : ""}
         ${saved.visited ? " · ✓ besucht" : ""}
       </div>
@@ -656,6 +834,8 @@ function wireControls() {
   document.getElementById("localOnly").addEventListener("change", applyFilters);
   document.getElementById("unvisitedOnly").addEventListener("change", applyFilters);
   document.getElementById("fitBtn").addEventListener("click", fitVisibleMarkers);
+  document.getElementById("locateBtn").addEventListener("click", requestUserLocation);
+  document.getElementById("distanceSortBtn").addEventListener("click", toggleDistanceSort);
   document.getElementById("addPlaceBtn").addEventListener("click", openAddPlaceDialog);
   document.getElementById("cancelPlaceBtn").addEventListener("click", closeAddPlaceDialog);
   document.getElementById("addPlaceForm").addEventListener("submit", handleAddPlace);
@@ -693,6 +873,7 @@ function wireControls() {
   });
 
   document.getElementById("mobileClose").addEventListener("click", closeMobileSidebar);
+  updateDistanceControls();
 }
 
 function updateToggleAllText() {

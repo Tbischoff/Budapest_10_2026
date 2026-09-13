@@ -479,3 +479,54 @@ h2 {
   cursor: pointer;
   max-width: 180px;
 }
+
+
+.location-panel {
+  margin-top: 16px;
+}
+
+.location-button {
+  width: 100%;
+  border: 1px solid var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.location-button:hover {
+  background: #dceae7;
+}
+
+.location-button:disabled {
+  opacity: .65;
+  cursor: wait;
+}
+
+.location-text {
+  margin-top: 7px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.distance-sort-button:disabled {
+  opacity: .45;
+  cursor: not-allowed;
+}
+
+.distance-sort-button.active {
+  background: var(--accent);
+  color: white;
+  border-radius: 999px;
+  padding: 4px 8px;
+}
+
+.info-distance {
+  margin-top: 6px;
+  color: #2f625d;
+  font-size: 12px;
+  font-weight: 700;
+}
