@@ -1547,13 +1547,22 @@ function wireControls() {
     applyFilters();
   });
 
-  document.getElementById("mobileMenuBtn").addEventListener("click", () => {
-    document.querySelector(".sidebar").classList.add("open");
-  });
+  document.getElementById("mobileClose").addEventListener("click", () => setMobileView("map"));
+  document.getElementById("mobileNavMap").addEventListener("click", () => setMobileView("map"));
+  document.getElementById("mobileNavPlan").addEventListener("click", () => setMobileView("plan"));
+  document.getElementById("mobileNavPlaces").addEventListener("click", () => setMobileView("places"));
+  document.getElementById("mobileScrim").addEventListener("click", () => setMobileView("map"));
+  document.getElementById("mobileLocateBtn").addEventListener("click", requestUserLocation);
 
-  document.getElementById("mobileClose").addEventListener("click", closeMobileSidebar);
   updateDistanceControls();
   updateRouteControls();
+  setMobileView("map");
+
+  window.addEventListener("resize", () => {
+    if (!isMobileLayout()) {
+      setMobileView("map");
+    }
+  });
 }
 
 function updateToggleAllText() {
@@ -1568,8 +1577,51 @@ function renderTryListFresh() {
   renderTryList();
 }
 
+function isMobileLayout() {
+  return window.matchMedia("(max-width: 820px)").matches;
+}
+
+function setMobileView(view) {
+  const normalizedView = ["map", "plan", "places"].includes(view) ? view : "map";
+  const sidebar = document.querySelector(".sidebar");
+  const scrim = document.getElementById("mobileScrim");
+
+  document.querySelectorAll(".mobile-nav-button").forEach(button => {
+    button.classList.toggle("active", button.dataset.view === normalizedView);
+  });
+
+  if (!isMobileLayout()) {
+    sidebar.classList.remove("open");
+    document.querySelectorAll("[data-mobile-view]").forEach(element => {
+      element.classList.remove("mobile-view-hidden");
+    });
+    return;
+  }
+
+  document.querySelectorAll("[data-mobile-view]").forEach(element => {
+    const elementView = element.dataset.mobileView;
+    element.classList.toggle(
+      "mobile-view-hidden",
+      normalizedView === "map" || elementView !== normalizedView
+    );
+  });
+
+  const showSheet = normalizedView !== "map";
+  sidebar.classList.toggle("open", showSheet);
+  document.body.classList.toggle("mobile-sheet-open", showSheet);
+
+  if (scrim) {
+    scrim.classList.toggle("visible", showSheet);
+    scrim.setAttribute("aria-hidden", showSheet ? "false" : "true");
+  }
+
+  if (showSheet) {
+    sidebar.scrollTop = 0;
+  }
+}
+
 function closeMobileSidebar() {
-  document.querySelector(".sidebar").classList.remove("open");
+  setMobileView("map");
 }
 
 function toggleVisited(id) {

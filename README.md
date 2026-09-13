@@ -2,7 +2,7 @@
 
 Persönliche interaktive Reiseplanung für Budapest vom **03.–07.10.2026**.
 
-## Aktueller Stand: v0.8.2
+## Aktueller Stand: v0.9
 
 Neu in v0.8: echte Fußroute eines geplanten Tages über die Google Routes API inklusive Gesamtdistanz und geschätzter Gehzeit.
 
@@ -59,3 +59,27 @@ als Start verwendet. Danach folgen alle geplanten Orte weiterhin in ihrer manuel
 festgelegten Reihenfolge.
 
 Die Auswahl gilt auch für den Button `Google Maps`.
+
+
+## v0.9 – Mobile UI / Bedienoptimierung
+
+Die mobile Bedienung wurde neu strukturiert, ohne die Desktopansicht wesentlich zu verändern.
+
+### Mobile Navigation
+
+Am unteren Bildschirmrand stehen drei Bereiche zur Verfügung:
+
+- **🗺️ Karte** – maximiert die Kartenansicht
+- **📅 Plan** – öffnet Tagesplanung, Reihenfolge und Route als Bottom Sheet
+- **📍 Orte** – öffnet Suche, Kategorien, Filter und Ortsliste als Bottom Sheet
+
+### Weitere mobile Anpassungen
+
+- Seitenleiste wurde auf kleinen Displays zu einem Bottom Sheet
+- schwebender `📍`-Button für den aktuellen Standort
+- größere Touchflächen für Reihenfolge, Filter und Aktionen
+- kompaktere Kartenaktionen
+- Legende wird mobil ausgeblendet
+- Infofenster und „Ort hinzufügen“-Dialog für Touch optimiert
+
+Die Desktopansicht bleibt weiterhin als klassische Seitenleiste erhalten.

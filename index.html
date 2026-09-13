@@ -9,7 +9,8 @@
 </head>
 <body>
   <div class="app-shell">
-    <aside class="sidebar">
+    <aside class="sidebar" aria-label="Budapest Planung">
+      <div class="mobile-sheet-handle mobile-only" aria-hidden="true"></div>
       <div class="sidebar-header">
         <div>
           <div class="eyebrow">Budapest · 03.–07.10.2026</div>
@@ -18,16 +19,16 @@
         <button id="mobileClose" class="icon-button mobile-only" aria-label="Menü schließen">✕</button>
       </div>
 
-      <p class="intro">
+      <p class="intro" data-mobile-view="places">
         Persönliche Karte mit Restaurants, Bars, Sehenswürdigkeiten,
         Thermen und Local-Tipps.
       </p>
 
-      <div class="search-wrap">
+      <div class="search-wrap" data-mobile-view="places">
         <input id="searchInput" type="search" placeholder="Ort suchen …" autocomplete="off" />
       </div>
 
-      <section class="panel location-panel">
+      <section class="panel location-panel" data-mobile-view="places">
         <div class="panel-title-row">
           <h2>Standort</h2>
           <button id="distanceSortBtn" class="text-button distance-sort-button" type="button" disabled>
@@ -40,7 +41,7 @@
         </div>
       </section>
 
-      <section class="panel">
+      <section class="panel" data-mobile-view="places">
         <div class="panel-title-row">
           <h2>Kategorien</h2>
           <button id="toggleAllBtn" class="text-button">Alle aus</button>
@@ -48,7 +49,7 @@
         <div id="categoryFilters" class="filter-list"></div>
       </section>
 
-      <section class="panel">
+      <section class="panel" data-mobile-view="plan">
         <div class="panel-title-row">
           <h2>Tagesplanung</h2>
         </div>
@@ -77,7 +78,7 @@
         </div>
       </section>
 
-      <section class="panel">
+      <section class="panel" data-mobile-view="places">
         <h2>Zusätzliche Filter</h2>
         <label class="filter-row">
           <input id="localOnly" type="checkbox" />
@@ -89,7 +90,7 @@
         </label>
       </section>
 
-      <section class="panel">
+      <section class="panel" data-mobile-view="places">
         <div class="panel-title-row">
           <h2>Orte</h2>
           <span id="visibleCount" class="count-badge">0</span>
@@ -97,12 +98,12 @@
         <div id="placeList" class="place-list"></div>
       </section>
 
-      <section class="panel">
+      <section class="panel" data-mobile-view="places">
         <h2>In Budapest probieren</h2>
         <div id="tryList"></div>
       </section>
 
-      <div class="sidebar-footer">
+      <div class="sidebar-footer" data-mobile-view="places">
         <button id="resetStateBtn" class="secondary-button">Tagesplanung/Besucht zurücksetzen</button>
       </div>
     </aside>
@@ -110,8 +111,10 @@
     <main class="map-wrap">
       <div id="map"></div>
 
+      <button id="mobileLocateBtn" class="mobile-locate-fab mobile-only" type="button"
+        aria-label="Mein Standort">📍</button>
+
       <div class="top-actions">
-        <button id="mobileMenuBtn" class="floating-button mobile-only">☰ Orte</button>
         <button id="addPlaceBtn" class="floating-button primary-floating">＋ Ort hinzufügen</button>
         <button id="fitBtn" class="floating-button">Alle anzeigen</button>
       </div>
@@ -125,6 +128,24 @@
       <div id="statusBox" class="status-box">Karte wird geladen …</div>
     </main>
   </div>
+
+
+  <div id="mobileScrim" class="mobile-scrim mobile-only" aria-hidden="true"></div>
+
+  <nav class="mobile-bottom-nav mobile-only" aria-label="Mobile Navigation">
+    <button id="mobileNavMap" class="mobile-nav-button active" type="button" data-view="map">
+      <span class="mobile-nav-icon">🗺️</span>
+      <span>Karte</span>
+    </button>
+    <button id="mobileNavPlan" class="mobile-nav-button" type="button" data-view="plan">
+      <span class="mobile-nav-icon">📅</span>
+      <span>Plan</span>
+    </button>
+    <button id="mobileNavPlaces" class="mobile-nav-button" type="button" data-view="places">
+      <span class="mobile-nav-icon">📍</span>
+      <span>Orte</span>
+    </button>
+  </nav>
 
 
   <dialog id="addPlaceDialog" class="place-dialog">
