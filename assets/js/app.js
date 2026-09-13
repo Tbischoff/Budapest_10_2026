@@ -41,6 +41,7 @@ let activeRouteDay = null;
 let RouteClass = null;
 let routeLoading = false;
 let activeRouteSummary = null;
+let routeStartMode = "planned";
 
 let map;
 let geocoder;
@@ -799,6 +800,10 @@ function formatRouteDuration(durationMillis) {
 
 function routeErrorMessage(error) {
   const message = String(error?.message || error || "");
+  if (/CURRENT_LOCATION_REQUIRED/i.test(message)) {
+    return "Bitte zuerst „📍 Mein Standort“ aktivieren oder als Startpunkt „Erster geplanter Ort“ auswählen.";
+  }
+
   if (/REQUEST_DENIED|ApiNotActivated|not activated|permission|403/i.test(message)) {
     return "Die Route konnte nicht berechnet werden. Prüfe in der Google Cloud Console, ob die Routes API aktiviert und für deinen API-Key freigegeben ist.";
   }
@@ -829,6 +834,49 @@ function clearDayRoute() {
   updateRouteControls();
 }
 
+
+function getRouteStartMode() {
+  const select = document.getElementById("routeStartMode");
+  return select?.value || routeStartMode || "planned";
+}
+
+function setRouteStartMode(value) {
+  routeStartMode = value === "current" ? "current" : "planned";
+
+  if (activeRouteDay) {
+    clearRenderedRoute();
+    activeRouteDay = null;
+    activeRouteSummary = null;
+    setStatus("Startpunkt geändert. Route bitte neu berechnen.");
+  }
+
+  updateRouteControls();
+}
+
+function buildRouteRequestPoints(routePlaces) {
+  if (getRouteStartMode() === "current") {
+    if (!userPosition) {
+      throw new Error("CURRENT_LOCATION_REQUIRED");
+    }
+
+    return {
+      origin: { lat: userPosition.lat, lng: userPosition.lng },
+      destination: routePlaces[routePlaces.length - 1].position,
+      intermediates: routePlaces.slice(0, -1).map(item => ({
+        location: item.position
+      }))
+    };
+  }
+
+  return {
+    origin: routePlaces[0].position,
+    destination: routePlaces[routePlaces.length - 1].position,
+    intermediates: routePlaces.slice(1, -1).map(item => ({
+      location: item.position
+    }))
+  };
+}
+
 async function showDayRoute(dayId = selectedDayFilter) {
   const day = TRIP_DAYS.find(item => item.id === dayId);
 
@@ -856,9 +904,7 @@ async function showDayRoute(dayId = selectedDayFilter) {
 
   try {
     const Route = await ensureRoutesLibrary();
-    const origin = routePlaces[0].position;
-    const destination = routePlaces[routePlaces.length - 1].position;
-    const intermediates = routePlaces.slice(1, -1).map(item => ({ location: item.position }));
+    const { origin, destination, intermediates } = buildRouteRequestPoints(routePlaces);
 
     const request = {
       origin,
@@ -936,19 +982,35 @@ function openDayRouteInGoogleMaps(dayId = selectedDayFilter) {
     return;
   }
 
-  const origin = routePlaces[0];
-  const destination = routePlaces[routePlaces.length - 1];
-  const waypoints = routePlaces.slice(1, -1);
+  let originPosition;
+  const destinationPosition = routePlaces[routePlaces.length - 1].position;
+  let waypointPositions;
+
+  if (getRouteStartMode() === "current") {
+    if (!userPosition) {
+      setStatus("Bitte zuerst „📍 Mein Standort“ aktivieren.");
+      return;
+    }
+
+    originPosition = { lat: userPosition.lat, lng: userPosition.lng };
+    waypointPositions = routePlaces.slice(0, -1).map(item => item.position);
+  } else {
+    originPosition = routePlaces[0].position;
+    waypointPositions = routePlaces.slice(1, -1).map(item => item.position);
+  }
 
   const params = new URLSearchParams({
     api: "1",
-    origin: `${origin.position.lat},${origin.position.lng}`,
-    destination: `${destination.position.lat},${destination.position.lng}`,
+    origin: `${originPosition.lat},${originPosition.lng}`,
+    destination: `${destinationPosition.lat},${destinationPosition.lng}`,
     travelmode: "walking"
   });
 
-  if (waypoints.length) {
-    params.set("waypoints", waypoints.map(item => `${item.position.lat},${item.position.lng}`).join("|"));
+  if (waypointPositions.length) {
+    params.set(
+      "waypoints",
+      waypointPositions.map(item => `${item.lat},${item.lng}`).join("|")
+    );
   }
 
   window.open(`https://www.google.com/maps/dir/?${params.toString()}`, "_blank", "noopener");
@@ -979,12 +1041,19 @@ function updateRouteControls() {
   if (routeLoading) routeButton.textContent = "⏳ Route wird berechnet …";
   else routeButton.textContent = routeIsActive ? "🚶 Route ausblenden" : "🚶 Fußroute anzeigen";
 
+  const startMode = getRouteStartMode();
+  const startLabel =
+    startMode === "current"
+      ? (userPosition ? "Start: aktueller Standort" : "Start: aktueller Standort (noch nicht aktiv)")
+      : "Start: erster geplanter Ort";
+
   if (!enoughPlaces) {
     info.textContent = `${day.short}: mindestens 2 geplante Orte erforderlich.`;
   } else if (routeIsActive && activeRouteSummary) {
-    info.textContent = `${day.short}: ${routePlaces.length} Orte · 🚶 ${formatRouteDistance(activeRouteSummary.distanceMeters)} · ca. ${formatRouteDuration(activeRouteSummary.durationMillis)}`;
+    info.textContent =
+      `${day.short}: ${routePlaces.length} Orte · ${startLabel} · 🚶 ${formatRouteDistance(activeRouteSummary.distanceMeters)} · ca. ${formatRouteDuration(activeRouteSummary.durationMillis)}`;
   } else {
-    info.textContent = `${day.short}: ${routePlaces.length} Orte in deiner geplanten Reihenfolge.`;
+    info.textContent = `${day.short}: ${routePlaces.length} Orte · ${startLabel}.`;
   }
 }
 
@@ -1187,6 +1256,7 @@ function requestUserLocation() {
 
       updateUserLocationMarker();
       updateDistanceControls();
+      updateRouteControls();
       applyFilters();
 
       map.panTo(userPosition);
@@ -1444,6 +1514,7 @@ function wireControls() {
   document.getElementById("distanceSortBtn").addEventListener("click", toggleDistanceSort);
   document.getElementById("routeToggleBtn").addEventListener("click", toggleDayRoute);
   document.getElementById("routeGoogleBtn").addEventListener("click", () => openDayRouteInGoogleMaps());
+  document.getElementById("routeStartMode").addEventListener("change", event => setRouteStartMode(event.target.value));
   document.getElementById("addPlaceBtn").addEventListener("click", openAddPlaceDialog);
   document.getElementById("cancelPlaceBtn").addEventListener("click", closeAddPlaceDialog);
   document.getElementById("addPlaceForm").addEventListener("submit", handleAddPlace);
@@ -1580,4 +1651,5 @@ window.movePlaceInDay = movePlaceInDay;
 window.showDayRoute = showDayRoute;
 window.clearDayRoute = clearDayRoute;
 window.openDayRouteInGoogleMaps = openDayRouteInGoogleMaps;
+window.setRouteStartMode = setRouteStartMode;
 window.deleteLocalPlace = deleteLocalPlace;

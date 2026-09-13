@@ -55,6 +55,13 @@
         <div id="dayFilters" class="day-filter-list"></div>
 
         <div class="route-panel">
+          <div class="route-start-row">
+            <label for="routeStartMode">Startpunkt</label>
+            <select id="routeStartMode" class="route-start-select">
+              <option value="planned">Erster geplanter Ort</option>
+              <option value="current">Mein aktueller Standort</option>
+            </select>
+          </div>
           <div id="routeInfo" class="route-info">Wähle einen Reisetag aus.</div>
           <div class="route-actions">
             <button id="routeToggleBtn" class="route-button" type="button" disabled>

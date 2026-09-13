@@ -724,3 +724,26 @@ h2 {
 }
 
 /* v0.8: echte Route über Google Routes API */
+
+
+.route-start-row {
+  display: grid;
+  gap: 5px;
+  margin-bottom: 8px;
+}
+
+.route-start-row label {
+  font-size: 10px;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.route-start-select {
+  width: 100%;
+  border: 1px solid var(--border);
+  background: #fff;
+  color: var(--text);
+  border-radius: 9px;
+  padding: 8px 9px;
+  font-size: 11px;
+}

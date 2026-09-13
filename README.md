@@ -2,7 +2,7 @@
 
 Persönliche interaktive Reiseplanung für Budapest vom **03.–07.10.2026**.
 
-## Aktueller Stand: v0.8.1
+## Aktueller Stand: v0.8.2
 
 Neu in v0.8: echte Fußroute eines geplanten Tages über die Google Routes API inklusive Gesamtdistanz und geschätzter Gehzeit.
 
@@ -45,3 +45,17 @@ Korrektur der Routes-Anfrage:
 - Anzeige in Meter/Kilometer erfolgt wie bisher durch die Anwendung selbst
 
 Keine fachliche Änderung gegenüber v0.8.
+
+
+## v0.8.2 – Route ab aktuellem Standort
+
+Für die Tagesroute kann nun als Startpunkt gewählt werden:
+
+- **Erster geplanter Ort**
+- **Mein aktueller Standort**
+
+Bei der zweiten Variante wird die zuvor über `📍 Mein Standort` ermittelte Position
+als Start verwendet. Danach folgen alle geplanten Orte weiterhin in ihrer manuell
+festgelegten Reihenfolge.
+
+Die Auswahl gilt auch für den Button `Google Maps`.
