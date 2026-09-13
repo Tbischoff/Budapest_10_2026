@@ -135,20 +135,23 @@ const MARKER_BACKGROUNDS = {
 
 function createPlaceMarker(place, position, mapValue = null) {
   const pin = new PinElement({
-    glyph: place.localTip ? "★" : (CATEGORY_ICONS[place.category] || "•"),
+    glyphText: place.localTip ? "★" : (CATEGORY_ICONS[place.category] || "•"),
     glyphColor: "#ffffff",
     background: MARKER_BACKGROUNDS[place.category] || MARKER_BACKGROUNDS.other,
     borderColor: "#ffffff",
     scale: place.localTip ? 1.12 : 1
   });
 
-  return new AdvancedMarkerElement({
+  const marker = new AdvancedMarkerElement({
     map: mapValue,
     position,
     title: place.name,
-    content: pin.element,
+    gmpClickable: true,
     zIndex: place.localTip ? 100 : 1
   });
+
+  marker.append(pin);
+  return marker;
 }
 
 function getMarkerPosition(marker) {
@@ -235,7 +238,7 @@ async function createMarkers() {
   for (const { place, position } of resolved) {
     const marker = createPlaceMarker(place, position);
 
-    marker.addListener("click", () => openPlace(place));
+    marker.addEventListener("gmp-click", () => openPlace(place));
     markers.set(place.id, marker);
     markerObjects.push(marker);
   }
@@ -434,7 +437,7 @@ async function handleAddPlace(event) {
 
     const marker = createPlaceMarker(draft, position, map);
 
-    marker.addListener("click", () => openPlace(draft));
+    marker.addEventListener("gmp-click", () => openPlace(draft));
     markers.set(draft.id, marker);
 
     // Falls die gewählte Kategorie vorher deaktiviert war, soll der neue Ort
@@ -964,7 +967,7 @@ function updateUserLocationMarker() {
 
   if (!userLocationMarker) {
     const locationPin = new PinElement({
-      glyph: "●",
+      glyphText: "●",
       glyphColor: "#ffffff",
       background: "#2563eb",
       borderColor: "#ffffff",
@@ -975,9 +978,10 @@ function updateUserLocationMarker() {
       map,
       position: userPosition,
       title: "Mein Standort",
-      content: locationPin.element,
       zIndex: 9999
     });
+
+    userLocationMarker.append(locationPin);
   } else {
     userLocationMarker.position = userPosition;
     userLocationMarker.map = map;
