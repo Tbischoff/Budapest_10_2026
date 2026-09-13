@@ -582,3 +582,6 @@ h2 {
   flex-shrink: 0;
   white-space: nowrap;
 }
+
+
+/* v0.5.1: AdvancedMarkerElement nutzt PinElement-Inhalte direkt aus der Maps API. */

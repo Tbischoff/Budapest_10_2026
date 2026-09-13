@@ -3,6 +3,7 @@ const CONFIG = {
   // Google Maps JavaScript API key eintragen.
   // Für GitHub Pages bitte unbedingt per HTTP-Referrer auf deine Domain beschränken.
   googleMapsApiKey: "AIzaSyCw_nRXt7NWjHw-lHTHZb8N8jmvl2iQFkg",
+  googleMapId: "DEMO_MAP_ID",
   initialCenter: { lat: 47.4979, lng: 19.0402 },
   initialZoom: 12
 };
@@ -32,6 +33,8 @@ const TRIP_DAYS = [
 let selectedDayFilter = "all";
 let userPosition = null;
 let userLocationMarker = null;
+let AdvancedMarkerElement = null;
+let PinElement = null;
 let sortByDistance = false;
 
 let map;
@@ -79,7 +82,16 @@ function loadGoogleMaps() {
       return;
     }
 
-    window.__initBudapestMap = resolve;
+    window.__initBudapestMap = async () => {
+      try {
+        const markerLibrary = await google.maps.importLibrary("marker");
+        AdvancedMarkerElement = markerLibrary.AdvancedMarkerElement;
+        PinElement = markerLibrary.PinElement;
+        resolve();
+      } catch (error) {
+        reject(new Error(`Advanced Marker konnten nicht geladen werden: ${error.message}`));
+      }
+    };
 
     const script = document.createElement("script");
     script.src =
@@ -96,6 +108,7 @@ function initMap() {
   map = new google.maps.Map(document.getElementById("map"), {
     center: CONFIG.initialCenter,
     zoom: CONFIG.initialZoom,
+    mapId: CONFIG.googleMapId || "DEMO_MAP_ID",
     mapTypeControl: false,
     streetViewControl: false,
     fullscreenControl: true
@@ -103,6 +116,50 @@ function initMap() {
 
   geocoder = new google.maps.Geocoder();
   infoWindow = new google.maps.InfoWindow();
+}
+
+
+const MARKER_BACKGROUNDS = {
+  food: "#f97316",
+  cafe: "#a16207",
+  bar: "#7c3aed",
+  sight: "#2563eb",
+  culture: "#db2777",
+  leisure: "#16a34a",
+  thermal: "#0891b2",
+  viewpoint: "#ca8a04",
+  transport: "#475569",
+  area: "#dc2626",
+  other: "#64748b"
+};
+
+function createPlaceMarker(place, position, mapValue = null) {
+  const pin = new PinElement({
+    glyph: place.localTip ? "★" : (CATEGORY_ICONS[place.category] || "•"),
+    glyphColor: "#ffffff",
+    background: MARKER_BACKGROUNDS[place.category] || MARKER_BACKGROUNDS.other,
+    borderColor: "#ffffff",
+    scale: place.localTip ? 1.12 : 1
+  });
+
+  return new AdvancedMarkerElement({
+    map: mapValue,
+    position,
+    title: place.name,
+    content: pin.element,
+    zIndex: place.localTip ? 100 : 1
+  });
+}
+
+function getMarkerPosition(marker) {
+  const position = marker?.position;
+  if (!position) return null;
+
+  const lat = typeof position.lat === "function" ? position.lat() : Number(position.lat);
+  const lng = typeof position.lng === "function" ? position.lng() : Number(position.lng);
+
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  return { lat, lng };
 }
 
 async function createMarkers() {
@@ -176,14 +233,7 @@ async function createMarkers() {
   const markerObjects = [];
 
   for (const { place, position } of resolved) {
-    const marker = new google.maps.Marker({
-      position,
-      title: place.name,
-      label: {
-        text: CATEGORY_ICONS[place.category] || "•",
-        fontSize: "17px"
-      }
-    });
+    const marker = createPlaceMarker(place, position);
 
     marker.addListener("click", () => openPlace(place));
     markers.set(place.id, marker);
@@ -191,7 +241,7 @@ async function createMarkers() {
   }
 
   // Marker erst nach vollständiger Vorbereitung auf die Karte setzen.
-  markerObjects.forEach(marker => marker.setMap(map));
+  markerObjects.forEach(marker => { marker.map = map; });
 
   if (geocodeCount > 0) {
     setStatus(
@@ -266,7 +316,9 @@ function openPlace(place) {
 
   infoWindow.setContent(html);
   infoWindow.open({ map, anchor: marker });
-  map.panTo(marker.getPosition());
+
+  const markerPosition = getMarkerPosition(marker);
+  if (markerPosition) map.panTo(markerPosition);
 }
 
 
@@ -376,15 +428,7 @@ async function handleAddPlace(event) {
     placesData.places.push(draft);
     cachePosition(draft.id, position);
 
-    const marker = new google.maps.Marker({
-      map,
-      position,
-      title: draft.name,
-      label: {
-        text: CATEGORY_ICONS[draft.category] || "•",
-        fontSize: "17px"
-      }
-    });
+    const marker = createPlaceMarker(draft, position, map);
 
     marker.addListener("click", () => openPlace(draft));
     markers.set(draft.id, marker);
@@ -420,7 +464,7 @@ function deleteLocalPlace(id) {
   const previousDay = (state.places[id] || {}).plannedDay || "";
 
   const marker = markers.get(id);
-  if (marker) marker.setMap(null);
+  if (marker) marker.map = null;
   markers.delete(id);
 
   const localPlaces = loadLocalPlaces().filter(item => item.id !== id);
@@ -793,23 +837,24 @@ function updateUserLocationMarker() {
   if (!userPosition) return;
 
   if (!userLocationMarker) {
-    userLocationMarker = new google.maps.Marker({
+    const locationPin = new PinElement({
+      glyph: "●",
+      glyphColor: "#ffffff",
+      background: "#2563eb",
+      borderColor: "#ffffff",
+      scale: 1.15
+    });
+
+    userLocationMarker = new AdvancedMarkerElement({
       map,
       position: userPosition,
       title: "Mein Standort",
-      zIndex: 9999,
-      icon: {
-        path: google.maps.SymbolPath.CIRCLE,
-        scale: 9,
-        fillColor: "#2563eb",
-        fillOpacity: 1,
-        strokeColor: "#ffffff",
-        strokeWeight: 3
-      }
+      content: locationPin.element,
+      zIndex: 9999
     });
   } else {
-    userLocationMarker.setPosition(userPosition);
-    userLocationMarker.setMap(map);
+    userLocationMarker.position = userPosition;
+    userLocationMarker.map = map;
   }
 }
 
@@ -819,14 +864,14 @@ function distanceToPlace(place) {
   const marker = markers.get(place.id);
   if (!marker) return null;
 
-  const pos = marker.getPosition();
+  const pos = getMarkerPosition(marker);
   if (!pos) return null;
 
   return haversineDistanceKm(
     userPosition.lat,
     userPosition.lng,
-    pos.lat(),
-    pos.lng()
+    pos.lat,
+    pos.lng
   );
 }
 
@@ -974,7 +1019,7 @@ function applyFilters() {
 
   const visibleIds = new Set(filtered.map(p => p.id));
   for (const [id, marker] of markers) {
-    marker.setVisible(visibleIds.has(id));
+    marker.map = visibleIds.has(id) ? map : null;
   }
 
   renderPlaceList(filtered);
@@ -983,13 +1028,16 @@ function applyFilters() {
 
 function fitVisibleMarkers() {
   const visible = [...markers.entries()]
-    .filter(([id, marker]) => marker.getVisible())
+    .filter(([, marker]) => marker.map === map)
     .map(([, marker]) => marker);
 
   if (!visible.length) return;
 
   const bounds = new google.maps.LatLngBounds();
-  visible.forEach(marker => bounds.extend(marker.getPosition()));
+  visible.forEach(marker => {
+    const position = getMarkerPosition(marker);
+    if (position) bounds.extend(position);
+  });
   map.fitBounds(bounds, 60);
 }
 
