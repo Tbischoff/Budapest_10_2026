@@ -36,8 +36,11 @@ let userLocationMarker = null;
 let AdvancedMarkerElement = null;
 let PinElement = null;
 let sortByDistance = false;
-let dayRouteLine = null;
+let dayRoutePolylines = [];
 let activeRouteDay = null;
+let RouteClass = null;
+let routeLoading = false;
+let activeRouteSummary = null;
 
 let map;
 let geocoder;
@@ -758,6 +761,53 @@ function plannedTimeEditorHtml(place, saved) {
 }
 
 
+async function ensureRoutesLibrary() {
+  if (RouteClass) return RouteClass;
+
+  const routesLibrary = await google.maps.importLibrary("routes");
+  RouteClass = routesLibrary.Route;
+
+  if (!RouteClass) {
+    throw new Error("Google Routes Library konnte nicht geladen werden.");
+  }
+
+  return RouteClass;
+}
+
+function clearRenderedRoute() {
+  dayRoutePolylines.forEach(polyline => polyline.setMap(null));
+  dayRoutePolylines = [];
+  activeRouteSummary = null;
+}
+
+function formatRouteDistance(distanceMeters) {
+  const meters = Number(distanceMeters);
+  if (!Number.isFinite(meters)) return "";
+  if (meters < 1000) return `${Math.round(meters)} m`;
+  return `${(meters / 1000).toFixed(1).replace(".", ",")} km`;
+}
+
+function formatRouteDuration(durationMillis) {
+  const millis = Number(durationMillis);
+  if (!Number.isFinite(millis)) return "";
+  const totalMinutes = Math.round(millis / 60000);
+  if (totalMinutes < 60) return `${totalMinutes} Min.`;
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  return minutes ? `${hours} Std. ${minutes} Min.` : `${hours} Std.`;
+}
+
+function routeErrorMessage(error) {
+  const message = String(error?.message || error || "");
+  if (/REQUEST_DENIED|ApiNotActivated|not activated|permission|403/i.test(message)) {
+    return "Die Route konnte nicht berechnet werden. Prüfe in der Google Cloud Console, ob die Routes API aktiviert und für deinen API-Key freigegeben ist.";
+  }
+  if (/ZERO_RESULTS|no route|keine route|not found/i.test(message)) {
+    return "Zwischen den geplanten Orten konnte keine passende Fußroute berechnet werden.";
+  }
+  return `Die Route konnte nicht berechnet werden: ${message || "Unbekannter Fehler"}`;
+}
+
 function getSelectedTripDay() {
   return TRIP_DAYS.find(day => day.id === selectedDayFilter) || null;
 }
@@ -773,15 +823,13 @@ function getRoutePlacesForDay(dayId) {
 }
 
 function clearDayRoute() {
-  if (dayRouteLine) {
-    dayRouteLine.setMap(null);
-    dayRouteLine = null;
-  }
+  clearRenderedRoute();
   activeRouteDay = null;
+  routeLoading = false;
   updateRouteControls();
 }
 
-function showDayRoute(dayId = selectedDayFilter) {
+async function showDayRoute(dayId = selectedDayFilter) {
   const day = TRIP_DAYS.find(item => item.id === dayId);
 
   if (!day) {
@@ -796,51 +844,94 @@ function showDayRoute(dayId = selectedDayFilter) {
     return;
   }
 
-  if (dayRouteLine) {
-    dayRouteLine.setMap(null);
+  // 25 intermediate waypoints + start + destination.
+  if (routePlaces.length > 27) {
+    setStatus("Eine Tagesroute kann maximal 27 Orte enthalten (Start, Ziel und bis zu 25 Zwischenstopps).");
+    return;
   }
 
-  dayRouteLine = new google.maps.Polyline({
-    map,
-    path: routePlaces.map(item => item.position),
-    geodesic: true,
-    strokeColor: "#2f625d",
-    strokeOpacity: 0.9,
-    strokeWeight: 4
-  });
-
-  activeRouteDay = dayId;
-
-  const bounds = new google.maps.LatLngBounds();
-  routePlaces.forEach(item => bounds.extend(item.position));
-  map.fitBounds(bounds, 70);
-
+  routeLoading = true;
   updateRouteControls();
-  setStatus(
-    `Planungsroute für ${day.label} angezeigt (${routePlaces.length} Orte, Verbindung als Luftlinie).`
-  );
+  setStatus(`Fußroute für ${day.label} wird berechnet …`);
+
+  try {
+    const Route = await ensureRoutesLibrary();
+    const origin = routePlaces[0].position;
+    const destination = routePlaces[routePlaces.length - 1].position;
+    const intermediates = routePlaces.slice(1, -1).map(item => ({ location: item.position }));
+
+    const request = {
+      origin,
+      destination,
+      travelMode: "WALKING",
+      intermediates,
+      units: "METRIC",
+      fields: ["path", "distanceMeters", "durationMillis"]
+    };
+
+    const { routes } = await Route.computeRoutes(request);
+    if (!routes?.length) throw new Error("Keine Route gefunden.");
+
+    const route = routes[0];
+    clearRenderedRoute();
+
+    dayRoutePolylines = route.createPolylines({
+      polylineOptions: {
+        strokeColor: "#2f625d",
+        strokeOpacity: 0.95,
+        strokeWeight: 6,
+        zIndex: 10
+      }
+    });
+    dayRoutePolylines.forEach(polyline => polyline.setMap(map));
+
+    activeRouteDay = dayId;
+    activeRouteSummary = {
+      distanceMeters: route.distanceMeters,
+      durationMillis: route.durationMillis,
+      placeCount: routePlaces.length
+    };
+
+    if (route.path?.length) {
+      const bounds = new google.maps.LatLngBounds();
+      route.path.forEach(point => bounds.extend(point));
+      map.fitBounds(bounds, 70);
+    }
+
+    const distanceText = formatRouteDistance(route.distanceMeters);
+    const durationText = formatRouteDuration(route.durationMillis);
+    setStatus(`Fußroute für ${day.label}: ${distanceText || "Distanz unbekannt"} · ${durationText || "Dauer unbekannt"}.`);
+  } catch (error) {
+    console.error("Routes API:", error);
+    clearRenderedRoute();
+    activeRouteDay = null;
+    setStatus(routeErrorMessage(error));
+  } finally {
+    routeLoading = false;
+    updateRouteControls();
+  }
 }
 
-function toggleDayRoute() {
-  if (activeRouteDay === selectedDayFilter && dayRouteLine) {
+async function toggleDayRoute() {
+  if (routeLoading) return;
+
+  if (activeRouteDay === selectedDayFilter && dayRoutePolylines.length) {
     clearDayRoute();
     setStatus("Tagesroute ausgeblendet.");
     return;
   }
 
-  showDayRoute(selectedDayFilter);
+  await showDayRoute(selectedDayFilter);
 }
 
 function openDayRouteInGoogleMaps(dayId = selectedDayFilter) {
   const day = TRIP_DAYS.find(item => item.id === dayId);
-
   if (!day) {
     setStatus("Bitte zuerst einen konkreten Reisetag auswählen.");
     return;
   }
 
   const routePlaces = getRoutePlacesForDay(dayId);
-
   if (routePlaces.length < 2) {
     setStatus(`Für ${day.label} werden mindestens zwei geplante Orte benötigt.`);
     return;
@@ -858,17 +949,10 @@ function openDayRouteInGoogleMaps(dayId = selectedDayFilter) {
   });
 
   if (waypoints.length) {
-    params.set(
-      "waypoints",
-      waypoints
-        .map(item => `${item.position.lat},${item.position.lng}`)
-        .join("|")
-    );
+    params.set("waypoints", waypoints.map(item => `${item.position.lat},${item.position.lng}`).join("|"));
   }
 
-  const url = `https://www.google.com/maps/dir/?${params.toString()}`;
-  window.open(url, "_blank", "noopener");
-
+  window.open(`https://www.google.com/maps/dir/?${params.toString()}`, "_blank", "noopener");
   setStatus(`Route für ${day.label} wird in Google Maps geöffnet.`);
 }
 
@@ -876,30 +960,30 @@ function updateRouteControls() {
   const routeButton = document.getElementById("routeToggleBtn");
   const googleButton = document.getElementById("routeGoogleBtn");
   const info = document.getElementById("routeInfo");
-
   if (!routeButton || !googleButton || !info) return;
 
   const day = getSelectedTripDay();
-
   if (!day) {
     routeButton.disabled = true;
     googleButton.disabled = true;
-    routeButton.textContent = "🗺️ Route anzeigen";
+    routeButton.textContent = "🚶 Fußroute anzeigen";
     info.textContent = "Wähle einen Reisetag aus.";
     return;
   }
 
   const routePlaces = getRoutePlacesForDay(day.id);
   const enoughPlaces = routePlaces.length >= 2;
+  routeButton.disabled = !enoughPlaces || routeLoading;
+  googleButton.disabled = !enoughPlaces || routeLoading;
 
-  routeButton.disabled = !enoughPlaces;
-  googleButton.disabled = !enoughPlaces;
-
-  const routeIsActive = activeRouteDay === day.id && Boolean(dayRouteLine);
-  routeButton.textContent = routeIsActive ? "🗺️ Route ausblenden" : "🗺️ Route anzeigen";
+  const routeIsActive = activeRouteDay === day.id && dayRoutePolylines.length > 0;
+  if (routeLoading) routeButton.textContent = "⏳ Route wird berechnet …";
+  else routeButton.textContent = routeIsActive ? "🚶 Route ausblenden" : "🚶 Fußroute anzeigen";
 
   if (!enoughPlaces) {
     info.textContent = `${day.short}: mindestens 2 geplante Orte erforderlich.`;
+  } else if (routeIsActive && activeRouteSummary) {
+    info.textContent = `${day.short}: ${routePlaces.length} Orte · 🚶 ${formatRouteDistance(activeRouteSummary.distanceMeters)} · ca. ${formatRouteDuration(activeRouteSummary.durationMillis)}`;
   } else {
     info.textContent = `${day.short}: ${routePlaces.length} Orte in deiner geplanten Reihenfolge.`;
   }
