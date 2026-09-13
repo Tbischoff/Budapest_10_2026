@@ -1293,3 +1293,80 @@ h2 {
     font-size: 11px;
   }
 }
+
+
+/* =========================================================
+   v0.9.8 – Tagesagenda final
+   ========================================================= */
+
+.agenda-place-wrap {
+  display: grid;
+}
+
+.agenda-leg {
+  display: grid;
+  grid-template-columns: 32px 1fr;
+  gap: 8px;
+  align-items: center;
+  min-height: 30px;
+  padding: 2px 9px;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.agenda-leg span:first-child {
+  text-align: center;
+  font-size: 15px;
+  color: var(--accent);
+}
+
+.agenda-item-visited {
+  opacity: .62;
+}
+
+.agenda-item-visited .agenda-title {
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+}
+
+.agenda-summary {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: center;
+  margin-top: 6px;
+  padding: 10px;
+  border-radius: 11px;
+  background: var(--accent-soft);
+  color: var(--text);
+  font-size: 11px;
+}
+
+.agenda-summary span {
+  color: var(--muted);
+  text-align: right;
+}
+
+.agenda-estimate-note {
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.35;
+}
+
+@media (max-width: 820px) {
+  .agenda-leg {
+    grid-template-columns: 36px 1fr;
+    min-height: 34px;
+    font-size: 11px;
+  }
+
+  .agenda-summary {
+    font-size: 12px;
+    padding: 11px;
+  }
+
+  .agenda-estimate-note {
+    font-size: 10px;
+  }
+}

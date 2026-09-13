@@ -1531,6 +1531,51 @@ function toggleDistanceSort() {
 }
 
 
+
+function haversineDistanceMeters(a, b) {
+  const earthRadius = 6371000;
+  const toRad = value => value * Math.PI / 180;
+  const lat1 = toRad(a.lat);
+  const lat2 = toRad(b.lat);
+  const deltaLat = toRad(b.lat - a.lat);
+  const deltaLng = toRad(b.lng - a.lng);
+
+  const h =
+    Math.sin(deltaLat / 2) ** 2 +
+    Math.cos(lat1) * Math.cos(lat2) * Math.sin(deltaLng / 2) ** 2;
+
+  return 2 * earthRadius * Math.asin(Math.sqrt(h));
+}
+
+function estimatedWalkingMinutes(distanceMeters) {
+  // Nur kompakte Agenda-Schätzung; die echte Route nutzt weiterhin Google Routes.
+  return Math.max(1, Math.round(distanceMeters / 80));
+}
+
+function getAgendaLegs(dayPlaces) {
+  const legs = [];
+  let totalDistance = 0;
+  let totalMinutes = 0;
+
+  for (let index = 0; index < dayPlaces.length - 1; index++) {
+    const from = dayPlaces[index];
+    const to = dayPlaces[index + 1];
+
+    if (!from.position || !to.position) {
+      legs.push(null);
+      continue;
+    }
+
+    const distanceMeters = haversineDistanceMeters(from.position, to.position);
+    const minutes = estimatedWalkingMinutes(distanceMeters);
+    totalDistance += distanceMeters;
+    totalMinutes += minutes;
+    legs.push({ distanceMeters, minutes });
+  }
+
+  return { legs, totalDistance, totalMinutes };
+}
+
 function renderDayAgenda() {
   const container = document.getElementById("dayAgenda");
   if (!container) return;
@@ -1557,31 +1602,55 @@ function renderDayAgenda() {
     return;
   }
 
-  container.innerHTML = dayPlaces.map((place, index) => {
+  const { legs, totalDistance, totalMinutes } = getAgendaLegs(dayPlaces);
+
+  const agendaHtml = dayPlaces.map((place, index) => {
     const saved = state.places[place.id] || {};
     const time = formatPlannedTime(saved);
     const distance = userPosition ? distanceToPlace(place) : null;
+    const leg = legs[index];
 
     return `
-      <div class="agenda-item" data-place-id="${place.id}">
-        <div class="agenda-order">${index + 1}</div>
-        <div class="agenda-main">
-          <div class="agenda-title">${CATEGORY_ICONS[place.category] || "•"} ${escapeHtml(place.name)}</div>
-          <div class="agenda-meta">
-            ${time ? `🕐 ${escapeHtml(time)}` : "🕐 keine Uhrzeit"}
-            ${distance != null ? ` · 📍 ${escapeHtml(formatDistance(distance))}` : ""}
-            ${saved.visited ? " · ✓ besucht" : ""}
+      <div class="agenda-place-wrap">
+        <div class="agenda-item ${saved.visited ? "agenda-item-visited" : ""}" data-place-id="${place.id}">
+          <div class="agenda-order">${index + 1}</div>
+          <div class="agenda-main">
+            <div class="agenda-title">${CATEGORY_ICONS[place.category] || "•"} ${escapeHtml(place.name)}</div>
+            <div class="agenda-meta">
+              ${time ? `🕐 ${escapeHtml(time)}` : "🕐 keine Uhrzeit"}
+              ${distance != null ? ` · 📍 ${escapeHtml(formatDistance(distance))}` : ""}
+              ${saved.visited ? " · ✓ besucht" : ""}
+            </div>
           </div>
+          <button
+            type="button"
+            class="agenda-visited-button ${saved.visited ? "visited" : ""}"
+            title="${saved.visited ? "Als nicht besucht markieren" : "Als besucht markieren"}"
+            onclick="event.stopPropagation(); toggleVisited('${place.id}')"
+          >${saved.visited ? "✓" : "○"}</button>
         </div>
-        <button
-          type="button"
-          class="agenda-visited-button ${saved.visited ? "visited" : ""}"
-          title="${saved.visited ? "Als nicht besucht markieren" : "Als besucht markieren"}"
-          onclick="event.stopPropagation(); toggleVisited('${place.id}')"
-        >${saved.visited ? "✓" : "○"}</button>
+        ${leg ? `
+          <div class="agenda-leg">
+            <span>↓</span>
+            <span>ca. 🚶 ${escapeHtml(formatDistance(leg.distanceMeters))} · ${leg.minutes} Min.</span>
+          </div>
+        ` : ""}
       </div>
     `;
   }).join("");
+
+  container.innerHTML = `
+    ${agendaHtml}
+    <div class="agenda-summary">
+      <strong>${dayPlaces.length} ${dayPlaces.length === 1 ? "Ort" : "Orte"}</strong>
+      ${dayPlaces.length > 1
+        ? `<span>ca. 🚶 ${escapeHtml(formatDistance(totalDistance))} · ${formatRouteDuration(totalMinutes * 60 * 1000)}</span>`
+        : `<span>Noch keine Wegstrecke</span>`}
+    </div>
+    <div class="agenda-estimate-note">
+      Wege in der Agenda sind Luftlinien-Schätzungen. Die genaue Fußroute wird über „Fußroute anzeigen“ berechnet.
+    </div>
+  `;
 
   container.querySelectorAll(".agenda-item").forEach(item => {
     item.addEventListener("click", () => {
@@ -1594,7 +1663,7 @@ function renderDayAgenda() {
         const pos = getMarkerPosition(marker);
         if (pos) {
           map.panTo(pos);
-          map.setZoom(Math.max(map.getZoom(), 15));
+          map.setZoom(16);
         }
       }
 

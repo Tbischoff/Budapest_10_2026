@@ -2,7 +2,7 @@
 
 Persönliche interaktive Reiseplanung für Budapest vom **03.–07.10.2026**.
 
-## Aktueller Stand: v0.9.7
+## Aktueller Stand: v0.9.8
 
 Neu in v0.8: echte Fußroute eines geplanten Tages über die Google Routes API inklusive Gesamtdistanz und geschätzter Gehzeit.
 
@@ -185,3 +185,20 @@ Beim Öffnen versucht die Anwendung automatisch den aktuellen Gerätestandort zu
 - keine Freigabe / Standort nicht verfügbar → Budapest bleibt als Fallback
 - `🇭🇺 Budapest` zentriert die Karte jederzeit wieder auf Budapest
 - Standortmarker und Entfernungen werden bei erfolgreicher Ortung aktualisiert
+
+
+## v0.9.8 – Tagesagenda final
+
+Die lokale Reiseplanung wird mit dieser Version weiter abgerundet.
+
+### Neu
+
+- Wegabschnitte zwischen den geplanten Orten werden direkt in der Agenda angezeigt
+- Distanz und geschätzte Gehzeit je Abschnitt
+- Tageszusammenfassung mit Anzahl der Orte, Gesamtstrecke und geschätzter Gehzeit
+- besuchte Agenda-Einträge werden deutlich dezenter und durchgestrichen dargestellt
+- Klick auf einen Agenda-Ort fokussiert den Marker stärker auf der Karte
+
+Die Werte innerhalb der Agenda sind bewusst schnelle Luftlinien-Schätzungen.
+Die tatsächliche Straßen-/Fußwegroute wird weiterhin über die Google Routes API
+mit `Fußroute anzeigen` berechnet.
