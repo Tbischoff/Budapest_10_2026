@@ -2,7 +2,7 @@
 
 Persönliche interaktive Reiseplanung für Budapest vom **03.–07.10.2026**.
 
-## Aktueller Stand: v0.9.4
+## Aktueller Stand: v0.9.5
 
 Neu in v0.8: echte Fußroute eines geplanten Tages über die Google Routes API inklusive Gesamtdistanz und geschätzter Gehzeit.
 
@@ -132,3 +132,16 @@ Auf dem Smartphone schließt sich das Bottom Sheet jetzt auch nach:
 - **Route ausblenden**
 
 Der Button **Google Maps** bleibt unverändert, da er ohnehin eine externe Ansicht bzw. App öffnet.
+
+
+## v0.9.5 – Mobile UX Refinement
+
+Weitere mobile Bedienverbesserungen:
+
+- erfolgreiche Standortaktualisierung schließt das Bottom Sheet automatisch
+- `Plan` und `Orte` sind jetzt Toggle-Tabs:
+  - einmal tippen = öffnen
+  - erneut tippen = schließen und zur Karte zurückkehren
+- beim Öffnen von `Plan` oder `Orte` wird ein offenes Marker-Infofenster geschlossen
+- Marker-Infofenster schließen sich zusätzlich beim Tippen auf eine freie Stelle der Karte
+- beim Öffnen eines anderen Markers wird das vorherige Infofenster sauber ersetzt

@@ -42,6 +42,7 @@ let RouteClass = null;
 let routeLoading = false;
 let activeRouteSummary = null;
 let routeStartMode = "planned";
+let currentMobileView = "map";
 
 let map;
 let geocoder;
@@ -122,6 +123,11 @@ function initMap() {
 
   geocoder = new google.maps.Geocoder();
   infoWindow = new google.maps.InfoWindow();
+
+  // Marker-Infofenster auch durch Tippen/Klicken auf die Karte schließen.
+  map.addListener("click", () => {
+    infoWindow.close();
+  });
 }
 
 
@@ -327,6 +333,7 @@ function openPlace(place) {
     </div>
   `;
 
+  infoWindow.close();
   infoWindow.setContent(html);
   infoWindow.open({ map, anchor: marker });
 
@@ -1286,6 +1293,10 @@ function requestUserLocation() {
       button.disabled = false;
       button.textContent = "📍 Standort aktualisieren";
       setStatus("Standort aktualisiert. Entfernungen werden angezeigt.");
+
+      if (isMobileLayout()) {
+        setMobileView("map");
+      }
     },
     error => {
       button.disabled = false;
@@ -1572,6 +1583,8 @@ function wireControls() {
 
   updateDistanceControls();
   updateRouteControls();
+
+  currentMobileView = "map";
   setMobileView("map");
 
   window.addEventListener("resize", () => {
@@ -1614,11 +1627,8 @@ function setMobileView(view) {
   const sidebar = document.querySelector(".sidebar");
   const scrim = document.getElementById("mobileScrim");
 
-  document.querySelectorAll(".mobile-nav-button").forEach(button => {
-    button.classList.toggle("active", button.dataset.view === normalizedView);
-  });
-
   if (!isMobileLayout()) {
+    currentMobileView = "map";
     sidebar.classList.remove("open");
     document.querySelectorAll("[data-mobile-view]").forEach(element => {
       element.classList.remove("mobile-view-hidden");
@@ -1626,15 +1636,32 @@ function setMobileView(view) {
     return;
   }
 
+  // Erneutes Antippen des bereits geöffneten Tabs schließt das Sheet.
+  const targetView =
+    normalizedView !== "map" && currentMobileView === normalizedView
+      ? "map"
+      : normalizedView;
+
+  currentMobileView = targetView;
+
+  // Beim Wechsel der mobilen Hauptansicht kein altes Marker-Popup stehen lassen.
+  if (infoWindow && targetView !== "map") {
+    infoWindow.close();
+  }
+
+  document.querySelectorAll(".mobile-nav-button").forEach(button => {
+    button.classList.toggle("active", button.dataset.view === targetView);
+  });
+
   document.querySelectorAll("[data-mobile-view]").forEach(element => {
     const elementView = element.dataset.mobileView;
     element.classList.toggle(
       "mobile-view-hidden",
-      normalizedView === "map" || elementView !== normalizedView
+      targetView === "map" || elementView !== targetView
     );
   });
 
-  const showSheet = normalizedView !== "map";
+  const showSheet = targetView !== "map";
   sidebar.classList.toggle("open", showSheet);
   document.body.classList.toggle("mobile-sheet-open", showSheet);
 
