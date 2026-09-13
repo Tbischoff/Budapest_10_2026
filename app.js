@@ -53,6 +53,7 @@ async function bootstrap() {
     // Kopie verwenden, damit die statischen Daten aus places.js unverändert bleiben.
     placesData = JSON.parse(JSON.stringify(window.BUDAPEST_PLACES_DATA));
     mergeLocalPlaces();
+    ensureDayOrders();
 
     renderCategoryFilters();
     renderDayFilters();
@@ -73,8 +74,8 @@ async function bootstrap() {
 
 function loadGoogleMaps() {
   return new Promise((resolve, reject) => {
-    if (!CONFIG.googleMapsApiKey || CONFIG.googleMapsApiKey === "YOUR_GOOGLE_MAPS_API_KEY") {
-      reject(new Error("Bitte zuerst deinen Google Maps API-Key in app.js eintragen."));
+    if (!CONFIG.googleMapsApiKey) {
+      reject(new Error("Google Maps API-Key fehlt in app.js."));
       return;
     }
 
@@ -245,6 +246,7 @@ function openPlace(place) {
         ${CATEGORY_ICONS[place.category] || "•"} ${escapeHtml(categoryLabel(place.category))}
         ${place.localTip ? " · ⭐ Local-Tipp" : ""}
         ${place.isLocalPlace ? " · 📌 Eigener Ort" : ""}
+        ${saved.plannedDay && saved.plannedOrder ? ` · #${escapeHtml(saved.plannedOrder)}` : ""}
       </div>
       <div>${escapeHtml(place.address || "")}</div>
       ${userPosition && distanceToPlace(place) != null
@@ -415,6 +417,8 @@ function deleteLocalPlace(id) {
 
   if (!confirm(`„${place.name}“ wirklich löschen?`)) return;
 
+  const previousDay = (state.places[id] || {}).plannedDay || "";
+
   const marker = markers.get(id);
   if (marker) marker.setMap(null);
   markers.delete(id);
@@ -424,6 +428,7 @@ function deleteLocalPlace(id) {
 
   placesData.places = placesData.places.filter(item => item.id !== id);
   delete state.places[id];
+  if (previousDay) normalizeDayOrder(previousDay);
   saveState();
 
   applyFilters();
@@ -431,6 +436,140 @@ function deleteLocalPlace(id) {
   setStatus(`„${place.name}“ wurde gelöscht.`);
 }
 
+
+
+function getPlacesForDay(dayId) {
+  return placesData.places
+    .filter(place => (state.places[place.id] || {}).plannedDay === dayId)
+    .sort((a, b) => {
+      const orderA = Number((state.places[a.id] || {}).plannedOrder) || Number.MAX_SAFE_INTEGER;
+      const orderB = Number((state.places[b.id] || {}).plannedOrder) || Number.MAX_SAFE_INTEGER;
+      return orderA - orderB;
+    });
+}
+
+function ensureDayOrders() {
+  let changed = false;
+
+  for (const day of TRIP_DAYS) {
+    const dayPlaces = placesData.places.filter(
+      place => (state.places[place.id] || {}).plannedDay === day.id
+    );
+
+    const withOrder = dayPlaces
+      .filter(place => Number.isFinite(Number((state.places[place.id] || {}).plannedOrder)))
+      .sort((a, b) =>
+        Number((state.places[a.id] || {}).plannedOrder) -
+        Number((state.places[b.id] || {}).plannedOrder)
+      );
+
+    const withoutOrder = dayPlaces.filter(
+      place => !Number.isFinite(Number((state.places[place.id] || {}).plannedOrder))
+    );
+
+    const ordered = [...withOrder, ...withoutOrder];
+
+    ordered.forEach((place, index) => {
+      const item = ensurePlaceState(place.id);
+      const desiredOrder = index + 1;
+      if (item.plannedOrder !== desiredOrder) {
+        item.plannedOrder = desiredOrder;
+        changed = true;
+      }
+    });
+  }
+
+  if (changed) saveState();
+}
+
+function normalizeDayOrder(dayId) {
+  if (!dayId) return;
+
+  const dayPlaces = placesData.places
+    .filter(place => (state.places[place.id] || {}).plannedDay === dayId)
+    .sort((a, b) => {
+      const orderA = Number((state.places[a.id] || {}).plannedOrder) || Number.MAX_SAFE_INTEGER;
+      const orderB = Number((state.places[b.id] || {}).plannedOrder) || Number.MAX_SAFE_INTEGER;
+      return orderA - orderB;
+    });
+
+  dayPlaces.forEach((place, index) => {
+    ensurePlaceState(place.id).plannedOrder = index + 1;
+  });
+}
+
+function nextOrderForDay(dayId) {
+  const orders = placesData.places
+    .filter(place => (state.places[place.id] || {}).plannedDay === dayId)
+    .map(place => Number((state.places[place.id] || {}).plannedOrder) || 0);
+
+  return (orders.length ? Math.max(...orders) : 0) + 1;
+}
+
+function movePlaceInDay(id, direction) {
+  const item = state.places[id] || {};
+  const dayId = item.plannedDay;
+
+  if (!dayId) return;
+
+  normalizeDayOrder(dayId);
+
+  const dayPlaces = getPlacesForDay(dayId);
+  const currentIndex = dayPlaces.findIndex(place => place.id === id);
+  if (currentIndex < 0) return;
+
+  const targetIndex = currentIndex + direction;
+  if (targetIndex < 0 || targetIndex >= dayPlaces.length) return;
+
+  const currentPlace = dayPlaces[currentIndex];
+  const targetPlace = dayPlaces[targetIndex];
+
+  const currentState = ensurePlaceState(currentPlace.id);
+  const targetState = ensurePlaceState(targetPlace.id);
+
+  const oldOrder = currentState.plannedOrder;
+  currentState.plannedOrder = targetState.plannedOrder;
+  targetState.plannedOrder = oldOrder;
+
+  normalizeDayOrder(dayId);
+  saveState();
+  applyFilters();
+
+  setStatus(
+    `Reihenfolge für ${dayLongLabel(dayId)} aktualisiert.`
+  );
+}
+
+function orderControlsHtml(place, saved) {
+  if (!saved.plannedDay || selectedDayFilter !== saved.plannedDay) return "";
+
+  const dayPlaces = getPlacesForDay(saved.plannedDay);
+  const index = dayPlaces.findIndex(item => item.id === place.id);
+  if (index < 0) return "";
+
+  const canMoveUp = index > 0;
+  const canMoveDown = index < dayPlaces.length - 1;
+
+  return `
+    <div class="order-controls" onclick="event.stopPropagation()">
+      <span class="order-number" title="Reihenfolge">${index + 1}</span>
+      <button
+        type="button"
+        class="order-button"
+        title="Nach oben"
+        ${canMoveUp ? "" : "disabled"}
+        onclick="event.stopPropagation(); movePlaceInDay('${place.id}', -1)"
+      >↑</button>
+      <button
+        type="button"
+        class="order-button"
+        title="Nach unten"
+        ${canMoveDown ? "" : "disabled"}
+        onclick="event.stopPropagation(); movePlaceInDay('${place.id}', 1)"
+      >↓</button>
+    </div>
+  `;
+}
 
 function renderDayFilters() {
   const container = document.getElementById("dayFilters");
@@ -509,8 +648,26 @@ function dayOptionsHtml(selectedDay) {
 
 function setPlannedDay(id, dayId) {
   const item = ensurePlaceState(id);
-  if (dayId) item.plannedDay = dayId;
-  else delete item.plannedDay;
+  const previousDay = item.plannedDay || "";
+
+  if (dayId) {
+    if (previousDay !== dayId) {
+      item.plannedDay = dayId;
+      item.plannedOrder = nextOrderForDay(dayId);
+    } else if (!item.plannedOrder) {
+      item.plannedOrder = nextOrderForDay(dayId);
+    }
+  } else {
+    delete item.plannedDay;
+    delete item.plannedOrder;
+  }
+
+  if (previousDay && previousDay !== dayId) {
+    normalizeDayOrder(previousDay);
+  }
+  if (dayId) {
+    normalizeDayOrder(dayId);
+  }
 
   saveState();
   updateDayCounts();
@@ -743,6 +900,12 @@ function renderPlaceList(filteredPlaces) {
       if (distanceB == null) return -1;
       return distanceA - distanceB;
     });
+  } else if (TRIP_DAYS.some(day => day.id === selectedDayFilter)) {
+    placesForDisplay.sort((a, b) => {
+      const orderA = Number((state.places[a.id] || {}).plannedOrder) || Number.MAX_SAFE_INTEGER;
+      const orderB = Number((state.places[b.id] || {}).plannedOrder) || Number.MAX_SAFE_INTEGER;
+      return orderA - orderB;
+    });
   }
 
   placesForDisplay.forEach(place => {
@@ -751,9 +914,10 @@ function renderPlaceList(filteredPlaces) {
     card.className = "place-card";
     card.innerHTML = `
       <div class="place-card-title">
-        <span>${CATEGORY_ICONS[place.category] || "•"} ${escapeHtml(place.name)}</span>
-        <span>${saved.plannedDay ? `🗓️ ${escapeHtml(dayShortLabel(saved.plannedDay))}` : ""}${place.localTip ? " ⭐" : ""}${place.isLocalPlace ? " 📌" : ""}</span>
+        <span class="place-card-name">${CATEGORY_ICONS[place.category] || "•"} ${escapeHtml(place.name)}</span>
+        <span class="place-card-badges">${saved.plannedDay ? `🗓️ ${escapeHtml(dayShortLabel(saved.plannedDay))}` : ""}${place.localTip ? " ⭐" : ""}${place.isLocalPlace ? " 📌" : ""}</span>
       </div>
+      ${orderControlsHtml(place, saved)}
       <div class="place-card-meta">
         ${escapeHtml(categoryLabel(place.category))}
         ${userPosition && distanceToPlace(place) != null ? ` · 📍 ${escapeHtml(formatDistance(distanceToPlace(place)))} entfernt` : ""}
@@ -965,4 +1129,5 @@ function escapeHtml(value) {
 
 window.toggleVisited = toggleVisited;
 window.setPlannedDay = setPlannedDay;
+window.movePlaceInDay = movePlaceInDay;
 window.deleteLocalPlace = deleteLocalPlace;

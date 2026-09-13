@@ -530,3 +530,55 @@ h2 {
   font-size: 12px;
   font-weight: 700;
 }
+
+
+.order-controls {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 8px;
+}
+
+.order-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 27px;
+  height: 27px;
+  padding: 0 7px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.order-button {
+  width: 28px;
+  height: 27px;
+  border: 1px solid var(--border);
+  background: #fff;
+  color: var(--text);
+  border-radius: 7px;
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.order-button:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.order-button:disabled {
+  opacity: .35;
+  cursor: default;
+}
+
+.place-card-name {
+  min-width: 0;
+}
+
+.place-card-badges {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
