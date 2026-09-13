@@ -1173,3 +1173,123 @@ h2 {
     pointer-events: auto;
   }
 }
+
+
+/* =========================================================
+   v0.9.6 – Tagesagenda & Tagesmarker
+   ========================================================= */
+
+.custom-marker-wrapper {
+  transition: opacity .15s ease, transform .15s ease;
+}
+
+.agenda-panel {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--border);
+}
+
+.agenda-heading {
+  font-size: 12px;
+  font-weight: 800;
+  margin-bottom: 8px;
+}
+
+.day-agenda {
+  display: grid;
+  gap: 7px;
+}
+
+.agenda-empty {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.4;
+  padding: 8px 0;
+}
+
+.agenda-item {
+  display: grid;
+  grid-template-columns: 32px 1fr 34px;
+  gap: 8px;
+  align-items: center;
+  padding: 9px;
+  border: 1px solid var(--border);
+  background: var(--surface-soft);
+  border-radius: 11px;
+  cursor: pointer;
+}
+
+.agenda-item:hover {
+  background: #fff;
+  border-color: #cfc6bb;
+}
+
+.agenda-order {
+  width: 30px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.agenda-main {
+  min-width: 0;
+}
+
+.agenda-title {
+  font-size: 12px;
+  font-weight: 750;
+  line-height: 1.25;
+}
+
+.agenda-meta {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.35;
+}
+
+.agenda-visited-button {
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--border);
+  background: #fff;
+  color: var(--muted);
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.agenda-visited-button.visited {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+@media (max-width: 820px) {
+  .agenda-item {
+    grid-template-columns: 36px 1fr 40px;
+    min-height: 58px;
+    padding: 10px;
+  }
+
+  .agenda-order,
+  .agenda-visited-button {
+    width: 36px;
+    height: 36px;
+  }
+
+  .agenda-title {
+    font-size: 13px;
+  }
+
+  .agenda-meta {
+    font-size: 11px;
+  }
+}

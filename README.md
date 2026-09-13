@@ -2,7 +2,7 @@
 
 Persönliche interaktive Reiseplanung für Budapest vom **03.–07.10.2026**.
 
-## Aktueller Stand: v0.9.5
+## Aktueller Stand: v0.9.6
 
 Neu in v0.8: echte Fußroute eines geplanten Tages über die Google Routes API inklusive Gesamtdistanz und geschätzter Gehzeit.
 
@@ -145,3 +145,33 @@ Weitere mobile Bedienverbesserungen:
 - beim Öffnen von `Plan` oder `Orte` wird ein offenes Marker-Infofenster geschlossen
 - Marker-Infofenster schließen sich zusätzlich beim Tippen auf eine freie Stelle der Karte
 - beim Öffnen eines anderen Markers wird das vorherige Infofenster sauber ersetzt
+
+
+## v0.9.6 – Tagesagenda & Tagesmarker
+
+Die Tagesplanung wurde visuell und funktional erweitert.
+
+### Tagesmarker
+
+Bei Auswahl eines konkreten Reisetages:
+
+- geplante Orte werden direkt mit ihrer Reihenfolge `1, 2, 3, ...` markiert
+- Marker des gewählten Tages werden hervorgehoben
+- andere Marker werden dezent dargestellt
+- bereits besuchte Orte werden transparenter dargestellt
+
+### Tagesagenda
+
+Im Bereich `Plan` erscheint eine kompakte Agenda für den gewählten Tag.
+
+Pro Ort werden angezeigt:
+
+- Reihenfolge
+- Name/Kategorie
+- optionale Uhrzeit
+- Entfernung vom aktuellen Standort
+- Besucht-Status
+
+Ein Agenda-Eintrag öffnet direkt den entsprechenden Marker auf der Karte.
+
+Der Besucht-Status kann direkt über den runden Button in der Agenda geändert werden.

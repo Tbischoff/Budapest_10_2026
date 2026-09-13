@@ -145,15 +145,64 @@ const MARKER_BACKGROUNDS = {
   other: "#64748b"
 };
 
-function createPlaceMarker(place, position, mapValue = null) {
+function markerGlyphForPlace(place) {
+  const saved = state.places[place.id] || {};
+
+  if (TRIP_DAYS.some(day => day.id === selectedDayFilter) && saved.plannedDay === selectedDayFilter) {
+    return String(saved.plannedOrder || "");
+  }
+
+  if (place.localTip) return "★";
+  return CATEGORY_ICONS[place.category] || "•";
+}
+
+function markerAppearanceForPlace(place) {
+  const saved = state.places[place.id] || {};
+  const selectedDayIsConcrete = TRIP_DAYS.some(day => day.id === selectedDayFilter);
+  const isInSelectedDay = selectedDayIsConcrete && saved.plannedDay === selectedDayFilter;
+
+  let background = MARKER_BACKGROUNDS[place.category] || MARKER_BACKGROUNDS.other;
+  let glyphColor = "#ffffff";
+  let scale = place.localTip ? 1.12 : 1;
+  let opacity = 1;
+
+  if (selectedDayIsConcrete) {
+    if (isInSelectedDay) {
+      background = "#2f625d";
+      scale = 1.16;
+    } else {
+      opacity = 0.35;
+      scale = 0.92;
+    }
+  }
+
+  if (saved.visited) {
+    opacity = Math.min(opacity, 0.42);
+  }
+
+  return { background, glyphColor, scale, opacity };
+}
+
+function buildMarkerContent(place) {
+  const appearance = markerAppearanceForPlace(place);
+
   const pin = new PinElement({
-    glyphText: place.localTip ? "★" : (CATEGORY_ICONS[place.category] || "•"),
-    glyphColor: "#ffffff",
-    background: MARKER_BACKGROUNDS[place.category] || MARKER_BACKGROUNDS.other,
+    glyphText: markerGlyphForPlace(place),
+    glyphColor: appearance.glyphColor,
+    background: appearance.background,
     borderColor: "#ffffff",
-    scale: place.localTip ? 1.12 : 1
+    scale: appearance.scale
   });
 
+  const wrapper = document.createElement("div");
+  wrapper.className = "custom-marker-wrapper";
+  wrapper.style.opacity = String(appearance.opacity);
+  wrapper.append(pin);
+
+  return wrapper;
+}
+
+function createPlaceMarker(place, position, mapValue = null) {
   const marker = new AdvancedMarkerElement({
     map: mapValue,
     position,
@@ -162,8 +211,30 @@ function createPlaceMarker(place, position, mapValue = null) {
     zIndex: place.localTip ? 100 : 1
   });
 
-  marker.append(pin);
+  marker.append(buildMarkerContent(place));
   return marker;
+}
+
+function refreshMarkerAppearance(place) {
+  const marker = markers.get(place.id);
+  if (!marker) return;
+
+  while (marker.firstChild) {
+    marker.removeChild(marker.firstChild);
+  }
+  marker.append(buildMarkerContent(place));
+
+  const saved = state.places[place.id] || {};
+  marker.zIndex = (
+    TRIP_DAYS.some(day => day.id === selectedDayFilter) &&
+    saved.plannedDay === selectedDayFilter
+  ) ? 500 + (saved.plannedOrder || 0) : (place.localTip ? 100 : 1);
+}
+
+function refreshAllMarkerAppearances() {
+  for (const place of placesData.places) {
+    refreshMarkerAppearance(place);
+  }
 }
 
 function getMarkerPosition(marker) {
@@ -1419,6 +1490,79 @@ function toggleDistanceSort() {
   applyFilters();
 }
 
+
+function renderDayAgenda() {
+  const container = document.getElementById("dayAgenda");
+  if (!container) return;
+
+  const selectedDay = TRIP_DAYS.find(day => day.id === selectedDayFilter);
+
+  if (!selectedDay) {
+    container.innerHTML = `
+      <div class="agenda-empty">
+        Wähle einen Reisetag aus, um die Tagesagenda zu sehen.
+      </div>
+    `;
+    return;
+  }
+
+  const dayPlaces = getPlacesForDay(selectedDay.id);
+
+  if (!dayPlaces.length) {
+    container.innerHTML = `
+      <div class="agenda-empty">
+        Für ${escapeHtml(selectedDay.label)} sind noch keine Orte geplant.
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = dayPlaces.map((place, index) => {
+    const saved = state.places[place.id] || {};
+    const time = formatPlannedTime(saved);
+    const distance = userPosition ? distanceToPlace(place) : null;
+
+    return `
+      <div class="agenda-item" data-place-id="${place.id}">
+        <div class="agenda-order">${index + 1}</div>
+        <div class="agenda-main">
+          <div class="agenda-title">${CATEGORY_ICONS[place.category] || "•"} ${escapeHtml(place.name)}</div>
+          <div class="agenda-meta">
+            ${time ? `🕐 ${escapeHtml(time)}` : "🕐 keine Uhrzeit"}
+            ${distance != null ? ` · 📍 ${escapeHtml(formatDistance(distance))}` : ""}
+            ${saved.visited ? " · ✓ besucht" : ""}
+          </div>
+        </div>
+        <button
+          type="button"
+          class="agenda-visited-button ${saved.visited ? "visited" : ""}"
+          title="${saved.visited ? "Als nicht besucht markieren" : "Als besucht markieren"}"
+          onclick="event.stopPropagation(); toggleVisited('${place.id}')"
+        >${saved.visited ? "✓" : "○"}</button>
+      </div>
+    `;
+  }).join("");
+
+  container.querySelectorAll(".agenda-item").forEach(item => {
+    item.addEventListener("click", () => {
+      const place = placesData.places.find(p => p.id === item.dataset.placeId);
+      if (!place) return;
+
+      const marker = markers.get(place.id);
+      if (marker) {
+        openPlace(place);
+        const pos = getMarkerPosition(marker);
+        if (pos) {
+          map.panTo(pos);
+          map.setZoom(Math.max(map.getZoom(), 15));
+        }
+      }
+
+      if (isMobileLayout()) setMobileView("map");
+    });
+  });
+}
+
 function renderPlaceList(filteredPlaces) {
   const container = document.getElementById("placeList");
   container.innerHTML = "";
@@ -1514,6 +1658,8 @@ function applyFilters() {
   }
 
   renderPlaceList(filtered);
+  renderDayAgenda();
+  refreshAllMarkerAppearances();
   updateDayCounts();
 }
 
