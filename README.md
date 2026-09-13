@@ -2,7 +2,7 @@
 
 Persönliche interaktive Reiseplanung für Budapest vom **03.–07.10.2026**.
 
-## Aktueller Stand: v0.8
+## Aktueller Stand: v0.8.1
 
 Neu in v0.8: echte Fußroute eines geplanten Tages über die Google Routes API inklusive Gesamtdistanz und geschätzter Gehzeit.
 
@@ -34,3 +34,14 @@ Budapest_10_2026/
 ```
 
 Details zur Routes API: `docs/GOOGLE_ROUTES_SETUP.md`.
+
+
+## v0.8.1 Hotfix
+
+Korrektur der Routes-Anfrage:
+
+- ungültiges `units: "METRIC"` entfernt
+- Distanz wird weiterhin über `distanceMeters` geliefert
+- Anzeige in Meter/Kilometer erfolgt wie bisher durch die Anwendung selbst
+
+Keine fachliche Änderung gegenüber v0.8.

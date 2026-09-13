@@ -865,7 +865,6 @@ async function showDayRoute(dayId = selectedDayFilter) {
       destination,
       travelMode: "WALKING",
       intermediates,
-      units: "METRIC",
       fields: ["path", "distanceMeters", "durationMillis"]
     };
 
