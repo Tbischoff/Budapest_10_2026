@@ -963,10 +963,20 @@ async function toggleDayRoute() {
   if (activeRouteDay === selectedDayFilter && dayRoutePolylines.length) {
     clearDayRoute();
     setStatus("Tagesroute ausgeblendet.");
+
+    if (isMobileLayout()) {
+      setMobileView("map");
+    }
     return;
   }
 
   await showDayRoute(selectedDayFilter);
+
+  // Auf dem Smartphone nach erfolgreichem Ein-/Ausblenden
+  // direkt zurück zur Karte wechseln.
+  if (isMobileLayout()) {
+    setMobileView("map");
+  }
 }
 
 function openDayRouteInGoogleMaps(dayId = selectedDayFilter) {
