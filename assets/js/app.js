@@ -111,6 +111,43 @@ function loadGoogleMaps() {
   });
 }
 
+
+function centerMapOnBudapest() {
+  if (!map) return;
+  map.setCenter(CONFIG.initialCenter);
+  map.setZoom(CONFIG.initialZoom);
+  setStatus("Karte auf Budapest zentriert.");
+}
+
+function centerMapOnCurrentLocation({ silent = false } = {}) {
+  if (!navigator.geolocation) {
+    if (!silent) setStatus("Standortbestimmung wird von diesem Browser nicht unterstützt.");
+    return;
+  }
+
+  navigator.geolocation.getCurrentPosition(
+    position => {
+      userPosition = {
+        lat: position.coords.latitude,
+        lng: position.coords.longitude
+      };
+
+      updateUserLocationMarker();
+      updateDistanceControls();
+      updateRouteControls();
+      applyFilters();
+      map.setCenter(userPosition);
+      map.setZoom(14);
+
+      if (!silent) setStatus("Karte auf deinen aktuellen Standort zentriert.");
+    },
+    () => {
+      if (!silent) setStatus("Standort nicht verfügbar. Karte bleibt auf Budapest.");
+    },
+    { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 }
+  );
+}
+
 function initMap() {
   map = new google.maps.Map(document.getElementById("map"), {
     center: CONFIG.initialCenter,
@@ -128,6 +165,9 @@ function initMap() {
   map.addListener("click", () => {
     infoWindow.close();
   });
+
+  // Start möglichst am aktuellen Standort; Budapest bleibt Fallback.
+  centerMapOnCurrentLocation({ silent: true });
 }
 
 
@@ -1726,6 +1766,7 @@ function wireControls() {
   document.getElementById("mobileNavPlaces").addEventListener("click", () => setMobileView("places"));
   document.getElementById("mobileScrim").addEventListener("click", () => setMobileView("map"));
   document.getElementById("mobileLocateBtn").addEventListener("click", requestUserLocation);
+  document.getElementById("budapestBtn").addEventListener("click", centerMapOnBudapest);
 
   updateDistanceControls();
   updateRouteControls();
