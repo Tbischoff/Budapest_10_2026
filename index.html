@@ -35,14 +35,17 @@
       </section>
 
       <section class="panel">
+        <div class="panel-title-row">
+          <h2>Tagesplanung</h2>
+        </div>
+        <div id="dayFilters" class="day-filter-list"></div>
+      </section>
+
+      <section class="panel">
         <h2>Zusätzliche Filter</h2>
         <label class="filter-row">
           <input id="localOnly" type="checkbox" />
           <span>⭐ Nur Local-Tipps</span>
-        </label>
-        <label class="filter-row">
-          <input id="favoritesOnly" type="checkbox" />
-          <span>♥ Nur Favoriten</span>
         </label>
         <label class="filter-row">
           <input id="unvisitedOnly" type="checkbox" />
@@ -64,7 +67,7 @@
       </section>
 
       <div class="sidebar-footer">
-        <button id="resetStateBtn" class="secondary-button">Besucht/Favoriten zurücksetzen</button>
+        <button id="resetStateBtn" class="secondary-button">Tagesplanung/Besucht zurücksetzen</button>
       </div>
     </aside>
 

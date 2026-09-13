@@ -2,7 +2,7 @@
 const CONFIG = {
   // Google Maps JavaScript API key eintragen.
   // Für GitHub Pages bitte unbedingt per HTTP-Referrer auf deine Domain beschränken.
-  googleMapsApiKey: "AIzaSyCw_nRXt7NWjHw-lHTHZb8N8jmvl2iQFkg",
+  googleMapsApiKey: "YOUR_GOOGLE_MAPS_API_KEY",
   initialCenter: { lat: 47.4979, lng: 19.0402 },
   initialZoom: 12
 };
@@ -20,6 +20,16 @@ const CATEGORY_ICONS = {
   area: "📍",
   other: "•"
 };
+
+const TRIP_DAYS = [
+  { id: "2026-10-03", short: "Sa 03.10.", label: "Samstag, 03.10." },
+  { id: "2026-10-04", short: "So 04.10.", label: "Sonntag, 04.10." },
+  { id: "2026-10-05", short: "Mo 05.10.", label: "Montag, 05.10." },
+  { id: "2026-10-06", short: "Di 06.10.", label: "Dienstag, 06.10." },
+  { id: "2026-10-07", short: "Mi 07.10.", label: "Mittwoch, 07.10." }
+];
+
+let selectedDayFilter = "all";
 
 let map;
 let geocoder;
@@ -42,6 +52,7 @@ async function bootstrap() {
     mergeLocalPlaces();
 
     renderCategoryFilters();
+    renderDayFilters();
     renderTryList();
     wireControls();
 
@@ -236,7 +247,9 @@ function openPlace(place) {
       ${place.notes ? `<div class="info-note">${escapeHtml(place.notes)}</div>` : ""}
       <div class="info-actions">
         <a class="primary" href="${mapsUrl}" target="_blank" rel="noopener">Google Maps öffnen</a>
-        <button onclick="toggleFavorite('${place.id}')">${saved.favorite ? "♥ Favorit" : "♡ Favorit"}</button>
+        <select class="day-select" onchange="setPlannedDay('${place.id}', this.value)">
+          ${dayOptionsHtml(saved.plannedDay || "")}
+        </select>
         <button onclick="toggleVisited('${place.id}')">${saved.visited ? "✓ Besucht" : "○ Als besucht markieren"}</button>
         ${place.isLocalPlace ? `<button class="danger" onclick="deleteLocalPlace('${place.id}')">Löschen</button>` : ""}
       </div>
@@ -412,6 +425,101 @@ function deleteLocalPlace(id) {
   setStatus(`„${place.name}“ wurde gelöscht.`);
 }
 
+
+function renderDayFilters() {
+  const container = document.getElementById("dayFilters");
+  if (!container) return;
+
+  const buttons = [
+    { id: "all", label: "Alle" },
+    ...TRIP_DAYS.map(day => ({ id: day.id, label: day.short })),
+    { id: "unplanned", label: "Noch offen" }
+  ];
+
+  container.innerHTML = "";
+
+  for (const item of buttons) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "day-filter-button";
+    button.dataset.day = item.id;
+    button.textContent = item.label;
+
+    if (selectedDayFilter === item.id) button.classList.add("active");
+
+    button.addEventListener("click", () => {
+      selectedDayFilter = item.id;
+      document.querySelectorAll(".day-filter-button").forEach(btn => {
+        btn.classList.toggle("active", btn.dataset.day === selectedDayFilter);
+      });
+      applyFilters();
+    });
+
+    container.appendChild(button);
+  }
+
+  updateDayCounts();
+}
+
+function updateDayCounts() {
+  const counts = Object.fromEntries(TRIP_DAYS.map(day => [day.id, 0]));
+  let unplanned = 0;
+
+  for (const place of placesData.places) {
+    const plannedDay = (state.places[place.id] || {}).plannedDay || "";
+    if (plannedDay && counts[plannedDay] !== undefined) counts[plannedDay]++;
+    else unplanned++;
+  }
+
+  document.querySelectorAll(".day-filter-button").forEach(button => {
+    const id = button.dataset.day;
+    if (id === "all") {
+      button.textContent = `Alle (${placesData.places.length})`;
+    } else if (id === "unplanned") {
+      button.textContent = `Noch offen (${unplanned})`;
+    } else {
+      const day = TRIP_DAYS.find(d => d.id === id);
+      button.textContent = `${day.short} (${counts[id] || 0})`;
+    }
+  });
+}
+
+function dayShortLabel(dayId) {
+  return TRIP_DAYS.find(day => day.id === dayId)?.short || "";
+}
+
+function dayLongLabel(dayId) {
+  return TRIP_DAYS.find(day => day.id === dayId)?.label || "";
+}
+
+function dayOptionsHtml(selectedDay) {
+  let html = '<option value="">🗓️ Tag auswählen</option>';
+  for (const day of TRIP_DAYS) {
+    const selected = selectedDay === day.id ? " selected" : "";
+    html += `<option value="${day.id}"${selected}>${day.label}</option>`;
+  }
+  return html;
+}
+
+function setPlannedDay(id, dayId) {
+  const item = ensurePlaceState(id);
+  if (dayId) item.plannedDay = dayId;
+  else delete item.plannedDay;
+
+  saveState();
+  updateDayCounts();
+  applyFilters();
+
+  const place = placesData.places.find(p => p.id === id);
+  if (place) openPlace(place);
+
+  setStatus(
+    dayId
+      ? `„${place?.name || "Ort"}“ ist für ${dayLongLabel(dayId)} geplant.`
+      : `Tagesplanung für „${place?.name || "Ort"}“ entfernt.`
+  );
+}
+
 function renderCategoryFilters() {
   const container = document.getElementById("categoryFilters");
   const categories = Object.entries(placesData.meta.categories);
@@ -467,10 +575,11 @@ function renderPlaceList(filteredPlaces) {
     card.innerHTML = `
       <div class="place-card-title">
         <span>${CATEGORY_ICONS[place.category] || "•"} ${escapeHtml(place.name)}</span>
-        <span>${saved.favorite ? "♥" : ""}${place.localTip ? " ⭐" : ""}${place.isLocalPlace ? " 📌" : ""}</span>
+        <span>${saved.plannedDay ? `🗓️ ${escapeHtml(dayShortLabel(saved.plannedDay))}` : ""}${place.localTip ? " ⭐" : ""}${place.isLocalPlace ? " 📌" : ""}</span>
       </div>
       <div class="place-card-meta">
         ${escapeHtml(categoryLabel(place.category))}
+        ${saved.plannedDay ? ` · 🗓️ ${escapeHtml(dayLongLabel(saved.plannedDay))}` : ""}
         ${saved.visited ? " · ✓ besucht" : ""}
       </div>
       ${place.notes ? `<div class="place-card-note">${escapeHtml(place.notes)}</div>` : ""}
@@ -494,7 +603,6 @@ function renderPlaceList(filteredPlaces) {
 function applyFilters() {
   const query = document.getElementById("searchInput").value.trim().toLowerCase();
   const localOnly = document.getElementById("localOnly").checked;
-  const favoritesOnly = document.getElementById("favoritesOnly").checked;
   const unvisitedOnly = document.getElementById("unvisitedOnly").checked;
 
   const filtered = placesData.places.filter(place => {
@@ -502,8 +610,11 @@ function applyFilters() {
 
     if (!activeCategories.has(place.category)) return false;
     if (localOnly && !place.localTip) return false;
-    if (favoritesOnly && !saved.favorite) return false;
     if (unvisitedOnly && saved.visited) return false;
+
+    const plannedDay = saved.plannedDay || "";
+    if (selectedDayFilter === "unplanned" && plannedDay) return false;
+    if (selectedDayFilter !== "all" && selectedDayFilter !== "unplanned" && plannedDay !== selectedDayFilter) return false;
 
     if (query) {
       const haystack = [
@@ -525,6 +636,7 @@ function applyFilters() {
   }
 
   renderPlaceList(filtered);
+  updateDayCounts();
 }
 
 function fitVisibleMarkers() {
@@ -542,7 +654,6 @@ function fitVisibleMarkers() {
 function wireControls() {
   document.getElementById("searchInput").addEventListener("input", applyFilters);
   document.getElementById("localOnly").addEventListener("change", applyFilters);
-  document.getElementById("favoritesOnly").addEventListener("change", applyFilters);
   document.getElementById("unvisitedOnly").addEventListener("change", applyFilters);
   document.getElementById("fitBtn").addEventListener("click", fitVisibleMarkers);
   document.getElementById("addPlaceBtn").addEventListener("click", openAddPlaceDialog);
@@ -570,7 +681,7 @@ function wireControls() {
   });
 
   document.getElementById("resetStateBtn").addEventListener("click", () => {
-    if (!confirm("Favoriten, Besucht-Markierungen und Probier-Checkliste zurücksetzen?")) return;
+    if (!confirm("Tagesplanung, Besucht-Markierungen und Probier-Checkliste zurücksetzen?")) return;
     state = { places: {}, try: {} };
     saveState();
     renderTryListFresh();
@@ -598,16 +709,6 @@ function renderTryListFresh() {
 
 function closeMobileSidebar() {
   document.querySelector(".sidebar").classList.remove("open");
-}
-
-function toggleFavorite(id) {
-  const item = ensurePlaceState(id);
-  item.favorite = !item.favorite;
-  saveState();
-  applyFilters();
-
-  const place = placesData.places.find(p => p.id === id);
-  if (place) openPlace(place);
 }
 
 function toggleVisited(id) {
@@ -681,6 +782,6 @@ function escapeHtml(value) {
     .replaceAll("'", "&#039;");
 }
 
-window.toggleFavorite = toggleFavorite;
 window.toggleVisited = toggleVisited;
+window.setPlannedDay = setPlannedDay;
 window.deleteLocalPlace = deleteLocalPlace;
