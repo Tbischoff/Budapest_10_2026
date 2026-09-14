@@ -1733,6 +1733,102 @@ function renderPlaceList(filteredPlaces) {
 }
 
 
+
+function getSearchMatches() {
+  const query = document.getElementById("searchInput").value.trim().toLowerCase();
+  if (!query) return [];
+
+  return placesData.places
+    .filter(place => {
+      const haystack = [
+        place.name,
+        place.address,
+        place.notes,
+        ...(place.tags || [])
+      ].join(" ").toLowerCase();
+
+      return haystack.includes(query);
+    })
+    .slice(0, 8);
+}
+
+function renderSearchSuggestions() {
+  const container = document.getElementById("searchSuggestions");
+  if (!container) return;
+
+  const query = document.getElementById("searchInput").value.trim();
+
+  if (!query) {
+    container.innerHTML = "";
+    container.classList.remove("visible");
+    return;
+  }
+
+  const matches = getSearchMatches();
+
+  if (!matches.length) {
+    container.innerHTML = `
+      <div class="search-suggestion-empty">Keine passenden Orte gefunden.</div>
+    `;
+    container.classList.add("visible");
+    return;
+  }
+
+  container.innerHTML = matches.map(place => `
+    <button
+      type="button"
+      class="search-suggestion-item"
+      data-place-id="${place.id}"
+    >
+      <span class="search-suggestion-icon">${CATEGORY_ICONS[place.category] || "•"}</span>
+      <span class="search-suggestion-content">
+        <span class="search-suggestion-name">${escapeHtml(place.name)}</span>
+        <span class="search-suggestion-meta">
+          ${escapeHtml(categoryLabel(place.category))}
+          ${place.address ? ` · ${escapeHtml(place.address)}` : ""}
+        </span>
+      </span>
+      ${place.localTip ? '<span class="search-suggestion-tip">⭐</span>' : ""}
+    </button>
+  `).join("");
+
+  container.classList.add("visible");
+
+  container.querySelectorAll(".search-suggestion-item").forEach(button => {
+    button.addEventListener("click", () => {
+      const place = placesData.places.find(p => p.id === button.dataset.placeId);
+      if (!place) return;
+
+      document.getElementById("searchInput").value = place.name;
+      renderSearchSuggestions();
+      applyFilters();
+
+      const marker = markers.get(place.id);
+      if (!marker) return;
+
+      const position = getMarkerPosition(marker);
+      if (!position) return;
+
+      if (isMobileLayout()) setMobileView("map");
+
+      map.panTo(position);
+      map.setZoom(Math.max(map.getZoom(), 16));
+
+      window.setTimeout(() => {
+        openPlace(place);
+      }, 150);
+
+      setStatus(`„${place.name}“ ausgewählt.`);
+    });
+  });
+}
+
+function hideSearchSuggestions() {
+  const container = document.getElementById("searchSuggestions");
+  if (!container) return;
+  container.classList.remove("visible");
+}
+
 function getFilteredPlaces() {
   const query = document.getElementById("searchInput").value.trim().toLowerCase();
   const localOnly = document.getElementById("localOnly").checked;
@@ -1817,7 +1913,13 @@ function fitVisibleMarkers() {
 function wireControls() {
   document.getElementById("searchInput").addEventListener("input", () => {
     applyFilters();
+    renderSearchSuggestions();
     scheduleSmartSearch();
+  });
+
+  document.getElementById("searchInput").addEventListener("focus", renderSearchSuggestions);
+  document.getElementById("searchInput").addEventListener("blur", () => {
+    window.setTimeout(hideSearchSuggestions, 180);
   });
 
   document.getElementById("searchInput").addEventListener("keydown", event => {

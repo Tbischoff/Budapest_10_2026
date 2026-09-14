@@ -2,7 +2,7 @@
 
 Persönliche interaktive Reiseplanung für Budapest vom **03.–07.10.2026**.
 
-## Aktueller Stand: v0.9.9
+## Aktueller Stand: v0.9.10
 
 Neu in v0.8: echte Fußroute eines geplanten Tages über die Google Routes API inklusive Gesamtdistanz und geschätzter Gehzeit.
 
@@ -213,3 +213,18 @@ Die Ortssuche reagiert jetzt intelligenter auf eindeutige Treffer.
 - **genau 1 Treffer:** nach ca. 500 ms Tipp-Pause springt die Karte zum Marker, zoomt hinein und öffnet das Infofenster
 - mobil schließt sich dabei der Tab `Orte` automatisch
 - mit `Enter` kann ein eindeutiger Treffer sofort geöffnet werden
+
+
+## v0.9.10 – Suchvorschläge
+
+Die Suche zeigt jetzt direkt unter dem Suchfeld passende Orte an.
+
+- bis zu 8 Vorschläge während der Eingabe
+- Anzeige von Name, Kategorie, Adresse und Local-Tipp
+- Antippen eines Vorschlags:
+  - setzt den Suchbegriff auf den Ortsnamen
+  - springt zum Marker
+  - zoomt hinein
+  - öffnet das Infofenster
+  - schließt mobil den Tab `Orte`
+- Smart Search bei genau einem Treffer bleibt weiterhin bestehen
