@@ -16,7 +16,10 @@
       "transport": "ÖPNV / Orientierung",
       "area": "Gebiet / Viertel",
       "other": "Sonstiges"
-    }
+    },
+    "detailsResearchUpdated": "2026-09-14",
+    "detailsResearchVersion": "0.9.13.1",
+    "detailsResearchSummary": "38 of 57 places enriched with website/phone/opening-hours where reliable data was found."
   },
   "places": [
     {
@@ -72,7 +75,13 @@
       "favorite": false,
       "visited": false,
       "status": "verified",
-      "notes": ""
+      "notes": "",
+      "website": "https://www.facebook.com/PotkulcsBudapest/",
+      "phone": "+36 1 269 1050",
+      "openingHours": "Mo–Sa 17:00–01:00 · So 17:00–00:00",
+      "detailsSource": "https://wanderlog.com/place/details/2509806/p%C3%B3tkulcs",
+      "detailsSourceType": "secondary",
+      "detailsUpdated": "2026-09-14"
     },
     {
       "id": "the-magic-ii",
@@ -88,7 +97,12 @@
       "favorite": false,
       "visited": false,
       "status": "needs_verification",
-      "notes": "Adresse aus Ursprungsliste; Name/Details vor Veröffentlichung noch einmal prüfen."
+      "notes": "Adresse aus Ursprungsliste; Name/Details vor Veröffentlichung noch einmal prüfen.",
+      "website": "https://themagic.hu/",
+      "phone": "+36 30 606 6109",
+      "detailsSource": "https://themagic.hu/",
+      "detailsSourceType": "official",
+      "detailsUpdated": "2026-09-14"
     },
     {
       "id": "best-bagel-basilica",
@@ -106,7 +120,13 @@
       "favorite": false,
       "visited": false,
       "status": "verified",
-      "notes": ""
+      "notes": "",
+      "website": "https://bestbagel.hu/en/basilica/",
+      "phone": "+36 70 560 7942",
+      "openingHours": "So–Do 08:30–19:00 · Fr–Sa 08:30–20:00",
+      "detailsSource": "https://bestbagel.hu/en/basilica/contact/",
+      "detailsSourceType": "official",
+      "detailsUpdated": "2026-09-14"
     },
     {
       "id": "frici-papa",
@@ -124,7 +144,13 @@
       "favorite": false,
       "visited": false,
       "status": "verified",
-      "notes": "Traditionelle ungarische Küche."
+      "notes": "Traditionelle ungarische Küche.",
+      "website": "https://www.fricipapa.hu/",
+      "phone": "+36 1 351 0197",
+      "openingHours": "Mo–Sa 11:00–22:00 · So geschlossen",
+      "detailsSource": "https://www.fricipapa.hu/",
+      "detailsSourceType": "official",
+      "detailsUpdated": "2026-09-14"
     },
     {
       "id": "st-gerard-statue",
@@ -159,7 +185,12 @@
       "favorite": false,
       "visited": false,
       "status": "verified",
-      "notes": "Italienisches Restaurant."
+      "notes": "Italienisches Restaurant.",
+      "website": "https://cinquecentobudapest.hu/",
+      "openingHours": "Mo 11:00–14:30 · Di–So 11:00–20:00",
+      "detailsSource": "https://cinquecentobudapest.hu/",
+      "detailsSourceType": "official",
+      "detailsUpdated": "2026-09-14"
     },
     {
       "id": "dob-u-31",
@@ -193,7 +224,13 @@
       "favorite": false,
       "visited": false,
       "status": "verified",
-      "notes": "Palace of Arts. In der Nähe des National Theatre am Bajor Gizi park."
+      "notes": "Palace of Arts. In der Nähe des National Theatre am Bajor Gizi park.",
+      "website": "https://mupa.hu/en",
+      "phone": "+36 1 555 3000",
+      "openingHours": "Täglich ab 10:00; regulär bis 18:00, an Veranstaltungstagen bis zum Ende der letzten Vorstellung",
+      "detailsSource": "https://mupa.hu/en/contact",
+      "detailsSourceType": "official",
+      "detailsUpdated": "2026-09-14"
     },
     {
       "id": "money-museum",
@@ -211,7 +248,13 @@
       "favorite": false,
       "visited": false,
       "status": "verified",
-      "notes": "Eintritt kostenlos, aber vorherige Termin-/Zeitfensterbuchung erforderlich. Dienstag geschlossen."
+      "notes": "Eintritt kostenlos, aber vorherige Termin-/Zeitfensterbuchung erforderlich. Dienstag geschlossen.",
+      "website": "https://www.penzmuzeum.hu/en/",
+      "phone": "+36 1 234 4694",
+      "openingHours": "Mo/Mi–Fr 08:00–17:00 · Di geschlossen · Sa–So 09:00–17:00 · Vorabreservierung erforderlich",
+      "detailsSource": "https://www.penzmuzeum.hu/en/contact/information/contact/",
+      "detailsSourceType": "official",
+      "detailsUpdated": "2026-09-14"
     },
     {
       "id": "uri-muri",
@@ -248,7 +291,13 @@
       "favorite": false,
       "visited": false,
       "status": "verified",
-      "notes": ""
+      "notes": "",
+      "website": "https://puderbar.hu/",
+      "phone": "+36 30 295 7982",
+      "openingHours": "Mo–Di 12:00–00:00 · Mi–Sa 12:00–01:00 · So 12:00–00:00",
+      "detailsSource": "https://puderbar.hu/",
+      "detailsSourceType": "official",
+      "detailsUpdated": "2026-09-14"
     },
     {
       "id": "kuglof-bistro",
@@ -266,7 +315,13 @@
       "favorite": false,
       "visited": false,
       "status": "probable_match",
-      "notes": "Die Adresse Piarista köz 1 passt eindeutig zu Kuglóf Bistro; als wahrscheinlicher ursprünglicher Fund übernommen."
+      "notes": "Die Adresse Piarista köz 1 passt eindeutig zu Kuglóf Bistro; als wahrscheinlicher ursprünglicher Fund übernommen.",
+      "website": "https://www.kuglof.hu/en/",
+      "phone": "+36 30 948 1805",
+      "openingHours": "Mo–Do 09:00–16:00 · Fr–So 09:00–18:00",
+      "detailsSource": "https://www.kuglof.hu/en/contact/",
+      "detailsSourceType": "official",
+      "detailsUpdated": "2026-09-14"
     },
     {
       "id": "time-out-market",
@@ -284,7 +339,13 @@
       "favorite": false,
       "visited": false,
       "status": "verified",
-      "notes": "Local-Tipp: Markt-/Food-Hall-Atmosphäre; angenehmer zum Sitzen als klassisches Street Food."
+      "notes": "Local-Tipp: Markt-/Food-Hall-Atmosphäre; angenehmer zum Sitzen als klassisches Street Food.",
+      "website": "https://www.timeout.com/time-out-market-budapest",
+      "phone": "+36 20 232 0505",
+      "openingHours": "Täglich 11:30–23:30 · Küchen bis 22:00",
+      "detailsSource": "https://www.timeout.com/time-out-market-budapest/find-us",
+      "detailsSourceType": "official",
+      "detailsUpdated": "2026-09-14"
     },
     {
       "id": "twentysix",
@@ -303,7 +364,13 @@
       "favorite": false,
       "visited": false,
       "status": "verified",
-      "notes": "Im Erdgeschoss des Stories Boutique Hotel. Der ursprüngliche Eintrag '26° at Stories' wurde hiermit zusammengeführt."
+      "notes": "Im Erdgeschoss des Stories Boutique Hotel. Der ursprüngliche Eintrag '26° at Stories' wurde hiermit zusammengeführt.",
+      "website": "https://twentysixbudapest.com/",
+      "phone": "+36 70 395 6129",
+      "openingHours": "Garden: So–Do 07:30–00:00 · Fr–Sa 07:30–02:00",
+      "detailsSource": "https://twentysixbudapest.com/contact/",
+      "detailsSourceType": "official",
+      "detailsUpdated": "2026-09-14"
     },
     {
       "id": "fishermans-bastion",
@@ -321,7 +388,12 @@
       "favorite": false,
       "visited": false,
       "status": "verified",
-      "notes": "Dubletten aus 'Fisherman’s Bastion' und 'Halászbástya' zusammengeführt."
+      "notes": "Dubletten aus 'Fisherman’s Bastion' und 'Halászbástya' zusammengeführt.",
+      "website": "https://fishermansbastion.com/",
+      "openingHours": "Außenbereiche 24/7 · obere Türme/Terrassen im Okt. 09:00–19:00 ticketpflichtig",
+      "detailsSource": "https://fishermansbastion.com/opening-hours",
+      "detailsSourceType": "operator/info-site",
+      "detailsUpdated": "2026-09-14"
     },
     {
       "id": "parisi-udvar",
@@ -357,7 +429,13 @@
       "favorite": false,
       "visited": false,
       "status": "verified",
-      "notes": ""
+      "notes": "",
+      "website": "https://matyas-templom.hu/en/",
+      "phone": "+36 20 622 6261",
+      "openingHours": "Besucherzeiten tagesabhängig; typ. Mo–Fr 09:00–17:00 · Sa 09:00–13:00 · So 13:00–17:00; aktuelle Tageszeiten prüfen",
+      "detailsSource": "https://matyas-templom.hu/en/",
+      "detailsSourceType": "official",
+      "detailsUpdated": "2026-09-14"
     },
     {
       "id": "chain-bridge",
@@ -411,7 +489,12 @@
       "favorite": false,
       "visited": false,
       "status": "verified",
-      "notes": "Separat von der Fischerbastei selbst."
+      "notes": "Separat von der Fischerbastei selbst.",
+      "website": "https://foglalas.halaszbastya.eu/en/",
+      "phone": "+36 1 201 6935",
+      "detailsSource": "https://foglalas.halaszbastya.eu/en/",
+      "detailsSourceType": "official",
+      "detailsUpdated": "2026-09-14"
     },
     {
       "id": "parliament",
@@ -429,7 +512,13 @@
       "favorite": false,
       "visited": false,
       "status": "verified",
-      "notes": ""
+      "notes": "",
+      "website": "https://www.parlament.hu/en/web/orszaggyulesi-muzeum/latogatas",
+      "phone": "+36 1 441 4343",
+      "openingHours": "Besichtigung nur im Rahmen gebuchter Besuchsangebote; Öffnungszeiten/Termine vorab auf der offiziellen Seite prüfen",
+      "detailsSource": "https://www.parlament.hu/en/web/orszaggyulesi-muzeum/latogatas",
+      "detailsSourceType": "official",
+      "detailsUpdated": "2026-09-14"
     },
     {
       "id": "st-stephens-basilica",
@@ -447,7 +536,13 @@
       "favorite": false,
       "visited": false,
       "status": "verified",
-      "notes": ""
+      "notes": "",
+      "website": "https://it.bazilika.biz/en/visitors",
+      "phone": "+36 1 269 3809",
+      "openingHours": "Kirche Mo–Sa 09:00–17:45 · So 13:00–17:45 · Panorama/Treasury täglich 09:00–19:00",
+      "detailsSource": "https://it.bazilika.biz/en/visitors",
+      "detailsSourceType": "official",
+      "detailsUpdated": "2026-09-14"
     },
     {
       "id": "jewish-quarter",
@@ -484,7 +579,13 @@
       "favorite": false,
       "visited": false,
       "status": "verified",
-      "notes": "Local-Tipp: absolutes Muss. Nachmittags entspannter und besser, um das Gebäude anzusehen; abends Party-Atmosphäre und sehr belebt."
+      "notes": "Local-Tipp: absolutes Muss. Nachmittags entspannter und besser, um das Gebäude anzusehen; abends Party-Atmosphäre und sehr belebt.",
+      "website": "https://szimpla.hu/",
+      "phone": "+36 1 352 4198",
+      "openingHours": "Offizielle Website veröffentlicht keine verlässlichen festen Zeiten – am Besuchstag Google/Facebook prüfen",
+      "detailsSource": "https://szimpla.hu/",
+      "detailsSourceType": "official",
+      "detailsUpdated": "2026-09-14"
     },
     {
       "id": "heroes-square",
@@ -556,7 +657,13 @@
       "favorite": false,
       "visited": false,
       "status": "verified",
-      "notes": ""
+      "notes": "",
+      "website": "https://www.szechenyibath.hu/",
+      "phone": "+36 20 435 0051",
+      "openingHours": "Mo–Do 07:00–20:00 · Fr 07:00–22:00 · Sa–So 08:00–20:00",
+      "detailsSource": "https://www.szechenyibath.hu/opening-hours",
+      "detailsSourceType": "official",
+      "detailsUpdated": "2026-09-14"
     },
     {
       "id": "konyvbar",
@@ -591,7 +698,13 @@
       "favorite": false,
       "visited": false,
       "status": "needs_verification",
-      "notes": "Adresse vor Veröffentlichung noch einmal prüfen."
+      "notes": "Adresse vor Veröffentlichung noch einmal prüfen.",
+      "website": "https://stand25.hu/?lang=en",
+      "phone": "+36 30 961 3262",
+      "openingHours": "Mo–Sa Lunch 12:00–16:00 · Dinner 17:30–00:00 · So geschlossen",
+      "detailsSource": "https://stand25.hu/?lang=en",
+      "detailsSourceType": "official",
+      "detailsUpdated": "2026-09-14"
     },
     {
       "id": "vigado-ter",
@@ -627,7 +740,13 @@
       "favorite": false,
       "visited": false,
       "status": "needs_verification",
-      "notes": "Adresse vor Veröffentlichung noch einmal prüfen."
+      "notes": "Adresse vor Veröffentlichung noch einmal prüfen.",
+      "website": "https://gelartorosa.com/en/",
+      "phone": "+36 70 383 1071",
+      "openingHours": "Täglich 11:00–22:00",
+      "detailsSource": "https://gelartorosa.com/en/",
+      "detailsSourceType": "official",
+      "detailsUpdated": "2026-09-14"
     },
     {
       "id": "mazel-tov",
@@ -645,7 +764,13 @@
       "favorite": false,
       "visited": false,
       "status": "verified",
-      "notes": ""
+      "notes": "",
+      "website": "https://mazeltov.hu/en/",
+      "phone": "+36 70 626 4280",
+      "openingHours": "Mo–Do 12:00–23:00 · Fr–So 12:00–00:00",
+      "detailsSource": "https://mazeltov.hu/en/",
+      "detailsSourceType": "official",
+      "detailsUpdated": "2026-09-14"
     },
     {
       "id": "new-york-cafe",
@@ -663,7 +788,12 @@
       "favorite": false,
       "visited": false,
       "status": "verified",
-      "notes": "Stark touristisch, aber architektonisch besonders."
+      "notes": "Stark touristisch, aber architektonisch besonders.",
+      "website": "https://newyorkcafe.hu/en/",
+      "openingHours": "Mo–Mi 07:00–00:00 · Do–So 07:00–01:00",
+      "detailsSource": "https://newyorkcafe.hu/en/contact/",
+      "detailsSourceType": "official",
+      "detailsUpdated": "2026-09-14"
     },
     {
       "id": "davids-kitchen",
@@ -681,7 +811,13 @@
       "favorite": false,
       "visited": false,
       "status": "verified",
-      "notes": "Frühstück, Backwaren und Kaffee."
+      "notes": "Frühstück, Backwaren und Kaffee.",
+      "website": "https://shop.davidskitchen.hu/",
+      "phone": "+36 30 221 8869",
+      "openingHours": "So–Mi 08:00–16:30 · Do–Sa 08:00–15:00 und 18:00–22:00",
+      "detailsSource": "https://shop.davidskitchen.hu/policies/privacy-policy",
+      "detailsSourceType": "official",
+      "detailsUpdated": "2026-09-14"
     },
     {
       "id": "gozsdu-courtyard",
@@ -700,7 +836,11 @@
       "favorite": false,
       "visited": false,
       "status": "probable_match",
-      "notes": "Wahrscheinliche Zuordnung des reinen Adresseintrags Király u. 13; bitte bei Gelegenheit gegen den ursprünglichen Fund prüfen."
+      "notes": "Wahrscheinliche Zuordnung des reinen Adresseintrags Király u. 13; bitte bei Gelegenheit gegen den ursprünglichen Fund prüfen.",
+      "website": "https://www.gozsduudvar.hu/en/contact",
+      "detailsSource": "https://www.gozsduudvar.hu/en/contact",
+      "detailsSourceType": "official",
+      "detailsUpdated": "2026-09-14"
     },
     {
       "id": "sir-lancelot",
@@ -718,7 +858,13 @@
       "favorite": false,
       "visited": false,
       "status": "verified",
-      "notes": "Die zuvor namenlose Adresse Podmaniczky u. 14 wurde als Sir Lancelot identifiziert."
+      "notes": "Die zuvor namenlose Adresse Podmaniczky u. 14 wurde als Sir Lancelot identifiziert.",
+      "website": "https://sirlancelot.hu/en/contact/",
+      "phone": "+36 1 302 4456",
+      "openingHours": "Täglich 12:00–00:00",
+      "detailsSource": "https://sirlancelot.hu/en/contact/",
+      "detailsSourceType": "official",
+      "detailsUpdated": "2026-09-14"
     },
     {
       "id": "gellert-hill",
@@ -801,14 +947,20 @@
         "restaurant",
         "terrace"
       ],
-      "address": "Budapest",
+      "address": "Nagymező utca 3, 1065 Budapest",
       "lat": null,
       "lng": null,
       "localTip": false,
       "favorite": false,
       "visited": false,
       "status": "needs_geocoding",
-      "notes": ""
+      "notes": "",
+      "website": "https://tereza.hu/en/home/",
+      "phone": "+36 70 368 9374",
+      "openingHours": "Mo–Do 12:00–22:00 · Fr–Sa 12:00–00:00 · So 12:00–22:00",
+      "detailsSource": "https://tereza.hu/en/home/",
+      "detailsSourceType": "official",
+      "detailsUpdated": "2026-09-14"
     },
     {
       "id": "hello-buda",
@@ -819,14 +971,20 @@
         "outdoor",
         "buda"
       ],
-      "address": "Budapest",
+      "address": "Törökvész út 93/A, 1025 Budapest",
       "lat": null,
       "lng": null,
       "localTip": false,
       "favorite": false,
       "visited": false,
       "status": "needs_geocoding",
-      "notes": ""
+      "notes": "",
+      "website": "https://hellobuda.hu/",
+      "phone": "+36 20 417 8320",
+      "openingHours": "Täglich 07:00–23:00",
+      "detailsSource": "https://hellobuda.hu/",
+      "detailsSourceType": "official",
+      "detailsUpdated": "2026-09-14"
     },
     {
       "id": "zappi-napoletana",
@@ -837,14 +995,19 @@
         "neapolitan",
         "italian"
       ],
-      "address": "Budapest",
+      "address": "Széll Kálmán tér 9, 1024 Budapest",
       "lat": null,
       "lng": null,
       "localTip": false,
       "favorite": false,
       "visited": false,
       "status": "needs_geocoding",
-      "notes": ""
+      "notes": "",
+      "website": "https://zappinapoletana.hu/en",
+      "phone": "+36 20 427 6920",
+      "detailsSource": "https://zappinapoletana.hu/en",
+      "detailsSourceType": "official",
+      "detailsUpdated": "2026-09-14"
     },
     {
       "id": "koleves-kert",
@@ -863,7 +1026,13 @@
       "favorite": false,
       "visited": false,
       "status": "needs_verification",
-      "notes": "Nahe Szimpla/Karaván/Mitico."
+      "notes": "Nahe Szimpla/Karaván/Mitico.",
+      "website": "https://kolevesvendeglo.hu/garden/",
+      "phone": "+36 20 213 5999",
+      "openingHours": "Mo–Mi 15:00–01:00 · Do 15:00–02:00 · Fr–Sa 13:00–02:00 · So 13:00–01:00 · saisonal (ca. Ende Apr.–Anfang Okt.)",
+      "detailsSource": "https://kolevesvendeglo.hu/garden/",
+      "detailsSourceType": "official",
+      "detailsUpdated": "2026-09-14"
     },
     {
       "id": "brody-house",
@@ -882,7 +1051,13 @@
       "favorite": false,
       "visited": false,
       "status": "needs_verification",
-      "notes": "Kunst-/Design-Ort mit Hospitality-Konzept; aktuellen Besuchszugang prüfen."
+      "notes": "Kunst-/Design-Ort mit Hospitality-Konzept; aktuellen Besuchszugang prüfen.",
+      "website": "https://www.brody.house/",
+      "phone": "+36 70 418 7894",
+      "openingHours": "Bistro: Frühstück/Brunch täglich 08:00–15:30 · Lunch Mo–Fr 11:30–15:30 · Supper Do–Sa 18:00–22:00",
+      "detailsSource": "https://www.brody.house/dining",
+      "detailsSourceType": "official",
+      "detailsUpdated": "2026-09-14"
     },
     {
       "id": "este11",
@@ -901,7 +1076,13 @@
       "favorite": false,
       "visited": false,
       "status": "verified",
-      "notes": "Garten am Feneketlen-tó; Pizza, Cocktails und abends DJ."
+      "notes": "Garten am Feneketlen-tó; Pizza, Cocktails und abends DJ.",
+      "website": "https://este11.hu/en/",
+      "phone": "+36 30 119 7041",
+      "openingHours": "Mo–Fr 16:00–01:00 · Sa 14:00–01:00 · So 14:00–22:00",
+      "detailsSource": "https://este11.hu/en/",
+      "detailsSourceType": "official",
+      "detailsUpdated": "2026-09-14"
     },
     {
       "id": "furmint-budapest",
@@ -935,7 +1116,13 @@
       "favorite": false,
       "visited": false,
       "status": "verified",
-      "notes": "Restaurant/Café auf der Buda-Seite."
+      "notes": "Restaurant/Café auf der Buda-Seite.",
+      "website": "https://www.odavagyunk.hu/en",
+      "phone": "+36 70 294 2769",
+      "openingHours": "Mo–Do 08:00–22:00 · Fr–Sa 08:00–00:00 · So 08:00–22:00",
+      "detailsSource": "https://www.odavagyunk.hu/en",
+      "detailsSourceType": "official",
+      "detailsUpdated": "2026-09-14"
     },
     {
       "id": "bors",
@@ -955,7 +1142,13 @@
       "favorite": false,
       "visited": false,
       "status": "verified",
-      "notes": "Local-Tipp: sehr gute Sandwiches und Suppen; eher To-go als gemütlich sitzen."
+      "notes": "Local-Tipp: sehr gute Sandwiches und Suppen; eher To-go als gemütlich sitzen.",
+      "website": "https://www.facebook.com/BorsGasztroBar",
+      "phone": "+36 30 698 9075",
+      "openingHours": "So–Do 11:30–21:00 · Fr–Sa 11:30–22:00",
+      "detailsSource": "https://wanderlog.com/place/details/89728",
+      "detailsSourceType": "secondary",
+      "detailsUpdated": "2026-09-14"
     },
     {
       "id": "karavan",
@@ -973,7 +1166,12 @@
       "favorite": false,
       "visited": false,
       "status": "verified",
-      "notes": "Local-Tipp: kleiner Street-Food-Markt im Jüdischen Viertel."
+      "notes": "Local-Tipp: kleiner Street-Food-Markt im Jüdischen Viertel.",
+      "website": "https://karavanbudapest.hu/",
+      "openingHours": "Täglich 11:30–23:59",
+      "detailsSource": "https://karavanbudapest.hu/",
+      "detailsSourceType": "official",
+      "detailsUpdated": "2026-09-14"
     },
     {
       "id": "rudas",
@@ -992,7 +1190,13 @@
       "favorite": false,
       "visited": false,
       "status": "verified",
-      "notes": "Local-Tipp: kleiner als Széchenyi, Panorama-/Sky-Bereich mit Blick über die Stadt. Freitags und samstags gibt es laut offizieller Seite Nachtbaden."
+      "notes": "Local-Tipp: kleiner als Széchenyi, Panorama-/Sky-Bereich mit Blick über die Stadt. Freitags und samstags gibt es laut offizieller Seite Nachtbaden.",
+      "website": "https://www.rudasfurdo.hu/en",
+      "phone": "+36 20 321 4568",
+      "openingHours": "Wellness: Mo 06:00–22:00 · Di–So 06:00–20:00 · Nachtbaden Fr/Sa 22:00–03:00",
+      "detailsSource": "https://www.rudasfurdo.hu/en/opening-hours",
+      "detailsSourceType": "official",
+      "detailsUpdated": "2026-09-14"
     },
     {
       "id": "mitico",
@@ -1011,7 +1215,13 @@
       "favorite": false,
       "visited": false,
       "status": "verified",
-      "notes": "Local-Tipp: sehr gute Cocktails, Live-Musik und DJs; entspannter und weniger touristisch."
+      "notes": "Local-Tipp: sehr gute Cocktails, Live-Musik und DJs; entspannter und weniger touristisch.",
+      "website": "https://www.mitico.hu/",
+      "phone": "+36 30 607 4690",
+      "openingHours": "So–Do 13:00–00:00 · Fr–Sa 13:00–02:00",
+      "detailsSource": "https://www.mitico.hu/",
+      "detailsSourceType": "official",
+      "detailsUpdated": "2026-09-14"
     },
     {
       "id": "mol-campus",
@@ -1029,7 +1239,12 @@
       "favorite": false,
       "visited": false,
       "status": "needs_verification",
-      "notes": "Local-Tipp: Aussicht vom MOL Campus; Brunch-Möglichkeit in der Umgebung."
+      "notes": "Local-Tipp: Aussicht vom MOL Campus; Brunch-Möglichkeit in der Umgebung.",
+      "website": "https://molcampus.hu/en",
+      "openingHours": "SkyDeck täglich 10:00–19:00 · letzter Einlass 18:00 · jeden 3. Montag im Monat geschlossen",
+      "detailsSource": "https://molcampus.hu/en/contact",
+      "detailsSourceType": "official",
+      "detailsUpdated": "2026-09-14"
     },
     {
       "id": "360-bar",
@@ -1047,7 +1262,13 @@
       "favorite": false,
       "visited": false,
       "status": "verified",
-      "notes": "Local-Tipp: Rooftop-Bar mit guter Aussicht über Budapest."
+      "notes": "Local-Tipp: Rooftop-Bar mit guter Aussicht über Budapest.",
+      "website": "https://www.360bar.hu/",
+      "phone": "+36 30 360 3600",
+      "openingHours": "Mo–Mi 14:00–00:00 · Do–Sa 14:00–02:00 · So 14:00–00:00",
+      "detailsSource": "https://www.360bar.hu/",
+      "detailsSourceType": "official",
+      "detailsUpdated": "2026-09-14"
     }
   ],
   "tryInBudapest": [

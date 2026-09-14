@@ -2,7 +2,7 @@
 
 Persönliche interaktive Reiseplanung für Budapest vom **03.–07.10.2026**.
 
-## Aktueller Stand: v0.9.13
+## Aktueller Stand: v0.9.13.1
 
 Neu in v0.8: echte Fußroute eines geplanten Tages über die Google Routes API inklusive Gesamtdistanz und geschätzter Gehzeit.
 
@@ -272,3 +272,22 @@ Die Felder sind optional. Bestehende Orte funktionieren daher unverändert weite
 
 Im Marker-Infofenster werden vorhandene Angaben angezeigt. Telefonnummern sind
 über `tel:` direkt anwählbar und Websites öffnen sich in einem neuen Tab.
+
+
+## v0.9.13.1 – Recherchierte Ortsdetails
+
+Die vorhandenen Orte wurden systematisch auf öffentlich verfügbare Kontaktdaten
+und Öffnungszeiten geprüft.
+
+- **38 von 57 Orten** wurden mit mindestens einer Zusatzinformation angereichert.
+- bevorzugt wurden offizielle Betreiber-/Einrichtungsseiten verwendet
+- bei wenigen Orten ohne brauchbare Primärquelle wurden Sekundärquellen verwendet und mit
+  `detailsSourceType: "secondary"` gekennzeichnet
+- je Ort wird die Recherchequelle in `detailsSource` gespeichert
+- Stand der Recherche: **14.09.2026**
+
+Nicht sinnvoll ergänzbare Orte wie Plätze, Brücken, Stadtviertel oder noch nicht eindeutig
+identifizierte Einträge bleiben ohne Telefonnummer/Öffnungszeiten.
+
+Hinweis: Öffnungszeiten können sich kurzfristig ändern. Für Reservierungen und
+zeitkritische Besuche sollte die verlinkte Website kurz vor dem Besuch erneut geprüft werden.
