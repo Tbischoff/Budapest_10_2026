@@ -409,6 +409,32 @@ function canGeocode(place) {
     place.status !== "needs_identification";
 }
 
+
+function renderPlaceExtraDetails(place) {
+  const details = [];
+
+  if (place.openingHours) {
+    details.push(`<div class="info-detail">🕒 ${escapeHtml(place.openingHours)}</div>`);
+  }
+
+  if (place.phone) {
+    const safePhone = String(place.phone).replace(/[^\d+]/g, "");
+    details.push(
+      `<div class="info-detail">📞 <a href="tel:${safePhone}">${escapeHtml(place.phone)}</a></div>`
+    );
+  }
+
+  if (place.website) {
+    details.push(
+      `<div class="info-detail">🌐 <a href="${escapeHtml(place.website)}" target="_blank" rel="noopener noreferrer">Website öffnen</a></div>`
+    );
+  }
+
+  return details.length
+    ? `<div class="info-extra-details">${details.join("")}</div>`
+    : "";
+}
+
 function openPlace(place) {
   const marker = markers.get(place.id);
   if (!marker) return;
@@ -434,6 +460,7 @@ function openPlace(place) {
         : ""}
       ${place.notes ? `<div class="info-note">${escapeHtml(place.notes)}</div>` : ""}
       ${plannedTimeEditorHtml(place, saved)}
+      ${renderPlaceExtraDetails(place)}
       <div class="info-actions">
         <a class="primary" href="${mapsUrl}" target="_blank" rel="noopener">Google Maps öffnen</a>
         <select class="day-select" onchange="setPlannedDay('${place.id}', this.value)">

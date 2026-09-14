@@ -2,7 +2,7 @@
 
 Persönliche interaktive Reiseplanung für Budapest vom **03.–07.10.2026**.
 
-## Aktueller Stand: v0.9.12
+## Aktueller Stand: v0.9.13
 
 Neu in v0.8: echte Fußroute eines geplanten Tages über die Google Routes API inklusive Gesamtdistanz und geschätzter Gehzeit.
 
@@ -254,3 +254,21 @@ Korrektur der Ortsansicht:
 - Standort, Kategorien und weitere Filter folgen erst danach
 
 Damit liegen Suchfeld, Vorschläge und tatsächliche Suchergebnisse vollständig zusammen.
+
+
+## v0.9.13 – Website, Telefon & Öffnungszeiten
+
+Orte unterstützen jetzt drei zusätzliche optionale Felder:
+
+```js
+{
+  website: "https://example.com",
+  phone: "+36 1 234 5678",
+  openingHours: "Mo–So 10:00–22:00"
+}
+```
+
+Die Felder sind optional. Bestehende Orte funktionieren daher unverändert weiter.
+
+Im Marker-Infofenster werden vorhandene Angaben angezeigt. Telefonnummern sind
+über `tel:` direkt anwählbar und Websites öffnen sich in einem neuen Tab.

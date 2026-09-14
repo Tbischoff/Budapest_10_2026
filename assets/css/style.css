@@ -1474,3 +1474,24 @@ h2 {
     font-size: 11px;
   }
 }
+
+
+/* v0.9.13 – optionale Ortsdetails */
+.info-extra-details {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+  display: grid;
+  gap: 5px;
+  font-size: 12px;
+}
+
+.info-detail a {
+  color: var(--accent);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.info-detail a:hover {
+  text-decoration: underline;
+}
