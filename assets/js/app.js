@@ -43,6 +43,7 @@ let routeLoading = false;
 let activeRouteSummary = null;
 let routeStartMode = "planned";
 let currentMobileView = "map";
+let searchDebounceTimer = null;
 
 let map;
 let geocoder;
@@ -1731,14 +1732,14 @@ function renderPlaceList(filteredPlaces) {
   document.getElementById("visibleCount").textContent = filteredPlaces.length;
 }
 
-function applyFilters() {
+
+function getFilteredPlaces() {
   const query = document.getElementById("searchInput").value.trim().toLowerCase();
   const localOnly = document.getElementById("localOnly").checked;
   const unvisitedOnly = document.getElementById("unvisitedOnly").checked;
 
-  const filtered = placesData.places.filter(place => {
+  return placesData.places.filter(place => {
     const saved = state.places[place.id] || {};
-
     if (!activeCategories.has(place.category)) return false;
     if (localOnly && !place.localTip) return false;
     if (unvisitedOnly && saved.visited) return false;
@@ -1748,18 +1749,44 @@ function applyFilters() {
     if (selectedDayFilter !== "all" && selectedDayFilter !== "unplanned" && plannedDay !== selectedDayFilter) return false;
 
     if (query) {
-      const haystack = [
-        place.name,
-        place.address,
-        place.notes,
-        ...(place.tags || [])
-      ].join(" ").toLowerCase();
-
+      const haystack = [place.name, place.address, place.notes, ...(place.tags || [])]
+        .join(" ").toLowerCase();
       if (!haystack.includes(query)) return false;
     }
 
     return true;
   });
+}
+
+function focusSingleSearchResult() {
+  const query = document.getElementById("searchInput").value.trim();
+  if (!query) return;
+
+  const filtered = getFilteredPlaces();
+  if (filtered.length !== 1) return;
+
+  const place = filtered[0];
+  const marker = markers.get(place.id);
+  if (!marker) return;
+
+  const position = getMarkerPosition(marker);
+  if (!position) return;
+
+  if (isMobileLayout()) setMobileView("map");
+
+  map.panTo(position);
+  map.setZoom(Math.max(map.getZoom(), 16));
+  window.setTimeout(() => openPlace(place), 180);
+  setStatus(`Eindeutiger Treffer: „${place.name}“`);
+}
+
+function scheduleSmartSearch() {
+  window.clearTimeout(searchDebounceTimer);
+  searchDebounceTimer = window.setTimeout(focusSingleSearchResult, 500);
+}
+
+function applyFilters() {
+  const filtered = getFilteredPlaces();
 
   const visibleIds = new Set(filtered.map(p => p.id));
   for (const [id, marker] of markers) {
@@ -1788,7 +1815,18 @@ function fitVisibleMarkers() {
 }
 
 function wireControls() {
-  document.getElementById("searchInput").addEventListener("input", applyFilters);
+  document.getElementById("searchInput").addEventListener("input", () => {
+    applyFilters();
+    scheduleSmartSearch();
+  });
+
+  document.getElementById("searchInput").addEventListener("keydown", event => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      window.clearTimeout(searchDebounceTimer);
+      focusSingleSearchResult();
+    }
+  });
   document.getElementById("localOnly").addEventListener("change", applyFilters);
   document.getElementById("unvisitedOnly").addEventListener("change", applyFilters);
   document.getElementById("fitBtn").addEventListener("click", fitVisibleMarkers);
