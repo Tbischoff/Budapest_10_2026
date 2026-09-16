@@ -406,3 +406,10 @@ ob der aktuelle Build geladen wurde.
 ### Build 2
 - Versionsanzeige aus der Karten-Ecke entfernt und dezent unter den App-Titel verschoben.
 - E-Mail-Adresse aus dem Header entfernt; Abmelden bleibt direkt erreichbar.
+
+
+## V1.0.0 – Phase 3 / Build 1
+Supabase Realtime ist für `trip_places` integriert. Änderungen der gemeinsamen
+Reiseplanung werden auf einem zweiten geöffneten Gerät automatisch übernommen,
+ohne manuellen Reload. Vor dem Test muss `docs/V1.0.0_PHASE3_REALTIME.sql`
+einmal ausgeführt werden.

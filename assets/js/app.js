@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.0.0 · Phase 2 · Build 2";
+const APP_VERSION = "v1.0.0 · Phase 3 · Build 1";
 
 const SUPABASE_CONFIG = {
   url: "https://fjlezfzninkltblcctds.supabase.co",
@@ -14,6 +14,8 @@ let supabaseSyncTimer = null;
 let supabaseSyncInProgress = false;
 let supabaseSyncQueued = false;
 let suppressSupabaseSync = true;
+let realtimeChannel = null;
+let realtimeRefreshTimer = null;
 
 const CONFIG = {
   // Google Maps JavaScript API key eintragen.
@@ -127,6 +129,10 @@ async function handleLogin(event) {
 }
 
 async function handleLogout() {
+  if (realtimeChannel) {
+    await supabaseClient.removeChannel(realtimeChannel);
+    realtimeChannel = null;
+  }
   await supabaseClient.auth.signOut();
   window.location.reload();
 }
@@ -135,6 +141,81 @@ async function enterAuthenticatedApp(user) {
   currentUser = user;
   document.getElementById("authGate").classList.add("is-hidden");
   await bootstrap();
+  subscribeToTripRealtime();
+}
+
+
+function subscribeToTripRealtime() {
+  if (!supabaseClient || !currentTripId) return;
+  if (realtimeChannel) supabaseClient.removeChannel(realtimeChannel);
+
+  realtimeChannel = supabaseClient
+    .channel(`trip-planning-${currentTripId}`)
+    .on(
+      "postgres_changes",
+      {
+        event: "*",
+        schema: "public",
+        table: "trip_places",
+        filter: `trip_id=eq.${currentTripId}`
+      },
+      () => {
+        window.clearTimeout(realtimeRefreshTimer);
+        realtimeRefreshTimer = window.setTimeout(refreshPlanningFromSupabase, 180);
+      }
+    )
+    .subscribe(status => {
+      if (status === "SUBSCRIBED") setStatus("🟢 Live-Synchronisation aktiv.");
+    });
+}
+
+async function refreshPlanningFromSupabase() {
+  if (!supabaseClient || !currentTripId) return;
+  try {
+    const { data: rows, error } = await supabaseClient
+      .from("trip_places")
+      .select("place_id,trip_day_id,planned_order,planned_time,planned_end_time,visited")
+      .eq("trip_id", currentTripId);
+    if (error) throw error;
+
+    const dayById = new Map(currentTripDays.map(day => [day.id, day.day_date]));
+    const relationByPlaceId = new Map(rows.map(row => [row.place_id, row]));
+
+    suppressSupabaseSync = true;
+    for (const place of placesData.places) {
+      if (!place.supabaseId) continue;
+      const relation = relationByPlaceId.get(place.supabaseId);
+      const saved = ensurePlaceState(place.id);
+
+      if (!relation) {
+        delete saved.plannedDay;
+        delete saved.plannedOrder;
+        delete saved.startTime;
+        delete saved.endTime;
+        saved.visited = false;
+        continue;
+      }
+
+      saved.visited = Boolean(relation.visited);
+      if (relation.trip_day_id) saved.plannedDay = dayById.get(relation.trip_day_id) || null;
+      else delete saved.plannedDay;
+      if (relation.planned_order != null) saved.plannedOrder = relation.planned_order;
+      else delete saved.plannedOrder;
+      if (relation.planned_time) saved.startTime = relation.planned_time.slice(0, 5);
+      else delete saved.startTime;
+      if (relation.planned_end_time) saved.endTime = relation.planned_end_time.slice(0, 5);
+      else delete saved.endTime;
+    }
+
+    localStorage.setItem("budapestMapState", JSON.stringify(state));
+    renderAll();
+    setStatus("⚡ Planung live aktualisiert.");
+  } catch (error) {
+    console.error("Realtime-Aktualisierung:", error);
+    setStatus(`⚠️ Live-Aktualisierung fehlgeschlagen: ${error.message}`);
+  } finally {
+    suppressSupabaseSync = false;
+  }
 }
 
 async function loadSupabaseTripData() {
