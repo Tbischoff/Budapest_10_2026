@@ -1547,3 +1547,9 @@ h2 {
 #nextPlaceButton {
   margin-left: 0;
 }
+
+/* v0.9.17 – Backup & Import */
+.backup-section { margin-top:18px; padding-top:16px; border-top:1px solid var(--border); }
+.backup-section h3 { margin:0 0 4px; }
+.backup-actions { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:10px; }
+@media (max-width:820px) { .backup-actions { grid-template-columns:1fr; } }

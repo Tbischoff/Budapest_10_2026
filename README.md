@@ -2,7 +2,7 @@
 
 Persönliche interaktive Reiseplanung für Budapest vom **03.–07.10.2026**.
 
-## Aktueller Stand: v0.9.16
+## Aktueller Stand: v0.9.17
 
 Neu in v0.8: echte Fußroute eines geplanten Tages über die Google Routes API inklusive Gesamtdistanz und geschätzter Gehzeit.
 
@@ -359,3 +359,7 @@ aktueller Standort → nächster unbesuchter Ort → alle weiteren unbesuchten O
 in der Reihenfolge der Tagesagenda. Besuchte Orte werden vollständig übersprungen.
 
 `🚶 Fußroute anzeigen` bleibt weiterhin die komplette geplante Tagesroute.
+
+
+## v0.9.17 – Backup & Import
+Der komplette lokale App-Stand kann als versionierte JSON-Datei exportiert und wieder importiert werden. Vor einem Import erfolgt eine Prüfung und Sicherheitsabfrage. Dieses Backup dient zugleich als Grundlage für die spätere Migration nach v0.10.

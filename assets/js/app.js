@@ -2204,7 +2204,68 @@ function fitVisibleMarkers() {
   map.fitBounds(bounds, 60);
 }
 
+
+function buildBackupPayload() {
+  return {
+    app: "Budapest Map",
+    backupVersion: 1,
+    appVersion: "0.9.17",
+    exportedAt: new Date().toISOString(),
+    data: state
+  };
+}
+
+function exportBackup() {
+  try {
+    const blob = new Blob([JSON.stringify(buildBackupPayload(), null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `budapest-map-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+    setStatus("💾 Backup wurde exportiert.");
+  } catch (error) {
+    console.error("Backup-Export:", error);
+    setStatus("Backup konnte nicht exportiert werden.");
+  }
+}
+
+function validateBackupPayload(payload) {
+  if (!payload || payload.app !== "Budapest Map" || payload.backupVersion !== 1) {
+    throw new Error("Die Datei ist kein unterstütztes Budapest-Map-Backup.");
+  }
+  if (!payload.data || typeof payload.data !== "object" || !payload.data.places) {
+    throw new Error("Im Backup fehlen Planungsdaten.");
+  }
+  return payload.data;
+}
+
+async function importBackupFile(file) {
+  if (!file) return;
+  try {
+    const payload = JSON.parse(await file.text());
+    const importedState = validateBackupPayload(payload);
+    if (!window.confirm("Backup importieren?\\n\\nDer lokale Stand auf diesem Gerät wird durch das Backup ersetzt.")) return;
+    state = importedState;
+    saveState();
+    setStatus("📥 Backup importiert. App wird neu geladen …");
+    window.setTimeout(() => window.location.reload(), 400);
+  } catch (error) {
+    console.error("Backup-Import:", error);
+    window.alert(`Backup konnte nicht importiert werden:\\n${error.message}`);
+  }
+}
+
 function wireControls() {
+  document.getElementById("exportBackupButton")?.addEventListener("click", exportBackup);
+  document.getElementById("importBackupButton")?.addEventListener("click", () => document.getElementById("backupFileInput")?.click());
+  document.getElementById("backupFileInput")?.addEventListener("change", async event => {
+    await importBackupFile(event.target.files?.[0]);
+    event.target.value = "";
+  });
   document.getElementById("todayButton")?.addEventListener("click", selectToday);
   document.getElementById("nextPlaceButton")?.addEventListener("click", showNextPlace);
   document.getElementById("searchInput").addEventListener("input", () => {

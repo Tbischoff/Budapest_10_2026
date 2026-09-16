@@ -119,7 +119,17 @@
       </section>
 
       <div class="sidebar-footer" data-mobile-view="places">
-        <button id="resetStateBtn" class="secondary-button">Tagesplanung/Besucht zurücksetzen</button>
+              <div class="backup-section">
+        <h3>Datensicherung</h3>
+        <p class="form-hint">Sichert deine lokale Planung, eigene Orte und Statusdaten als JSON-Datei.</p>
+        <div class="backup-actions">
+          <button id="exportBackupButton" class="secondary-button" type="button">💾 Backup exportieren</button>
+          <button id="importBackupButton" class="secondary-button" type="button">📥 Backup importieren</button>
+          <input id="backupFileInput" type="file" accept="application/json,.json" hidden />
+        </div>
+      </div>
+
+<button id="resetStateBtn" class="secondary-button">Tagesplanung/Besucht zurücksetzen</button>
       </div>
     </aside>
 
