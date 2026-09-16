@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.0.0 · Phase 4 · Build 1";
+const APP_VERSION = "v1.0.0 · Phase 4 · Build 2";
 
 const SUPABASE_CONFIG = {
   url: "https://fjlezfzninkltblcctds.supabase.co",
@@ -2848,4 +2848,5 @@ window.showDayRoute = showDayRoute;
 window.clearDayRoute = clearDayRoute;
 window.openDayRouteInGoogleMaps = openDayRouteInGoogleMaps;
 window.setRouteStartMode = setRouteStartMode;
-window.deleteLocalPlace = deleteLocalPlace;
+window.openEditPlaceDialog = openEditPlaceDialog;
+window.removePlaceFromTrip = removePlaceFromTrip;

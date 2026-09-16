@@ -430,3 +430,9 @@ Entfernungs- und Routensteuerung.
 
 ## V1.0.0 · Phase 4 · Build 1
 Zentrales Ortsmanagement: Hinzufügen, Bearbeiten, aus Reise entfernen und Live-Sync.
+
+
+### V1.0.0 · Phase 4 · Build 2
+Bugfix: Der alte globale Export `window.deleteLocalPlace = deleteLocalPlace`
+wurde entfernt. `openEditPlaceDialog` und `removePlaceFromTrip` werden für
+die neuen Ortsaktionen explizit bereitgestellt.
