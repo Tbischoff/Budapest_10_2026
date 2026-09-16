@@ -2,7 +2,7 @@
 
 Persönliche interaktive Reiseplanung für Budapest vom **03.–07.10.2026**.
 
-## Aktueller Stand: v0.9.14
+## Aktueller Stand: v0.9.15
 
 Neu in v0.8: echte Fußroute eines geplanten Tages über die Google Routes API inklusive Gesamtdistanz und geschätzter Gehzeit.
 
@@ -307,3 +307,15 @@ zeitkritische Besuche sollte die verlinkte Website kurz vor dem Besuch erneut ge
 ### Voraussetzung
 Im vorhandenen Google-Cloud-Projekt muss zusätzlich **Places API (New)** aktiviert sein.
 Die Suche ist für den Budapest-Piloten zunächst auf Ungarn begrenzt.
+
+
+## v0.9.15 – Heute
+
+In der Tagesplanung gibt es jetzt `📅 Heute`.
+
+- während einer Reise wird anhand des lokalen Gerätedatums automatisch der passende Reisetag gewählt
+- Tagesfilter, Marker und Agenda wechseln auf diesen Tag
+- mobil schließt sich anschließend der Plan und die Karte wird sichtbar
+- außerhalb des Reisezeitraums wird nichts umgestellt; stattdessen erscheint ein Hinweis
+
+Die Funktion arbeitet bereits mit den in `TRIP_DAYS` hinterlegten Reisedaten und ist damit nicht auf einen bestimmten Wochentag fest codiert.

@@ -1517,3 +1517,25 @@ h2 {
 .manual-place-divider::before, .manual-place-divider::after {
   content: ""; flex: 1; height: 1px; background: var(--border);
 }
+
+
+/* =========================================================
+   v0.9.15 – Heute
+   ========================================================= */
+.mini-action-button {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text);
+  padding: 7px 11px;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 750;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.mini-action-button:hover,
+.mini-action-button:focus-visible {
+  border-color: var(--accent);
+  color: var(--accent);
+}

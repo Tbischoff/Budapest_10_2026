@@ -1689,6 +1689,40 @@ function getAgendaLegs(dayPlaces) {
   return { legs, totalDistance, totalMinutes };
 }
 
+
+function getTripDayForDate(date = new Date()) {
+  const localIso = [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, "0"),
+    String(date.getDate()).padStart(2, "0")
+  ].join("-");
+
+  return TRIP_DAYS.find(day => day.date === localIso) || null;
+}
+
+function selectToday() {
+  const today = getTripDayForDate();
+
+  if (!today) {
+    const first = TRIP_DAYS[0];
+    const last = TRIP_DAYS[TRIP_DAYS.length - 1];
+    setStatus(`Heute liegt außerhalb der Reise (${formatDate(first.date)}–${formatDate(last.date)}).`);
+    return;
+  }
+
+  selectedDayFilter = today.date;
+  applyFilters();
+  renderDayFilters();
+  renderDayAgenda();
+  refreshAllMarkerAppearances();
+
+  if (isMobileLayout()) {
+    setMobileView("map");
+  }
+
+  setStatus(`Heute: ${today.label} ausgewählt.`);
+}
+
 function renderDayAgenda() {
   const container = document.getElementById("dayAgenda");
   if (!container) return;
@@ -2023,6 +2057,7 @@ function fitVisibleMarkers() {
 }
 
 function wireControls() {
+  document.getElementById("todayButton")?.addEventListener("click", selectToday);
   document.getElementById("searchInput").addEventListener("input", () => {
     applyFilters();
     renderSearchSuggestions();
