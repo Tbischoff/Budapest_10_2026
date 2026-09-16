@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.0.0 · Phase 4 · Build 6";
+const APP_VERSION = "v1.0.0 · Phase 4 · Build 7";
 
 const SUPABASE_CONFIG = {
   url: "https://fjlezfzninkltblcctds.supabase.co",
@@ -644,13 +644,15 @@ async function createMarkers() {
   const needsGeocoding = [];
 
   for (const place of places) {
-    let position = getCachedPosition(place.id);
-
-    position = normalizeLatLng(position) || normalizeLatLng({ lat: place.lat, lng: place.lng });
+    // Supabase is authoritative. A stale browser cache must never override
+    // coordinates already stored in the database.
+    let position = normalizeLatLng({ lat: place.lat, lng: place.lng });
+    if (!position) position = normalizeLatLng(getCachedPosition(place.id));
 
     if (position) {
       place.lat = position.lat;
       place.lng = position.lng;
+      cachePosition(place.id, position);
       resolved.push({ place, position });
     } else if (canGeocode(place)) {
       needsGeocoding.push(place);

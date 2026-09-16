@@ -465,3 +465,10 @@ Mobile marker/navigation fix:
 - Cached and database coordinates are normalized before marker creation.
 - Invalid coordinates can no longer abort creation of the remaining markers.
 - This fixes the case where the first place opens on mobile but tapping subsequent places appears to do nothing.
+
+
+### V1.0.0 · Phase 4 · Build 7
+Coordinate cache fix:
+- Supabase coordinates are now authoritative.
+- Stale browser-cached coordinates can no longer override valid database coordinates.
+- The cache is refreshed from the database after loading each valid place.
