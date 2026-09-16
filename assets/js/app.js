@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.0.0 · Phase 4 · Build 9";
+const APP_VERSION = "v1.0.0 · Phase 4 · Build 10";
 
 const SUPABASE_CONFIG = {
   url: "https://fjlezfzninkltblcctds.supabase.co",
@@ -628,6 +628,8 @@ function normalizeLatLng(value) {
   const lng = Number(rawLng);
   if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
   if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return null;
+  // Legacy import used 0/0 as a placeholder for unknown coordinates.
+  if (lat === 0 && lng === 0) return null;
 
   return { lat, lng };
 }
@@ -697,7 +699,7 @@ async function createMarkers() {
   // Fehlende Koordinaten in kleinen parallelen Gruppen auflösen.
   // Dadurch ist der erste Aufruf deutlich schneller, ohne den Geocoder mit
   // dutzenden gleichzeitigen Anfragen zu überlasten.
-  const BATCH_SIZE = 4;
+  const BATCH_SIZE = 2;
 
   for (let i = 0; i < needsGeocoding.length; i += BATCH_SIZE) {
     const batch = needsGeocoding.slice(i, i + BATCH_SIZE);
@@ -719,6 +721,7 @@ async function createMarkers() {
               .update({
                 latitude: position.lat,
                 longitude: position.lng,
+                google_place_id: position.googlePlaceId || null,
                 updated_at: new Date().toISOString()
               })
               .eq("id", place.supabaseId);
@@ -746,7 +749,7 @@ async function createMarkers() {
     resolved.push(...results.filter(Boolean));
 
     if (i + BATCH_SIZE < needsGeocoding.length) {
-      await delay(120);
+      await delay(300);
     }
   }
 
@@ -776,23 +779,36 @@ async function createMarkers() {
   }
 }
 
+function isPlausibleBudapestPosition(position) {
+  const p = normalizeLatLng(position);
+  return !!p && p.lat >= 47.3 && p.lat <= 47.7 && p.lng >= 18.8 && p.lng <= 19.4;
+}
+
 function geocodePlaceWithRetry(place, attempt = 0) {
   return new Promise(resolve => {
+    const query = [place.name, place.address, "Hungary"].filter(Boolean).join(", ");
     geocoder.geocode(
-      { address: `${place.address}, Hungary`, region: "HU" },
+      { address: query, region: "HU", componentRestrictions: { country: "HU" } },
       async (results, status) => {
-        if (status === "OK" && results?.[0]) {
-          const loc = results[0].geometry.location;
-          resolve({ lat: loc.lat(), lng: loc.lng() });
+        if (status === "OK" && results?.length) {
+          const result = results.find(item => {
+            const loc = item.geometry?.location;
+            return loc && isPlausibleBudapestPosition({ lat: loc.lat(), lng: loc.lng() });
+          });
+          if (result) {
+            const loc = result.geometry.location;
+            resolve({ lat: loc.lat(), lng: loc.lng(), googlePlaceId: result.place_id || null });
+            return;
+          }
+          console.warn("Geocoding außerhalb Budapest verworfen:", place.name);
+          resolve(null);
           return;
         }
-
-        if (status === "OVER_QUERY_LIMIT" && attempt < 3) {
-          await delay(400 * (attempt + 1));
+        if (status === "OVER_QUERY_LIMIT" && attempt < 4) {
+          await delay(700 * (attempt + 1));
           resolve(await geocodePlaceWithRetry(place, attempt + 1));
           return;
         }
-
         console.warn("Geocoding fehlgeschlagen:", place.name, status);
         resolve(null);
       }
@@ -801,9 +817,10 @@ function geocodePlaceWithRetry(place, attempt = 0) {
 }
 
 function canGeocode(place) {
-  return place.address &&
-    !place.address.includes("Ort noch unklar") &&
-    place.status !== "needs_identification";
+  const address = String(place.address || "").trim();
+  if (!address || address.includes("Ort noch unklar") || place.status === "needs_identification") return false;
+  const normalized = address.toLowerCase().replace(/[.,]/g, "").trim();
+  return normalized !== "budapest";
 }
 
 

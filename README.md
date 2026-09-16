@@ -488,3 +488,10 @@ Legacy coordinate migration:
 - Bereits in Supabase gespeicherte Koordinaten haben weiterhin Vorrang und werden nicht vom Browser-Cache überschrieben.
 - Nur Orte ohne Datenbank- und Cache-Koordinaten werden weiterhin über Google geocodiert.
 - Kein SQL-Schema-Update erforderlich.
+
+### V1.0.0 · Phase 4 · Build 10
+- 0/0 legacy coordinates are treated as missing.
+- Missing places are geocoded from name + address.
+- Only plausible Budapest-area results are accepted.
+- latitude, longitude and google_place_id are persisted to Supabase.
+- Ambiguous city-only addresses are skipped.
