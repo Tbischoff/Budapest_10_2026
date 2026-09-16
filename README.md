@@ -334,3 +334,13 @@ Die Tagesplanung besitzt jetzt `🧭 Nächster Ort`.
 - wenn alle Orte des Tages besucht sind, erscheint ein entsprechender Hinweis
 
 Damit kann die App unterwegs schrittweise durch den Tagesplan führen.
+
+
+### Korrektur v0.9.16
+
+`🧭 Nächster Ort` berechnet jetzt eine eigene echte Fußroute **nur vom aktuellen
+Standort zum nächsten noch nicht besuchten Ort**. Eine eventuell sichtbare komplette
+Tagesroute wird dabei ersetzt. Bereits besuchte Orte werden übersprungen. Sind alle
+Orte des Tages besucht, wird keine Route berechnet und ein Abschluss-Hinweis angezeigt.
+
+`🚶 Fußroute anzeigen` bleibt davon getrennt und zeigt weiterhin die komplette Tagesroute.

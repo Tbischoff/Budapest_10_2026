@@ -1752,33 +1752,99 @@ async function showNextPlace() {
     return;
   }
 
-  const place = getNextUnvisitedPlace(day.date);
+  const place = getNextUnvisitedPlace(day.id);
 
   if (!place) {
-    setStatus(`Für ${day.label} gibt es keinen offenen Programmpunkt mehr.`);
+    clearRenderedRoute();
+    activeRouteDay = null;
+    activeRouteSummary = null;
+    updateRouteControls();
+    setStatus(`🎉 Alle Orte für ${day.label} wurden bereits besucht.`);
     return;
   }
 
-  selectedDayFilter = day.date;
+  if (!userPosition) {
+    setStatus("Für die Route zum nächsten Ort wird dein aktueller Standort benötigt. Bitte zuerst „Standort aktualisieren“ verwenden.");
+    return;
+  }
+
+  const marker = markers.get(place.id);
+  const destination = marker ? getMarkerPosition(marker) : null;
+
+  if (!destination) {
+    setStatus(`Der Marker für „${place.name}“ ist noch nicht verfügbar.`);
+    return;
+  }
+
+  selectedDayFilter = day.id;
   applyFilters();
   renderDayFilters();
   renderDayAgenda();
   refreshAllMarkerAppearances();
 
-  const marker = markers.get(place.id);
-  const position = marker ? getMarkerPosition(marker) : null;
+  routeLoading = true;
+  updateRouteControls();
+  setStatus(`Route zum nächsten Ort „${place.name}“ wird berechnet …`);
 
-  if (isMobileLayout()) {
-    setMobileView("map");
+  try {
+    const Route = await ensureRoutesLibrary();
+    const request = {
+      origin: { lat: userPosition.lat, lng: userPosition.lng },
+      destination,
+      travelMode: "WALKING",
+      fields: ["path", "distanceMeters", "durationMillis"]
+    };
+
+    const { routes } = await Route.computeRoutes(request);
+    if (!routes?.length) throw new Error("Keine Route gefunden.");
+
+    const route = routes[0];
+
+    // Eine eventuell sichtbare komplette Tagesroute ersetzen.
+    clearRenderedRoute();
+
+    dayRoutePolylines = route.createPolylines({
+      polylineOptions: {
+        strokeColor: "#2f625d",
+        strokeOpacity: 0.95,
+        strokeWeight: 6,
+        zIndex: 10
+      }
+    });
+    dayRoutePolylines.forEach(polyline => polyline.setMap(map));
+
+    // Absichtlich kein activeRouteDay setzen:
+    // Diese Linie ist keine komplette Tagesroute.
+    activeRouteDay = null;
+    activeRouteSummary = null;
+
+    if (route.path?.length) {
+      const bounds = new google.maps.LatLngBounds();
+      route.path.forEach(point => bounds.extend(point));
+      map.fitBounds(bounds, 70);
+    }
+
+    if (isMobileLayout()) {
+      setMobileView("map");
+    }
+
+    const distanceText = formatRouteDistance(route.distanceMeters);
+    const durationText = formatRouteDuration(route.durationMillis);
+
+    window.setTimeout(() => openPlace(place), 180);
+    setStatus(
+      `🧭 Nächster Ort: ${place.name} · ${distanceText || "Distanz unbekannt"} · ${durationText || "Dauer unbekannt"}`
+    );
+  } catch (error) {
+    console.error("Routes API – nächster Ort:", error);
+    clearRenderedRoute();
+    activeRouteDay = null;
+    activeRouteSummary = null;
+    setStatus(routeErrorMessage(error));
+  } finally {
+    routeLoading = false;
+    updateRouteControls();
   }
-
-  if (position) {
-    map.panTo(position);
-    map.setZoom(Math.max(map.getZoom(), 16));
-    window.setTimeout(() => openPlace(place), 160);
-  }
-
-  setStatus(`Nächster Ort: ${place.name}`);
 }
 
 function renderDayAgenda() {
