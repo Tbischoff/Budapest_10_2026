@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.0.0 · Phase 4 · Build 4";
+const APP_VERSION = "v1.0.0 · Phase 4 · Build 5";
 
 const SUPABASE_CONFIG = {
   url: "https://fjlezfzninkltblcctds.supabase.co",
@@ -612,6 +612,13 @@ function refreshAllMarkerAppearances() {
   }
 }
 
+function normalizeLatLng(value) {
+  const lat = typeof value?.lat === "function" ? value.lat() : Number(value?.lat);
+  const lng = typeof value?.lng === "function" ? value.lng() : Number(value?.lng);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  return { lat, lng };
+}
+
 function getMarkerPosition(marker) {
   const position = marker?.position;
   if (!position) return null;
@@ -926,7 +933,10 @@ async function handleAddPlace(event) {
       if (error) throw error;
       Object.assign(place, { name, address, lat: position.lat, lng: position.lng, category, notes, localTip });
       cachePosition(place.id, position);
-      if (marker && addressChanged) marker.position = position;
+      if (marker && addressChanged) {
+        const safePosition = normalizeLatLng(position);
+        if (safePosition) marker.position = safePosition;
+      }
       refreshMarkerAppearance(place);
       applyFilters();
       closeAddPlaceDialog();
@@ -1829,14 +1839,15 @@ function updateUserLocationMarker() {
 
     userLocationMarker = new AdvancedMarkerElement({
       map,
-      position: userPosition,
+      position: normalizeLatLng(userPosition),
       title: "Mein Standort",
       zIndex: 9999
     });
 
     userLocationMarker.append(locationPin);
   } else {
-    userLocationMarker.position = userPosition;
+    const safeUserPosition = normalizeLatLng(userPosition);
+    if (safeUserPosition) userLocationMarker.position = safeUserPosition;
     userLocationMarker.map = map;
   }
 }

@@ -450,3 +450,10 @@ Bugfix Ortsbearbeitung:
 - Beim Ändern von Notiz/Kategorie/Local-Tipp wird die Markerposition nicht mehr unnötig neu gesetzt.
 - Koordinaten werden vor dem Speichern robust als Zahlen validiert.
 - Bei Adressänderungen wird weiterhin neu geocodiert und erst dann die Markerposition aktualisiert.
+
+
+### V1.0.0 · Phase 4 · Build 5
+Realtime-Marker-Fix:
+- Supabase-/Realtime-Koordinaten werden vor Übergabe an Google Advanced Markers normalisiert.
+- Markerpositionen werden nur mit validen numerischen `lat`/`lng` aktualisiert.
+- Bearbeitungs- und Standortmarker verwenden dieselbe sichere Konvertierung.
