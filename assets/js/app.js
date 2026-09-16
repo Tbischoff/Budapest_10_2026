@@ -1,4 +1,6 @@
 
+const APP_VERSION = "v1.0.0 · Phase 2 · Build 1";
+
 const SUPABASE_CONFIG = {
   url: "https://fjlezfzninkltblcctds.supabase.co",
   publishableKey: "sb_publishable_h1U0zQu-XoJzVQsIqHtJNg_yGyurAr7"

@@ -394,3 +394,10 @@ Die bestehende Reiseplanung wird jetzt nach Supabase geschrieben:
 Schreibvorgänge werden kurz gebündelt und per Upsert nach `trip_places` übertragen.
 Bei einem Cloud-Fehler bleibt der lokale Stand erhalten und die Statuszeile meldet den Fehler.
 Vor dem Einsatz muss `docs/V1.0.0_PHASE2_DATABASE.sql` einmal in Supabase ausgeführt werden.
+
+
+### Build-Anzeige
+Die aktuelle Version wird dauerhaft unten rechts angezeigt:
+`v1.0.0 · Phase 2 · Build 1`.
+Damit lässt sich nach GitHub-Pages-Deployments und Reloads sofort erkennen,
+ob der aktuelle Build geladen wurde.

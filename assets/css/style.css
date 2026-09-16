@@ -1576,3 +1576,30 @@ h2 {
 .account-actions { display:flex; align-items:center; gap:8px; margin-left:auto; }
 .account-email { font-size: .78rem; max-width: 150px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 @media (max-width: 820px) { .account-email { display:none; } }
+
+/* Build-Anzeige – dauerhaft sichtbar für Deployment-/Cache-Kontrolle */
+.version-badge {
+  position: fixed;
+  right: 10px;
+  bottom: 8px;
+  z-index: 9000;
+  padding: 5px 9px;
+  border: 1px solid rgba(0,0,0,.12);
+  border-radius: 999px;
+  background: rgba(255,255,255,.92);
+  backdrop-filter: blur(6px);
+  font-size: 11px;
+  line-height: 1;
+  font-weight: 600;
+  color: #4b5553;
+  box-shadow: 0 2px 8px rgba(0,0,0,.08);
+  pointer-events: none;
+}
+@media (max-width: 820px) {
+  .version-badge {
+    right: 7px;
+    bottom: 6px;
+    font-size: 10px;
+    padding: 4px 7px;
+  }
+}
