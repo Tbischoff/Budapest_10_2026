@@ -1731,17 +1731,13 @@ function getActivePlanningDay() {
   return getTripDayForDate();
 }
 
-function getNextUnvisitedPlace(dayDate) {
-  return placesData.places
-    .filter(place => {
-      const saved = state.places[place.id] || {};
-      return saved.plannedDay === dayDate && !saved.visited;
-    })
-    .sort((a, b) => {
-      const aState = state.places[a.id] || {};
-      const bState = state.places[b.id] || {};
-      return (aState.order ?? 9999) - (bState.order ?? 9999);
-    })[0] || null;
+function getNextUnvisitedPlace(dayId) {
+  // Wichtig: dieselbe sortierte Tagesliste verwenden wie Tagesagenda und Marker.
+  // Die Reihenfolge wird in `plannedOrder` gespeichert.
+  return getPlacesForDay(dayId).find(place => {
+    const saved = state.places[place.id] || {};
+    return !saved.visited;
+  }) || null;
 }
 
 async function showNextPlace() {

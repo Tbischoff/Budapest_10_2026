@@ -344,3 +344,10 @@ Tagesroute wird dabei ersetzt. Bereits besuchte Orte werden übersprungen. Sind 
 Orte des Tages besucht, wird keine Route berechnet und ein Abschluss-Hinweis angezeigt.
 
 `🚶 Fußroute anzeigen` bleibt davon getrennt und zeigt weiterhin die komplette Tagesroute.
+
+### Korrektur 3 – Reihenfolge
+
+`Nächster Ort` verwendet jetzt exakt dieselbe Tagesreihenfolge wie die Tagesagenda.
+Die Reihenfolge wird intern im Feld `plannedOrder` gespeichert. Die vorherige Fassung
+hat fälschlich `order` gelesen und konnte deshalb nach einem Verschieben der Orte
+den falschen nächsten Programmpunkt auswählen.
