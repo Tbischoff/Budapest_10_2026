@@ -8,6 +8,17 @@
   <link rel="stylesheet" href="assets/css/style.css" />
 </head>
 <body>
+  <div id="authGate" class="auth-gate">
+    <form id="loginForm" class="auth-card">
+      <div class="eyebrow">Travel Planner · V1.0</div>
+      <h1>Budapest Map</h1>
+      <p>Bitte anmelden, um den gemeinsamen Reisestand zu laden.</p>
+      <label class="form-field"><span>E-Mail</span><input id="loginEmail" type="email" autocomplete="username" required></label>
+      <label class="form-field"><span>Passwort</span><input id="loginPassword" type="password" autocomplete="current-password" required></label>
+      <button id="loginButton" class="primary-button" type="submit">Anmelden</button>
+      <div id="loginMessage" class="form-message" aria-live="polite"></div>
+    </form>
+  </div>
   <div class="app-shell">
     <aside class="sidebar" aria-label="Budapest Planung">
       <div class="mobile-sheet-handle mobile-only" aria-hidden="true"></div>
@@ -15,6 +26,10 @@
         <div>
           <div class="eyebrow">Budapest · 03.–07.10.2026</div>
           <h1>Budapest Map</h1>
+        </div>
+        <div class="account-actions">
+          <span id="accountEmail" class="account-email"></span>
+          <button id="logoutButton" class="text-button" type="button">Abmelden</button>
         </div>
         <button id="mobileClose" class="icon-button mobile-only" aria-label="Menü schließen">✕</button>
       </div>
@@ -241,6 +256,7 @@
     </form>
   </dialog>
 
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="data/places.js"></script>
   <script src="assets/js/app.js"></script>
 </body>

@@ -1553,3 +1553,26 @@ h2 {
 .backup-section h3 { margin:0 0 4px; }
 .backup-actions { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:10px; }
 @media (max-width:820px) { .backup-actions { grid-template-columns:1fr; } }
+
+/* =========================================================
+   V1.0.0 Phase 1 – Supabase Auth
+   ========================================================= */
+.auth-gate {
+  position: fixed; inset: 0; z-index: 10000;
+  display: grid; place-items: center;
+  background: rgba(244, 246, 245, .98);
+  padding: 20px;
+}
+.auth-gate.is-hidden { display: none; }
+.auth-card {
+  width: min(420px, 100%);
+  background: white; border: 1px solid var(--border);
+  border-radius: 18px; padding: 24px;
+  box-shadow: 0 18px 55px rgba(0,0,0,.12);
+}
+.auth-card h1 { margin: 4px 0 8px; }
+.auth-card p { margin: 0 0 18px; }
+.auth-card .primary-button { width: 100%; margin-top: 8px; }
+.account-actions { display:flex; align-items:center; gap:8px; margin-left:auto; }
+.account-email { font-size: .78rem; max-width: 150px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+@media (max-width: 820px) { .account-email { display:none; } }

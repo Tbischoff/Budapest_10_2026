@@ -1,4 +1,12 @@
 
+const SUPABASE_CONFIG = {
+  url: "https://fjlezfzninkltblcctds.supabase.co",
+  publishableKey: "sb_publishable_h1U0zQu-XoJzVQsIqHtJNg_yGyurAr7"
+};
+const TRIP_NAME = "Budapest 2026";
+let supabaseClient = null;
+let currentUser = null;
+
 const CONFIG = {
   // Google Maps JavaScript API key eintragen.
   // Für GitHub Pages bitte unbedingt per HTTP-Referrer auf deine Domain beschränken.
@@ -53,17 +61,158 @@ let markers = new Map();
 let activeCategories = new Set();
 let state = loadState();
 
-document.addEventListener("DOMContentLoaded", bootstrap);
+document.addEventListener("DOMContentLoaded", bootstrapAuth);
+
+
+async function bootstrapAuth() {
+  try {
+    if (!window.supabase?.createClient) throw new Error("Supabase-Bibliothek konnte nicht geladen werden.");
+    supabaseClient = window.supabase.createClient(SUPABASE_CONFIG.url, SUPABASE_CONFIG.publishableKey);
+
+    document.getElementById("loginForm").addEventListener("submit", handleLogin);
+    document.getElementById("logoutButton").addEventListener("click", handleLogout);
+
+    const { data: { session }, error } = await supabaseClient.auth.getSession();
+    if (error) throw error;
+
+    if (session?.user) {
+      await enterAuthenticatedApp(session.user);
+    } else {
+      showLogin();
+    }
+
+    supabaseClient.auth.onAuthStateChange(async (event, session) => {
+      if (event === "SIGNED_OUT") showLogin();
+    });
+  } catch (error) {
+    console.error(error);
+    showLogin(error.message);
+  }
+}
+
+function showLogin(message = "") {
+  currentUser = null;
+  document.getElementById("authGate").classList.remove("is-hidden");
+  document.getElementById("loginMessage").textContent = message;
+}
+
+async function handleLogin(event) {
+  event.preventDefault();
+  const button = document.getElementById("loginButton");
+  const message = document.getElementById("loginMessage");
+  button.disabled = true;
+  message.textContent = "Anmeldung läuft …";
+  try {
+    const email = document.getElementById("loginEmail").value.trim();
+    const password = document.getElementById("loginPassword").value;
+    const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+    await enterAuthenticatedApp(data.user);
+  } catch (error) {
+    console.error("Login:", error);
+    message.textContent = error.message === "Invalid login credentials"
+      ? "E-Mail oder Passwort ist nicht korrekt."
+      : `Anmeldung fehlgeschlagen: ${error.message}`;
+  } finally {
+    button.disabled = false;
+  }
+}
+
+async function handleLogout() {
+  await supabaseClient.auth.signOut();
+  window.location.reload();
+}
+
+async function enterAuthenticatedApp(user) {
+  currentUser = user;
+  document.getElementById("accountEmail").textContent = user.email || "";
+  document.getElementById("authGate").classList.add("is-hidden");
+  await bootstrap();
+}
+
+async function loadSupabaseTripData() {
+  const { data: trip, error: tripError } = await supabaseClient
+    .from("trips")
+    .select("id,name,destination,start_date,end_date")
+    .eq("name", TRIP_NAME)
+    .single();
+  if (tripError) throw tripError;
+
+  const { data: dbPlaces, error: placesError } = await supabaseClient
+    .from("places")
+    .select("*")
+    .order("name");
+  if (placesError) throw placesError;
+
+  const { data: tripPlaces, error: tpError } = await supabaseClient
+    .from("trip_places")
+    .select("place_id,trip_day_id,planned_order,planned_time,visited")
+    .eq("trip_id", trip.id);
+  if (tpError) throw tpError;
+
+  const { data: tripDays, error: daysError } = await supabaseClient
+    .from("trip_days")
+    .select("id,day_date,title")
+    .eq("trip_id", trip.id)
+    .order("day_date");
+  if (daysError) throw daysError;
+
+  const dayById = new Map(tripDays.map(day => [day.id, day.day_date]));
+  const tpByPlaceId = new Map(tripPlaces.map(item => [item.place_id, item]));
+
+  const convertedPlaces = dbPlaces.map(place => {
+    const relation = tpByPlaceId.get(place.id);
+    const frontendId = place.legacy_id || place.id;
+    if (relation) {
+      const ps = ensurePlaceState(frontendId);
+      ps.visited = Boolean(relation.visited);
+      if (relation.trip_day_id) ps.plannedDay = dayById.get(relation.trip_day_id) || null;
+      else delete ps.plannedDay;
+      if (relation.planned_order != null) ps.plannedOrder = relation.planned_order;
+      else delete ps.plannedOrder;
+      if (relation.planned_time) ps.plannedTime = relation.planned_time;
+    }
+    return {
+      id: frontendId,
+      supabaseId: place.id,
+      name: place.name,
+      address: place.address,
+      lat: place.latitude,
+      lng: place.longitude,
+      category: place.category || "other",
+      tags: place.tags || [],
+      googlePlaceId: place.google_place_id,
+      website: place.website,
+      phone: place.phone,
+      openingHours: place.opening_hours,
+      notes: place.note,
+      localTip: Boolean(place.is_local_tip),
+      favorite: Boolean(place.favorite),
+      visited: Boolean(relation?.visited),
+      status: place.status,
+      source: place.source,
+      detailsSource: place.details_source,
+      detailsSourceType: place.details_source_type,
+      detailsUpdated: place.details_updated
+    };
+  });
+
+  return { trip, tripDays, places: convertedPlaces };
+}
 
 async function bootstrap() {
   try {
     if (!window.BUDAPEST_PLACES_DATA) {
-      throw new Error("Ortsdaten konnten nicht geladen werden. Prüfe, ob places.js vorhanden ist.");
+      throw new Error("Lokale Metadaten konnten nicht geladen werden.");
     }
 
-    // Kopie verwenden, damit die statischen Daten aus places.js unverändert bleiben.
-    placesData = JSON.parse(JSON.stringify(window.BUDAPEST_PLACES_DATA));
-    mergeLocalPlaces();
+    const remote = await loadSupabaseTripData();
+    placesData = {
+      meta: JSON.parse(JSON.stringify(window.BUDAPEST_PLACES_DATA.meta)),
+      tryInBudapest: JSON.parse(JSON.stringify(window.BUDAPEST_PLACES_DATA.tryInBudapest || [])),
+      places: remote.places
+    };
+    placesData.meta.categoriesCount = Object.keys(placesData.meta.categories || {}).length;
     ensureDayOrders();
 
     renderCategoryFilters();
@@ -76,7 +225,7 @@ async function bootstrap() {
     await createMarkers();
     applyFilters();
 
-    setStatus("Karte bereit.");
+    setStatus(`☁️ ${placesData.places.length} Orte aus Supabase geladen.`);
   } catch (err) {
     console.error(err);
     setStatus(`Fehler: ${err.message}`);

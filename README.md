@@ -372,3 +372,13 @@ Das Backup enthält nun zusätzlich:
 - `data`: Planung, Tageszuordnung, Reihenfolge, Besucht-Status usw.
 
 Beim Import werden die selbst gespeicherten Orte ebenfalls wiederhergestellt. Ältere v0.9.17-Backups ohne diese Felder bleiben importierbar.
+
+
+## V1.0.0 – Phase 1 (Supabase)
+- E-Mail/Passwort-Login über Supabase Auth
+- Session bleibt nach Neuladen erhalten
+- Logout
+- Budapest 2026 wird aus Supabase geladen
+- 57 Orte werden aus `places` geladen und über `trip_places` mit der Reise verknüpft
+- Besuchsstatus/Tageszuordnung werden bereits gelesen
+- Schreiboperationen bleiben in Phase 1 noch lokal; zentrale Synchronisation folgt in Phase 2
