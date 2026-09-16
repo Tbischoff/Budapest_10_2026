@@ -481,3 +481,10 @@ Legacy coordinate migration:
 - Successfully resolved coordinates are written back to public.places.latitude/longitude in Supabase.
 - Supabase remains authoritative; the browser geocode cache is only a fallback/cache.
 - No SQL migration is required for this build.
+
+
+### V1.0.0 · Phase 4 · Build 9
+- Einmalige Migration vorhandener gültiger `budapestGeocodeCache`-Koordinaten nach Supabase, wenn dort `latitude`/`longitude` fehlen.
+- Bereits in Supabase gespeicherte Koordinaten haben weiterhin Vorrang und werden nicht vom Browser-Cache überschrieben.
+- Nur Orte ohne Datenbank- und Cache-Koordinaten werden weiterhin über Google geocodiert.
+- Kein SQL-Schema-Update erforderlich.

@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.0.0 · Phase 4 · Build 8";
+const APP_VERSION = "v1.0.0 · Phase 4 · Build 9";
 
 const SUPABASE_CONFIG = {
   url: "https://fjlezfzninkltblcctds.supabase.co",
@@ -647,6 +647,7 @@ async function createMarkers() {
   const places = placesData.places;
   const resolved = [];
   let geocodeCount = 0;
+  let cacheMigrationCount = 0;
   let processed = 0;
 
   setStatus("Orte werden vorbereitet …");
@@ -657,10 +658,31 @@ async function createMarkers() {
   for (const place of places) {
     // Supabase is authoritative. A stale browser cache must never override
     // coordinates already stored in the database.
-    let position = normalizeLatLng({ lat: place.lat, lng: place.lng });
-    if (!position) position = normalizeLatLng(getCachedPosition(place.id));
+    const databasePosition = normalizeLatLng({ lat: place.lat, lng: place.lng });
+    const cachedPosition = databasePosition ? null : normalizeLatLng(getCachedPosition(place.id));
+    const position = databasePosition || cachedPosition;
 
     if (position) {
+      // Build 9 migration: if Supabase has no coordinates but this browser's
+      // proven legacy cache does, copy those coordinates into Supabase once.
+      if (!databasePosition && cachedPosition && place.supabaseId && supabaseClient) {
+        const { error: cacheMigrationError } = await supabaseClient
+          .from("places")
+          .update({
+            latitude: cachedPosition.lat,
+            longitude: cachedPosition.lng,
+            updated_at: new Date().toISOString()
+          })
+          .eq("id", place.supabaseId);
+
+        if (cacheMigrationError) {
+          console.warn("Cache-Koordinaten konnten nicht nach Supabase migriert werden:",
+            place.name, cacheMigrationError);
+        } else {
+          cacheMigrationCount++;
+        }
+      }
+
       place.lat = position.lat;
       place.lng = position.lng;
       cachePosition(place.id, position);
@@ -744,10 +766,11 @@ async function createMarkers() {
   // Marker erst nach vollständiger Vorbereitung auf die Karte setzen.
   markerObjects.forEach(marker => { marker.map = map; });
 
-  if (geocodeCount > 0) {
-    setStatus(
-      `${markerObjects.length} Orte geladen · ${geocodeCount} Legacy-Orte geocodiert und nach Supabase migriert.`
-    );
+  if (cacheMigrationCount > 0 || geocodeCount > 0) {
+    const parts = [];
+    if (cacheMigrationCount > 0) parts.push(`${cacheMigrationCount} aus Browser-Cache nach Supabase migriert`);
+    if (geocodeCount > 0) parts.push(`${geocodeCount} neu geocodiert`);
+    setStatus(`${markerObjects.length} Orte geladen · ${parts.join(" · ")}.`);
   } else {
     setStatus(`${markerObjects.length} Orte geladen.`);
   }
