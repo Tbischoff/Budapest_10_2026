@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.0.0 · Phase 4 · Build 7";
+const APP_VERSION = "v1.0.0 · Phase 4 · Build 8";
 
 const SUPABASE_CONFIG = {
   url: "https://fjlezfzninkltblcctds.supabase.co",
@@ -290,8 +290,8 @@ async function loadSupabaseTripData() {
       supabaseId: place.id,
       name: place.name,
       address: place.address,
-      lat: Number(place.latitude),
-      lng: Number(place.longitude),
+      lat: place.latitude == null ? null : Number(place.latitude),
+      lng: place.longitude == null ? null : Number(place.longitude),
       category: place.category || "other",
       tags: place.tags || [],
       googlePlaceId: place.google_place_id,
@@ -615,9 +615,20 @@ function refreshAllMarkerAppearances() {
 }
 
 function normalizeLatLng(value) {
-  const lat = typeof value?.lat === "function" ? value.lat() : Number(value?.lat);
-  const lng = typeof value?.lng === "function" ? value.lng() : Number(value?.lng);
+  if (!value) return null;
+
+  const rawLat = typeof value.lat === "function" ? value.lat() : value.lat;
+  const rawLng = typeof value.lng === "function" ? value.lng() : value.lng;
+
+  // Important: Number(null) and Number("") are 0. Missing database values
+  // must therefore be rejected before numeric conversion.
+  if (rawLat == null || rawLng == null || rawLat === "" || rawLng === "") return null;
+
+  const lat = Number(rawLat);
+  const lng = Number(rawLng);
   if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return null;
+
   return { lat, lng };
 }
 
@@ -678,10 +689,27 @@ async function createMarkers() {
         const position = await geocodePlaceWithRetry(place);
 
         if (position) {
+          // Supabase is the authoritative store. Legacy places that still have
+          // NULL coordinates are migrated as soon as Google resolves them.
+          if (place.supabaseId && supabaseClient) {
+            const { error: coordinateError } = await supabaseClient
+              .from("places")
+              .update({
+                latitude: position.lat,
+                longitude: position.lng,
+                updated_at: new Date().toISOString()
+              })
+              .eq("id", place.supabaseId);
+
+            if (coordinateError) {
+              console.warn("Koordinaten konnten nicht in Supabase gespeichert werden:",
+                place.name, coordinateError);
+            }
+          }
+
           cachePosition(place.id, position);
 
-          // Auch im aktuellen Datenobjekt hinterlegen. So kann später ohne
-          // erneute Geocodierung mit diesen Werten weitergearbeitet werden.
+          // Also keep the current in-memory model in sync.
           place.lat = position.lat;
           place.lng = position.lng;
           geocodeCount++;
@@ -718,7 +746,7 @@ async function createMarkers() {
 
   if (geocodeCount > 0) {
     setStatus(
-      `${markerObjects.length} Orte geladen · ${geocodeCount} Koordinaten neu ermittelt und gespeichert.`
+      `${markerObjects.length} Orte geladen · ${geocodeCount} Legacy-Orte geocodiert und nach Supabase migriert.`
     );
   } else {
     setStatus(`${markerObjects.length} Orte geladen.`);

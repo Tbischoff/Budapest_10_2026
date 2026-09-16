@@ -472,3 +472,12 @@ Coordinate cache fix:
 - Supabase coordinates are now authoritative.
 - Stale browser-cached coordinates can no longer override valid database coordinates.
 - The cache is refreshed from the database after loading each valid place.
+
+
+### V1.0.0 · Phase 4 · Build 8
+Legacy coordinate migration:
+- Fixes the root cause of the 5,645 km display: JavaScript converted SQL NULL coordinates to 0/0 because Number(null) equals 0.
+- Missing coordinates remain null and are therefore sent through Google geocoding.
+- Successfully resolved coordinates are written back to public.places.latitude/longitude in Supabase.
+- Supabase remains authoritative; the browser geocode cache is only a fallback/cache.
+- No SQL migration is required for this build.
