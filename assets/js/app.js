@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.0.0 · Phase 4 · Build 5";
+const APP_VERSION = "v1.0.0 · Phase 4 · Build 6";
 
 const SUPABASE_CONFIG = {
   url: "https://fjlezfzninkltblcctds.supabase.co",
@@ -290,8 +290,8 @@ async function loadSupabaseTripData() {
       supabaseId: place.id,
       name: place.name,
       address: place.address,
-      lat: place.latitude,
-      lng: place.longitude,
+      lat: Number(place.latitude),
+      lng: Number(place.longitude),
       category: place.category || "other",
       tags: place.tags || [],
       googlePlaceId: place.google_place_id,
@@ -578,9 +578,11 @@ function buildMarkerContent(place) {
 }
 
 function createPlaceMarker(place, position, mapValue = null) {
+  const safePosition = normalizeLatLng(position);
+  if (!safePosition) return null;
   const marker = new AdvancedMarkerElement({
     map: mapValue,
-    position,
+    position: safePosition,
     title: place.name,
     gmpClickable: true,
     zIndex: place.localTip ? 100 : 1
@@ -644,11 +646,11 @@ async function createMarkers() {
   for (const place of places) {
     let position = getCachedPosition(place.id);
 
-    if (!position && Number.isFinite(place.lat) && Number.isFinite(place.lng)) {
-      position = { lat: place.lat, lng: place.lng };
-    }
+    position = normalizeLatLng(position) || normalizeLatLng({ lat: place.lat, lng: place.lng });
 
     if (position) {
+      place.lat = position.lat;
+      place.lng = position.lng;
       resolved.push({ place, position });
     } else if (canGeocode(place)) {
       needsGeocoding.push(place);
@@ -702,6 +704,7 @@ async function createMarkers() {
 
   for (const { place, position } of resolved) {
     const marker = createPlaceMarker(place, position);
+    if (!marker) continue;
 
     marker.addEventListener("gmp-click", () => openPlace(place));
     markers.set(place.id, marker);
@@ -972,7 +975,7 @@ async function handleAddPlace(event) {
 
     const draft = {
       id: dbPlace.id, supabaseId: dbPlace.id, name: dbPlace.name, address: dbPlace.address,
-      lat: dbPlace.latitude, lng: dbPlace.longitude, category: dbPlace.category || "other",
+      lat: Number(dbPlace.latitude), lng: Number(dbPlace.longitude), category: dbPlace.category || "other",
       tags: [], googlePlaceId: dbPlace.google_place_id, website: dbPlace.website,
       phone: dbPlace.phone, openingHours: dbPlace.opening_hours, notes: dbPlace.note,
       localTip: Boolean(dbPlace.is_local_tip), source: dbPlace.source

@@ -457,3 +457,11 @@ Realtime-Marker-Fix:
 - Supabase-/Realtime-Koordinaten werden vor Übergabe an Google Advanced Markers normalisiert.
 - Markerpositionen werden nur mit validen numerischen `lat`/`lng` aktualisiert.
 - Bearbeitungs- und Standortmarker verwenden dieselbe sichere Konvertierung.
+
+
+### V1.0.0 · Phase 4 · Build 6
+Mobile marker/navigation fix:
+- Supabase latitude/longitude are converted to numbers as soon as rows are loaded.
+- Cached and database coordinates are normalized before marker creation.
+- Invalid coordinates can no longer abort creation of the remaining markers.
+- This fixes the case where the first place opens on mobile but tapping subsequent places appears to do nothing.
