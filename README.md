@@ -419,3 +419,10 @@ einmal ausgeführt werden.
 Bugfix: Die Realtime-Aktualisierung ruft jetzt die vorhandene UI-Aktualisierungsfunktion
 `updateUI()` auf. Der fehlerhafte Aufruf der nicht existierenden Funktion `renderAll()`
 wurde entfernt.
+
+
+### Phase 3 · Build 3
+Realtime-Bugfix nach Prüfung der tatsächlich vorhandenen Render-Funktionen:
+`updateUI()` existiert ebenfalls nicht. Die Live-Aktualisierung verwendet nun
+die bestehende App-Pipeline `applyFilters()` und aktualisiert zusätzlich
+Entfernungs- und Routensteuerung.
