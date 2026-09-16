@@ -169,6 +169,14 @@
         <button id="cancelPlaceBtn" class="icon-button" type="button" aria-label="Schließen">✕</button>
       </div>
 
+      <div class="google-place-search">
+        <div class="form-section-label">🔎 Auf Google Maps suchen</div>
+        <div id="googlePlaceAutocomplete" class="google-place-autocomplete"></div>
+        <div class="form-hint">Google-Vorschlag auswählen. Name und Adresse werden automatisch übernommen.</div>
+        <div id="googlePlaceSelection" class="google-place-selection" hidden></div>
+        <div class="manual-place-divider"><span>oder manuell eingeben</span></div>
+      </div>
+
       <label class="form-field">
         <span>Name *</span>
         <input id="placeName" type="text" required placeholder="z. B. Kleine Kaffeerösterei" />

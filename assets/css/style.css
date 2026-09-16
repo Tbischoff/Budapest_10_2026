@@ -1495,3 +1495,25 @@ h2 {
 .info-detail a:hover {
   text-decoration: underline;
 }
+
+
+/* =========================================================
+   v0.9.14 – Google Places beim Hinzufügen
+   ========================================================= */
+.google-place-search { margin-bottom: 14px; }
+.form-section-label { font-size: 12px; font-weight: 800; margin-bottom: 7px; }
+.google-place-autocomplete { min-height: 44px; }
+.google-place-autocomplete gmp-place-autocomplete { width: 100%; }
+.google-place-selection {
+  display: grid; gap: 2px; margin-top: 8px; padding: 9px 10px;
+  border-radius: 10px; background: var(--accent-soft); font-size: 11px;
+}
+.google-place-selection[hidden] { display: none; }
+.google-place-selection span { color: var(--muted); }
+.manual-place-divider {
+  display: flex; align-items: center; gap: 8px; margin: 14px 0 10px;
+  color: var(--muted); font-size: 10px;
+}
+.manual-place-divider::before, .manual-place-divider::after {
+  content: ""; flex: 1; height: 1px; background: var(--border);
+}

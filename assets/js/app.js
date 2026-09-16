@@ -149,6 +149,76 @@ function centerMapOnCurrentLocation({ silent = false } = {}) {
   );
 }
 
+
+let googlePlaceAutocompleteElement = null;
+let selectedGooglePlace = null;
+
+async function initGooglePlaceAutocomplete() {
+  const host = document.getElementById("googlePlaceAutocomplete");
+  if (!host || googlePlaceAutocompleteElement) return;
+
+  try {
+    const { PlaceAutocompleteElement } = await google.maps.importLibrary("places");
+
+    googlePlaceAutocompleteElement = new PlaceAutocompleteElement({
+      includedRegionCodes: ["hu"],
+      locationBias: {
+        center: CONFIG.initialCenter,
+        radius: 50000
+      }
+    });
+    googlePlaceAutocompleteElement.placeholder = "Restaurant, Café, Sehenswürdigkeit …";
+    host.appendChild(googlePlaceAutocompleteElement);
+
+    googlePlaceAutocompleteElement.addEventListener("gmp-select", async event => {
+      const prediction = event.placePrediction;
+      if (!prediction) return;
+
+      const place = prediction.toPlace();
+      await place.fetchFields({
+        fields: [
+          "id",
+          "displayName",
+          "formattedAddress",
+          "location",
+          "websiteURI",
+          "nationalPhoneNumber",
+          "regularOpeningHours"
+        ]
+      });
+
+      selectedGooglePlace = place;
+
+      document.getElementById("placeName").value = place.displayName || "";
+      document.getElementById("placeAddress").value = place.formattedAddress || "";
+
+      const selection = document.getElementById("googlePlaceSelection");
+      selection.hidden = false;
+      selection.innerHTML = `
+        <strong>✓ ${escapeHtml(place.displayName || "Google-Ort ausgewählt")}</strong>
+        <span>${escapeHtml(place.formattedAddress || "")}</span>
+      `;
+    });
+  } catch (error) {
+    console.error("Google Places konnte nicht geladen werden:", error);
+    host.innerHTML = '<div class="form-hint">Google-Ortssuche nicht verfügbar. Bitte den Ort manuell eingeben.</div>';
+  }
+}
+
+function resetGooglePlaceSelection() {
+  selectedGooglePlace = null;
+  const selection = document.getElementById("googlePlaceSelection");
+  if (selection) {
+    selection.hidden = true;
+    selection.innerHTML = "";
+  }
+}
+
+function googleOpeningHoursText(place) {
+  const rows = place?.regularOpeningHours?.weekdayDescriptions;
+  return Array.isArray(rows) ? rows.join(" · ") : "";
+}
+
 function initMap() {
   map = new google.maps.Map(document.getElementById("map"), {
     center: CONFIG.initialCenter,
@@ -169,6 +239,7 @@ function initMap() {
 
   // Start möglichst am aktuellen Standort; Budapest bleibt Fallback.
   centerMapOnCurrentLocation({ silent: true });
+  initGooglePlaceAutocomplete();
 }
 
 
@@ -518,6 +589,7 @@ function openAddPlaceDialog() {
   const form = document.getElementById("addPlaceForm");
 
   form.reset();
+  resetGooglePlaceSelection();
   document.getElementById("placeCategory").value = "food";
   document.getElementById("placeFormMessage").textContent = "";
 
@@ -565,12 +637,25 @@ async function handleAddPlace(event) {
       localTip,
       tags: ["eigener Ort"],
       status: "local",
-      source: "localStorage",
+      source: selectedGooglePlace ? "googlePlaces" : "localStorage",
       isLocalPlace: true,
+      googlePlaceId: selectedGooglePlace?.id || "",
+      website: selectedGooglePlace?.websiteURI || "",
+      phone: selectedGooglePlace?.nationalPhoneNumber || "",
+      openingHours: googleOpeningHoursText(selectedGooglePlace),
       createdAt: new Date().toISOString()
     };
 
-    const position = await geocodePlaceWithRetry(draft);
+    let position = null;
+
+    if (selectedGooglePlace?.location) {
+      position = {
+        lat: selectedGooglePlace.location.lat(),
+        lng: selectedGooglePlace.location.lng()
+      };
+    } else {
+      position = await geocodePlaceWithRetry(draft);
+    }
 
     if (!position) {
       message.textContent = "Die Adresse konnte nicht gefunden werden. Bitte prüfe die Schreibweise.";

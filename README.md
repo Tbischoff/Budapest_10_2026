@@ -2,7 +2,7 @@
 
 Persönliche interaktive Reiseplanung für Budapest vom **03.–07.10.2026**.
 
-## Aktueller Stand: v0.9.13.1
+## Aktueller Stand: v0.9.14
 
 Neu in v0.8: echte Fußroute eines geplanten Tages über die Google Routes API inklusive Gesamtdistanz und geschätzter Gehzeit.
 
@@ -291,3 +291,19 @@ identifizierte Einträge bleiben ohne Telefonnummer/Öffnungszeiten.
 
 Hinweis: Öffnungszeiten können sich kurzfristig ändern. Für Reservierungen und
 zeitkritische Besuche sollte die verlinkte Website kurz vor dem Besuch erneut geprüft werden.
+
+
+## v0.9.14 – Google-Ortssuche beim Hinzufügen
+
+`Ort hinzufügen` unterstützt jetzt Google Places Autocomplete.
+
+- Google-Ort suchen und Vorschlag auswählen
+- Name und Adresse werden übernommen
+- exakte Google-Koordinaten werden für den Marker verwendet
+- sofern verfügbar werden Place-ID, Website, Telefonnummer und reguläre Öffnungszeiten gespeichert
+- Kategorie, Notiz und Local-Tipp bleiben eigene App-Daten
+- die manuelle Eingabe bleibt als Fallback erhalten
+
+### Voraussetzung
+Im vorhandenen Google-Cloud-Projekt muss zusätzlich **Places API (New)** aktiviert sein.
+Die Suche ist für den Budapest-Piloten zunächst auf Ungarn begrenzt.
