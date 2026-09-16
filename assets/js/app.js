@@ -1731,13 +1731,16 @@ function getActivePlanningDay() {
   return getTripDayForDate();
 }
 
-function getNextUnvisitedPlace(dayId) {
-  // Wichtig: dieselbe sortierte Tagesliste verwenden wie Tagesagenda und Marker.
-  // Die Reihenfolge wird in `plannedOrder` gespeichert.
-  return getPlacesForDay(dayId).find(place => {
+function getRemainingUnvisitedPlaces(dayId) {
+  // Exakt dieselbe Reihenfolge wie Tagesagenda/Marker.
+  return getPlacesForDay(dayId).filter(place => {
     const saved = state.places[place.id] || {};
     return !saved.visited;
-  }) || null;
+  });
+}
+
+function getNextUnvisitedPlace(dayId) {
+  return getRemainingUnvisitedPlaces(dayId)[0] || null;
 }
 
 async function showNextPlace() {
@@ -1748,9 +1751,10 @@ async function showNextPlace() {
     return;
   }
 
-  const place = getNextUnvisitedPlace(day.id);
+  const remainingPlaces = getRemainingUnvisitedPlaces(day.id);
+  const nextPlace = remainingPlaces[0] || null;
 
-  if (!place) {
+  if (!nextPlace) {
     clearRenderedRoute();
     activeRouteDay = null;
     activeRouteSummary = null;
@@ -1760,15 +1764,20 @@ async function showNextPlace() {
   }
 
   if (!userPosition) {
-    setStatus("Für die Route zum nächsten Ort wird dein aktueller Standort benötigt. Bitte zuerst „Standort aktualisieren“ verwenden.");
+    setStatus("Für die Route wird dein aktueller Standort benötigt. Bitte zuerst „Standort aktualisieren“ verwenden.");
     return;
   }
 
-  const marker = markers.get(place.id);
-  const destination = marker ? getMarkerPosition(marker) : null;
+  const destinations = remainingPlaces
+    .map(place => {
+      const marker = markers.get(place.id);
+      const position = marker ? getMarkerPosition(marker) : null;
+      return position ? { place, position } : null;
+    })
+    .filter(Boolean);
 
-  if (!destination) {
-    setStatus(`Der Marker für „${place.name}“ ist noch nicht verfügbar.`);
+  if (!destinations.length) {
+    setStatus("Für die offenen Programmpunkte sind noch keine Marker verfügbar.");
     return;
   }
 
@@ -1780,43 +1789,64 @@ async function showNextPlace() {
 
   routeLoading = true;
   updateRouteControls();
-  setStatus(`Route zum nächsten Ort „${place.name}“ wird berechnet …`);
+  setStatus(`Restliche Tagesroute ab aktuellem Standort wird berechnet …`);
 
   try {
     const Route = await ensureRoutesLibrary();
-    const request = {
-      origin: { lat: userPosition.lat, lng: userPosition.lng },
-      destination,
-      travelMode: "WALKING",
-      fields: ["path", "distanceMeters", "durationMillis"]
-    };
+    const routePoints = [
+      { lat: userPosition.lat, lng: userPosition.lng },
+      ...destinations.map(item => item.position)
+    ];
 
-    const { routes } = await Route.computeRoutes(request);
-    if (!routes?.length) throw new Error("Keine Route gefunden.");
+    const routes = [];
+    let totalDistanceMeters = 0;
+    let totalDurationMillis = 0;
 
-    const route = routes[0];
+    // Wie bei der bestehenden Tagesroute segmentweise rechnen, damit die
+    // Reihenfolge der Tagesagenda garantiert erhalten bleibt.
+    for (let i = 0; i < routePoints.length - 1; i += 1) {
+      const { routes: segmentRoutes } = await Route.computeRoutes({
+        origin: routePoints[i],
+        destination: routePoints[i + 1],
+        travelMode: "WALKING",
+        fields: ["path", "distanceMeters", "durationMillis"]
+      });
 
-    // Eine eventuell sichtbare komplette Tagesroute ersetzen.
+      if (!segmentRoutes?.length) {
+        throw new Error("Für einen Abschnitt wurde keine Fußroute gefunden.");
+      }
+
+      const segment = segmentRoutes[0];
+      routes.push(segment);
+      totalDistanceMeters += segment.distanceMeters || 0;
+      totalDurationMillis += segment.durationMillis || 0;
+    }
+
     clearRenderedRoute();
 
-    dayRoutePolylines = route.createPolylines({
-      polylineOptions: {
-        strokeColor: "#2f625d",
-        strokeOpacity: 0.95,
-        strokeWeight: 6,
-        zIndex: 10
-      }
-    });
-    dayRoutePolylines.forEach(polyline => polyline.setMap(map));
+    const bounds = new google.maps.LatLngBounds();
+    dayRoutePolylines = [];
 
-    // Absichtlich kein activeRouteDay setzen:
-    // Diese Linie ist keine komplette Tagesroute.
+    routes.forEach(route => {
+      const polylines = route.createPolylines({
+        polylineOptions: {
+          strokeColor: "#2f625d",
+          strokeOpacity: 0.95,
+          strokeWeight: 6,
+          zIndex: 10
+        }
+      });
+      polylines.forEach(polyline => {
+        polyline.setMap(map);
+        dayRoutePolylines.push(polyline);
+      });
+      route.path?.forEach(point => bounds.extend(point));
+    });
+
     activeRouteDay = null;
     activeRouteSummary = null;
 
-    if (route.path?.length) {
-      const bounds = new google.maps.LatLngBounds();
-      route.path.forEach(point => bounds.extend(point));
+    if (!bounds.isEmpty()) {
       map.fitBounds(bounds, 70);
     }
 
@@ -1824,15 +1854,13 @@ async function showNextPlace() {
       setMobileView("map");
     }
 
-    const distanceText = formatRouteDistance(route.distanceMeters);
-    const durationText = formatRouteDuration(route.durationMillis);
+    window.setTimeout(() => openPlace(nextPlace), 180);
 
-    window.setTimeout(() => openPlace(place), 180);
     setStatus(
-      `🧭 Nächster Ort: ${place.name} · ${distanceText || "Distanz unbekannt"} · ${durationText || "Dauer unbekannt"}`
+      `🧭 Noch ${destinations.length} ${destinations.length === 1 ? "Ort" : "Orte"} · nächster: ${nextPlace.name} · ${formatRouteDistance(totalDistanceMeters)} · ${formatRouteDuration(totalDurationMillis)}`
     );
   } catch (error) {
-    console.error("Routes API – nächster Ort:", error);
+    console.error("Routes API – restliche Tagesroute:", error);
     clearRenderedRoute();
     activeRouteDay = null;
     activeRouteSummary = null;

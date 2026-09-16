@@ -351,3 +351,11 @@ Orte des Tages besucht, wird keine Route berechnet und ein Abschluss-Hinweis ang
 Die Reihenfolge wird intern im Feld `plannedOrder` gespeichert. Die vorherige Fassung
 hat fälschlich `order` gelesen und konnte deshalb nach einem Verschieben der Orte
 den falschen nächsten Programmpunkt auswählen.
+
+### Korrektur 4 – restliche Tagesroute
+
+`🧭 Nächster Ort` zeigt nun die **gesamte noch offene Tagesroute**:
+aktueller Standort → nächster unbesuchter Ort → alle weiteren unbesuchten Orte
+in der Reihenfolge der Tagesagenda. Besuchte Orte werden vollständig übersprungen.
+
+`🚶 Fußroute anzeigen` bleibt weiterhin die komplette geplante Tagesroute.
