@@ -1697,7 +1697,7 @@ function getTripDayForDate(date = new Date()) {
     String(date.getDate()).padStart(2, "0")
   ].join("-");
 
-  return TRIP_DAYS.find(day => day.date === localIso) || null;
+  return TRIP_DAYS.find(day => day.id === localIso) || null;
 }
 
 function selectToday() {
@@ -1706,11 +1706,11 @@ function selectToday() {
   if (!today) {
     const first = TRIP_DAYS[0];
     const last = TRIP_DAYS[TRIP_DAYS.length - 1];
-    setStatus(`Heute liegt außerhalb der Reise (${formatDate(first.date)}–${formatDate(last.date)}).`);
+    setStatus(`Heute liegt außerhalb der Reise (${formatDate(first.id)}–${formatDate(last.id)}).`);
     return;
   }
 
-  selectedDayFilter = today.date;
+  selectedDayFilter = today.id;
   applyFilters();
   renderDayFilters();
   renderDayAgenda();
@@ -1726,7 +1726,7 @@ function selectToday() {
 
 function getActivePlanningDay() {
   if (selectedDayFilter && selectedDayFilter !== "all" && selectedDayFilter !== "unplanned") {
-    return TRIP_DAYS.find(day => day.date === selectedDayFilter) || null;
+    return TRIP_DAYS.find(day => day.id === selectedDayFilter) || null;
   }
   return getTripDayForDate();
 }
