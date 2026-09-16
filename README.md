@@ -436,3 +436,10 @@ Zentrales Ortsmanagement: Hinzufügen, Bearbeiten, aus Reise entfernen und Live-
 Bugfix: Der alte globale Export `window.deleteLocalPlace = deleteLocalPlace`
 wurde entfernt. `openEditPlaceDialog` und `removePlaceFromTrip` werden für
 die neuen Ortsaktionen explizit bereitgestellt.
+
+
+### V1.0.0 · Phase 4 · Build 3
+Realtime-DELETE-Fix:
+- `trip_places` wird im Realtime-Kanal ohne Spaltenfilter überwacht, damit DELETE-Ereignisse sicher ankommen.
+- Nach einem Ereignis lädt die App weiterhin ausschließlich die aktuelle Reise neu.
+- SQL setzt `trip_places` auf `REPLICA IDENTITY FULL`.

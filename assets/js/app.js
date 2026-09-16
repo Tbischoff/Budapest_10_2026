@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.0.0 · Phase 4 · Build 2";
+const APP_VERSION = "v1.0.0 · Phase 4 · Build 3";
 
 const SUPABASE_CONFIG = {
   url: "https://fjlezfzninkltblcctds.supabase.co",
@@ -157,8 +157,7 @@ function subscribeToTripRealtime() {
   realtimeChannel = supabaseClient
     .channel(`trip-planning-${currentTripId}`)
     .on("postgres_changes", {
-      event: "*", schema: "public", table: "trip_places",
-      filter: `trip_id=eq.${currentTripId}`
+      event: "*", schema: "public", table: "trip_places"
     }, queueFullRefresh)
     .on("postgres_changes", {
       event: "*", schema: "public", table: "places"
