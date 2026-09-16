@@ -401,3 +401,8 @@ Die aktuelle Version wird dauerhaft unten rechts angezeigt:
 `v1.0.0 · Phase 2 · Build 1`.
 Damit lässt sich nach GitHub-Pages-Deployments und Reloads sofort erkennen,
 ob der aktuelle Build geladen wurde.
+
+
+### Build 2
+- Versionsanzeige aus der Karten-Ecke entfernt und dezent unter den App-Titel verschoben.
+- E-Mail-Adresse aus dem Header entfernt; Abmelden bleibt direkt erreichbar.

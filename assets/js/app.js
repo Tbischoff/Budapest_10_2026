@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.0.0 · Phase 2 · Build 1";
+const APP_VERSION = "v1.0.0 · Phase 2 · Build 2";
 
 const SUPABASE_CONFIG = {
   url: "https://fjlezfzninkltblcctds.supabase.co",
@@ -133,7 +133,6 @@ async function handleLogout() {
 
 async function enterAuthenticatedApp(user) {
   currentUser = user;
-  document.getElementById("accountEmail").textContent = user.email || "";
   document.getElementById("authGate").classList.add("is-hidden");
   await bootstrap();
 }
