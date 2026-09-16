@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.0.0 · Phase 3 · Build 1";
+const APP_VERSION = "v1.0.0 · Phase 3 · Build 2";
 
 const SUPABASE_CONFIG = {
   url: "https://fjlezfzninkltblcctds.supabase.co",
@@ -208,7 +208,7 @@ async function refreshPlanningFromSupabase() {
     }
 
     localStorage.setItem("budapestMapState", JSON.stringify(state));
-    renderAll();
+    updateUI();
     setStatus("⚡ Planung live aktualisiert.");
   } catch (error) {
     console.error("Realtime-Aktualisierung:", error);

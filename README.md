@@ -413,3 +413,9 @@ Supabase Realtime ist für `trip_places` integriert. Änderungen der gemeinsamen
 Reiseplanung werden auf einem zweiten geöffneten Gerät automatisch übernommen,
 ohne manuellen Reload. Vor dem Test muss `docs/V1.0.0_PHASE3_REALTIME.sql`
 einmal ausgeführt werden.
+
+
+### Phase 3 · Build 2
+Bugfix: Die Realtime-Aktualisierung ruft jetzt die vorhandene UI-Aktualisierungsfunktion
+`updateUI()` auf. Der fehlerhafte Aufruf der nicht existierenden Funktion `renderAll()`
+wurde entfernt.
