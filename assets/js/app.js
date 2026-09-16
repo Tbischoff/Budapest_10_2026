@@ -2211,7 +2211,9 @@ function buildBackupPayload() {
     backupVersion: 1,
     appVersion: "0.9.17",
     exportedAt: new Date().toISOString(),
-    data: state
+    data: state,
+    localPlaces: loadLocalPlaces(),
+    placeDatabase: placesData?.places ? JSON.parse(JSON.stringify(placesData.places)) : []
   };
 }
 
@@ -2251,7 +2253,16 @@ async function importBackupFile(file) {
     if (!window.confirm("Backup importieren?\\n\\nDer lokale Stand auf diesem Gerät wird durch das Backup ersetzt.")) return;
     state = importedState;
     saveState();
-    setStatus("📥 Backup importiert. App wird neu geladen …");
+
+    // Ab v0.9.17 erweitert: auch selbst gespeicherte Orte wiederherstellen.
+    if (Array.isArray(payload.localPlaces)) {
+      saveLocalPlaces(payload.localPlaces);
+    } else if (Array.isArray(payload.placeDatabase)) {
+      // Fallback: aus dem vollständigen Ortsbestand nur lokale/eigene Orte übernehmen.
+      saveLocalPlaces(payload.placeDatabase.filter(place => place.isLocalPlace || place.source === "localStorage" || place.source === "googlePlaces"));
+    }
+
+    setStatus("📥 Backup inkl. gespeicherter Orte importiert. App wird neu geladen …");
     window.setTimeout(() => window.location.reload(), 400);
   } catch (error) {
     console.error("Backup-Import:", error);

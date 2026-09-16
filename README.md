@@ -363,3 +363,12 @@ in der Reihenfolge der Tagesagenda. Besuchte Orte werden vollständig übersprun
 
 ## v0.9.17 – Backup & Import
 Der komplette lokale App-Stand kann als versionierte JSON-Datei exportiert und wieder importiert werden. Vor einem Import erfolgt eine Prüfung und Sicherheitsabfrage. Dieses Backup dient zugleich als Grundlage für die spätere Migration nach v0.10.
+
+
+### Erweitertes Backup – vollständiger Ortsbestand
+Das Backup enthält nun zusätzlich:
+- `localPlaces`: alle vom Nutzer selbst gespeicherten Orte einschließlich Google-Places-Orten
+- `placeDatabase`: eine Momentaufnahme des vollständigen aktuell geladenen Ortsbestands
+- `data`: Planung, Tageszuordnung, Reihenfolge, Besucht-Status usw.
+
+Beim Import werden die selbst gespeicherten Orte ebenfalls wiederhergestellt. Ältere v0.9.17-Backups ohne diese Felder bleiben importierbar.
