@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.0.0 · Phase 4 · Build 3";
+const APP_VERSION = "v1.0.0 · Phase 4 · Build 4";
 
 const SUPABASE_CONFIG = {
   url: "https://fjlezfzninkltblcctds.supabase.co",
@@ -903,8 +903,17 @@ async function handleAddPlace(event) {
     if (editingPlaceId) {
       const place = placesData.places.find(p => p.id === editingPlaceId);
       if (!place?.supabaseId) throw new Error("Datenbank-ID des Ortes fehlt.");
-      let position = { lat: place.lat, lng: place.lng };
-      if (address !== place.address) {
+      const marker = markers.get(place.id);
+      let position = getMarkerPosition(marker) || {
+        lat: Number(place.lat),
+        lng: Number(place.lng)
+      };
+      if (!Number.isFinite(position.lat) || !Number.isFinite(position.lng)) {
+        position = await geocodePlaceWithRetry({ name, address });
+        if (!position) throw new Error("Die Position des Ortes konnte nicht ermittelt werden.");
+      }
+      const addressChanged = address !== place.address;
+      if (addressChanged) {
         submitButton.textContent = "Adresse wird geprüft …";
         position = await geocodePlaceWithRetry({ name, address });
         if (!position) throw new Error("Die neue Adresse konnte nicht gefunden werden.");
@@ -917,8 +926,7 @@ async function handleAddPlace(event) {
       if (error) throw error;
       Object.assign(place, { name, address, lat: position.lat, lng: position.lng, category, notes, localTip });
       cachePosition(place.id, position);
-      const marker = markers.get(place.id);
-      if (marker) marker.position = position;
+      if (marker && addressChanged) marker.position = position;
       refreshMarkerAppearance(place);
       applyFilters();
       closeAddPlaceDialog();

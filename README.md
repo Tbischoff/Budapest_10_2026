@@ -443,3 +443,10 @@ Realtime-DELETE-Fix:
 - `trip_places` wird im Realtime-Kanal ohne Spaltenfilter überwacht, damit DELETE-Ereignisse sicher ankommen.
 - Nach einem Ereignis lädt die App weiterhin ausschließlich die aktuelle Reise neu.
 - SQL setzt `trip_places` auf `REPLICA IDENTITY FULL`.
+
+
+### V1.0.0 · Phase 4 · Build 4
+Bugfix Ortsbearbeitung:
+- Beim Ändern von Notiz/Kategorie/Local-Tipp wird die Markerposition nicht mehr unnötig neu gesetzt.
+- Koordinaten werden vor dem Speichern robust als Zahlen validiert.
+- Bei Adressänderungen wird weiterhin neu geocodiert und erst dann die Markerposition aktualisiert.
