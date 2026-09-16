@@ -2,7 +2,7 @@
 
 Persönliche interaktive Reiseplanung für Budapest vom **03.–07.10.2026**.
 
-## Aktueller Stand: v0.9.15
+## Aktueller Stand: v0.9.16
 
 Neu in v0.8: echte Fußroute eines geplanten Tages über die Google Routes API inklusive Gesamtdistanz und geschätzter Gehzeit.
 
@@ -319,3 +319,18 @@ In der Tagesplanung gibt es jetzt `📅 Heute`.
 - außerhalb des Reisezeitraums wird nichts umgestellt; stattdessen erscheint ein Hinweis
 
 Die Funktion arbeitet bereits mit den in `TRIP_DAYS` hinterlegten Reisedaten und ist damit nicht auf einen bestimmten Wochentag fest codiert.
+
+
+## v0.9.16 – Nächster Ort
+
+Die Tagesplanung besitzt jetzt `🧭 Nächster Ort`.
+
+- verwendet den aktuell ausgewählten Reisetag
+- wenn kein Tag ausgewählt ist, wird während der Reise automatisch der heutige Reisetag verwendet
+- ermittelt anhand der geplanten Reihenfolge den ersten noch nicht als besucht markierten Ort
+- springt zum Marker, zoomt hinein und öffnet das Infofenster
+- mobil schließt sich der Plan und die Karte wird sichtbar
+- bereits besuchte Orte werden übersprungen
+- wenn alle Orte des Tages besucht sind, erscheint ein entsprechender Hinweis
+
+Damit kann die App unterwegs schrittweise durch den Tagesplan führen.

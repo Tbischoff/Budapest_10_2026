@@ -1723,6 +1723,64 @@ function selectToday() {
   setStatus(`Heute: ${today.label} ausgewählt.`);
 }
 
+
+function getActivePlanningDay() {
+  if (selectedDayFilter && selectedDayFilter !== "all" && selectedDayFilter !== "unplanned") {
+    return TRIP_DAYS.find(day => day.date === selectedDayFilter) || null;
+  }
+  return getTripDayForDate();
+}
+
+function getNextUnvisitedPlace(dayDate) {
+  return placesData.places
+    .filter(place => {
+      const saved = state.places[place.id] || {};
+      return saved.plannedDay === dayDate && !saved.visited;
+    })
+    .sort((a, b) => {
+      const aState = state.places[a.id] || {};
+      const bState = state.places[b.id] || {};
+      return (aState.order ?? 9999) - (bState.order ?? 9999);
+    })[0] || null;
+}
+
+async function showNextPlace() {
+  const day = getActivePlanningDay();
+
+  if (!day) {
+    setStatus("Bitte zuerst einen Reisetag auswählen.");
+    return;
+  }
+
+  const place = getNextUnvisitedPlace(day.date);
+
+  if (!place) {
+    setStatus(`Für ${day.label} gibt es keinen offenen Programmpunkt mehr.`);
+    return;
+  }
+
+  selectedDayFilter = day.date;
+  applyFilters();
+  renderDayFilters();
+  renderDayAgenda();
+  refreshAllMarkerAppearances();
+
+  const marker = markers.get(place.id);
+  const position = marker ? getMarkerPosition(marker) : null;
+
+  if (isMobileLayout()) {
+    setMobileView("map");
+  }
+
+  if (position) {
+    map.panTo(position);
+    map.setZoom(Math.max(map.getZoom(), 16));
+    window.setTimeout(() => openPlace(place), 160);
+  }
+
+  setStatus(`Nächster Ort: ${place.name}`);
+}
+
 function renderDayAgenda() {
   const container = document.getElementById("dayAgenda");
   if (!container) return;
@@ -2058,6 +2116,7 @@ function fitVisibleMarkers() {
 
 function wireControls() {
   document.getElementById("todayButton")?.addEventListener("click", selectToday);
+  document.getElementById("nextPlaceButton")?.addEventListener("click", showNextPlace);
   document.getElementById("searchInput").addEventListener("input", () => {
     applyFilters();
     renderSearchSuggestions();
