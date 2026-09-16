@@ -426,3 +426,7 @@ Realtime-Bugfix nach Prüfung der tatsächlich vorhandenen Render-Funktionen:
 `updateUI()` existiert ebenfalls nicht. Die Live-Aktualisierung verwendet nun
 die bestehende App-Pipeline `applyFilters()` und aktualisiert zusätzlich
 Entfernungs- und Routensteuerung.
+
+
+## V1.0.0 · Phase 4 · Build 1
+Zentrales Ortsmanagement: Hinzufügen, Bearbeiten, aus Reise entfernen und Live-Sync.

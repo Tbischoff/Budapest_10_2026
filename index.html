@@ -26,7 +26,7 @@
         <div>
           <div class="eyebrow">Budapest · 03.–07.10.2026</div>
           <h1>Budapest Map</h1>
-        <div class="app-version">v1.0.0 · Phase 3 · Build 3</div>
+        <div class="app-version">v1.0.0 · Phase 4 · Build 1</div>
         </div>
         <div class="account-actions">
           <button id="logoutButton" class="text-button" type="button">Abmelden</button>
@@ -192,8 +192,8 @@
     <form id="addPlaceForm" class="place-form" method="dialog">
       <div class="dialog-head">
         <div>
-          <div class="eyebrow">Lokal auf diesem Gerät</div>
-          <h2>Ort hinzufügen</h2>
+          <div class="eyebrow">Gemeinsame Reisedatenbank</div>
+          <h2 id="placeDialogTitle">Ort hinzufügen</h2>
         </div>
         <button id="cancelPlaceBtn" class="icon-button" type="button" aria-label="Schließen">✕</button>
       </div>
@@ -244,7 +244,7 @@
       </label>
 
       <p class="form-hint">
-        Der Ort wird nur im lokalen Speicher dieses Browsers gespeichert.
+        Der Ort wird in Supabase gespeichert und mit dieser Reise synchronisiert.
       </p>
       <div id="placeFormMessage" class="form-message" aria-live="polite"></div>
 

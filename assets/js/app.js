@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.0.0 · Phase 3 · Build 3";
+const APP_VERSION = "v1.0.0 · Phase 4 · Build 1";
 
 const SUPABASE_CONFIG = {
   url: "https://fjlezfzninkltblcctds.supabase.co",
@@ -16,6 +16,7 @@ let supabaseSyncQueued = false;
 let suppressSupabaseSync = true;
 let realtimeChannel = null;
 let realtimeRefreshTimer = null;
+let editingPlaceId = null;
 
 const CONFIG = {
   // Google Maps JavaScript API key eintragen.
@@ -149,24 +150,42 @@ function subscribeToTripRealtime() {
   if (!supabaseClient || !currentTripId) return;
   if (realtimeChannel) supabaseClient.removeChannel(realtimeChannel);
 
+  const queueFullRefresh = () => {
+    window.clearTimeout(realtimeRefreshTimer);
+    realtimeRefreshTimer = window.setTimeout(refreshTripPlacesFromSupabase, 220);
+  };
   realtimeChannel = supabaseClient
     .channel(`trip-planning-${currentTripId}`)
-    .on(
-      "postgres_changes",
-      {
-        event: "*",
-        schema: "public",
-        table: "trip_places",
-        filter: `trip_id=eq.${currentTripId}`
-      },
-      () => {
-        window.clearTimeout(realtimeRefreshTimer);
-        realtimeRefreshTimer = window.setTimeout(refreshPlanningFromSupabase, 180);
-      }
-    )
+    .on("postgres_changes", {
+      event: "*", schema: "public", table: "trip_places",
+      filter: `trip_id=eq.${currentTripId}`
+    }, queueFullRefresh)
+    .on("postgres_changes", {
+      event: "*", schema: "public", table: "places"
+    }, queueFullRefresh)
     .subscribe(status => {
       if (status === "SUBSCRIBED") setStatus("🟢 Live-Synchronisation aktiv.");
     });
+}
+
+async function refreshTripPlacesFromSupabase() {
+  try {
+    suppressSupabaseSync = true;
+    const remote = await loadSupabaseTripData();
+    for (const marker of markers.values()) marker.map = null;
+    markers.clear();
+    placesData.places = remote.places;
+    await createMarkers();
+    applyFilters();
+    updateDistanceControls();
+    updateRouteControls();
+    setStatus("⚡ Orte und Planung live aktualisiert.");
+  } catch (error) {
+    console.error("Live-Ortsaktualisierung:", error);
+    setStatus(`⚠️ Live-Aktualisierung fehlgeschlagen: ${error.message}`);
+  } finally {
+    suppressSupabaseSync = false;
+  }
 }
 
 async function refreshPlanningFromSupabase() {
@@ -252,7 +271,7 @@ async function loadSupabaseTripData() {
   const dayById = new Map(tripDays.map(day => [day.id, day.day_date]));
   const tpByPlaceId = new Map(tripPlaces.map(item => [item.place_id, item]));
 
-  const convertedPlaces = dbPlaces.map(place => {
+  const convertedPlaces = dbPlaces.filter(place => tpByPlaceId.has(place.id)).map(place => {
     const relation = tpByPlaceId.get(place.id);
     const frontendId = place.legacy_id || place.id;
     if (relation) {
@@ -783,7 +802,8 @@ function openPlace(place) {
           ${dayOptionsHtml(saved.plannedDay || "")}
         </select>
         <button onclick="toggleVisited('${place.id}')">${saved.visited ? "✓ Besucht" : "○ Als besucht markieren"}</button>
-        ${place.isLocalPlace ? `<button class="danger" onclick="deleteLocalPlace('${place.id}')">Löschen</button>` : ""}
+        <button onclick="openEditPlaceDialog('${place.id}')">Bearbeiten</button>
+        <button class="danger" onclick="removePlaceFromTrip('${place.id}')">Aus Reise entfernen</button>
       </div>
     </div>
   `;
@@ -832,17 +852,33 @@ function createLocalPlaceId() {
 function openAddPlaceDialog() {
   const dialog = document.getElementById("addPlaceDialog");
   const form = document.getElementById("addPlaceForm");
-
+  editingPlaceId = null;
   form.reset();
   resetGooglePlaceSelection();
+  document.getElementById("placeDialogTitle").textContent = "Ort hinzufügen";
+  document.getElementById("savePlaceBtn").textContent = "Ort speichern";
   document.getElementById("placeCategory").value = "food";
   document.getElementById("placeFormMessage").textContent = "";
+  if (typeof dialog.showModal === "function") dialog.showModal();
+  else dialog.setAttribute("open", "");
+}
 
-  if (typeof dialog.showModal === "function") {
-    dialog.showModal();
-  } else {
-    dialog.setAttribute("open", "");
-  }
+function openEditPlaceDialog(id) {
+  const place = placesData.places.find(p => p.id === id);
+  if (!place) return;
+  editingPlaceId = id;
+  resetGooglePlaceSelection();
+  document.getElementById("placeDialogTitle").textContent = "Ort bearbeiten";
+  document.getElementById("savePlaceBtn").textContent = "Änderungen speichern";
+  document.getElementById("placeName").value = place.name || "";
+  document.getElementById("placeAddress").value = place.address || "";
+  document.getElementById("placeCategory").value = place.category || "other";
+  document.getElementById("placeNotes").value = place.notes || "";
+  document.getElementById("placeLocalTip").checked = Boolean(place.localTip);
+  document.getElementById("placeFormMessage").textContent = "";
+  const dialog = document.getElementById("addPlaceDialog");
+  if (typeof dialog.showModal === "function") dialog.showModal();
+  else dialog.setAttribute("open", "");
 }
 
 function closeAddPlaceDialog() {
@@ -853,132 +889,113 @@ function closeAddPlaceDialog() {
 
 async function handleAddPlace(event) {
   event.preventDefault();
-
   const submitButton = document.getElementById("savePlaceBtn");
   const message = document.getElementById("placeFormMessage");
-
   const name = document.getElementById("placeName").value.trim();
   const address = document.getElementById("placeAddress").value.trim();
   const category = document.getElementById("placeCategory").value;
   const notes = document.getElementById("placeNotes").value.trim();
   const localTip = document.getElementById("placeLocalTip").checked;
-
-  if (!name || !address) {
-    message.textContent = "Bitte Name und Adresse eintragen.";
-    return;
-  }
+  if (!name || !address) { message.textContent = "Bitte Name und Adresse eintragen."; return; }
 
   submitButton.disabled = true;
-  submitButton.textContent = "Adresse wird geprüft …";
   message.textContent = "";
-
   try {
-    const draft = {
-      id: createLocalPlaceId(),
-      name,
-      address,
-      category,
-      notes,
-      localTip,
-      tags: ["eigener Ort"],
-      status: "local",
-      source: selectedGooglePlace ? "googlePlaces" : "localStorage",
-      isLocalPlace: true,
-      googlePlaceId: selectedGooglePlace?.id || "",
-      website: selectedGooglePlace?.websiteURI || "",
-      phone: selectedGooglePlace?.nationalPhoneNumber || "",
-      openingHours: googleOpeningHoursText(selectedGooglePlace),
-      createdAt: new Date().toISOString()
-    };
-
-    let position = null;
-
-    if (selectedGooglePlace?.location) {
-      position = {
-        lat: selectedGooglePlace.location.lat(),
-        lng: selectedGooglePlace.location.lng()
-      };
-    } else {
-      position = await geocodePlaceWithRetry(draft);
-    }
-
-    if (!position) {
-      message.textContent = "Die Adresse konnte nicht gefunden werden. Bitte prüfe die Schreibweise.";
+    if (editingPlaceId) {
+      const place = placesData.places.find(p => p.id === editingPlaceId);
+      if (!place?.supabaseId) throw new Error("Datenbank-ID des Ortes fehlt.");
+      let position = { lat: place.lat, lng: place.lng };
+      if (address !== place.address) {
+        submitButton.textContent = "Adresse wird geprüft …";
+        position = await geocodePlaceWithRetry({ name, address });
+        if (!position) throw new Error("Die neue Adresse konnte nicht gefunden werden.");
+      }
+      const { error } = await supabaseClient.from("places").update({
+        name, address, latitude: position.lat, longitude: position.lng,
+        category, note: notes || null, is_local_tip: localTip,
+        updated_at: new Date().toISOString()
+      }).eq("id", place.supabaseId);
+      if (error) throw error;
+      Object.assign(place, { name, address, lat: position.lat, lng: position.lng, category, notes, localTip });
+      cachePosition(place.id, position);
+      const marker = markers.get(place.id);
+      if (marker) marker.position = position;
+      refreshMarkerAppearance(place);
+      applyFilters();
+      closeAddPlaceDialog();
+      openPlace(place);
+      setStatus(`☁️ „${name}“ wurde gespeichert.`);
       return;
     }
 
-    draft.lat = position.lat;
-    draft.lng = position.lng;
+    submitButton.textContent = "Adresse wird geprüft …";
+    let position = selectedGooglePlace?.location
+      ? { lat: selectedGooglePlace.location.lat(), lng: selectedGooglePlace.location.lng() }
+      : await geocodePlaceWithRetry({ name, address });
+    if (!position) throw new Error("Die Adresse konnte nicht gefunden werden.");
 
-    const localPlaces = loadLocalPlaces();
-    localPlaces.push(draft);
-    saveLocalPlaces(localPlaces);
+    const { data: dbPlace, error: placeError } = await supabaseClient.from("places").insert({
+      name, address, latitude: position.lat, longitude: position.lng, category,
+      google_place_id: selectedGooglePlace?.id || null,
+      website: selectedGooglePlace?.websiteURI || null,
+      phone: selectedGooglePlace?.nationalPhoneNumber || null,
+      opening_hours: googleOpeningHoursText(selectedGooglePlace) || null,
+      note: notes || null, is_local_tip: localTip,
+      source: selectedGooglePlace ? "googlePlaces" : "manual"
+    }).select("*").single();
+    if (placeError) throw placeError;
 
+    const { error: relationError } = await supabaseClient.from("trip_places").insert({
+      trip_id: currentTripId, place_id: dbPlace.id
+    });
+    if (relationError) {
+      await supabaseClient.from("places").delete().eq("id", dbPlace.id);
+      throw relationError;
+    }
+
+    const draft = {
+      id: dbPlace.id, supabaseId: dbPlace.id, name: dbPlace.name, address: dbPlace.address,
+      lat: dbPlace.latitude, lng: dbPlace.longitude, category: dbPlace.category || "other",
+      tags: [], googlePlaceId: dbPlace.google_place_id, website: dbPlace.website,
+      phone: dbPlace.phone, openingHours: dbPlace.opening_hours, notes: dbPlace.note,
+      localTip: Boolean(dbPlace.is_local_tip), source: dbPlace.source
+    };
     placesData.places.push(draft);
     cachePosition(draft.id, position);
-
     const marker = createPlaceMarker(draft, position, map);
-
     marker.addEventListener("gmp-click", () => openPlace(draft));
     markers.set(draft.id, marker);
-
-    // Falls die gewählte Kategorie vorher deaktiviert war, soll der neue Ort
-    // trotzdem sichtbar sein.
     activeCategories.add(draft.category);
-    const categoryCheckbox = document.querySelector(
-      `#categoryFilters input[value="${CSS.escape(draft.category)}"]`
-    );
-    if (categoryCheckbox) categoryCheckbox.checked = true;
-
-    applyFilters();
-    updateToggleAllText();
-    closeAddPlaceDialog();
-
-    map.panTo(position);
-    map.setZoom(Math.max(map.getZoom(), 16));
-    openPlace(draft);
-    setStatus(`„${draft.name}“ wurde lokal gespeichert.`);
+    const cb = document.querySelector(`#categoryFilters input[value="${CSS.escape(draft.category)}"]`);
+    if (cb) cb.checked = true;
+    applyFilters(); updateToggleAllText(); closeAddPlaceDialog();
+    map.panTo(position); map.setZoom(Math.max(map.getZoom(), 16)); openPlace(draft);
+    setStatus(`☁️ „${draft.name}“ wurde zur Reise hinzugefügt.`);
+  } catch (error) {
+    console.error("Ort speichern:", error);
+    message.textContent = `Speichern fehlgeschlagen: ${error.message}`;
   } finally {
     submitButton.disabled = false;
-    submitButton.textContent = "Ort speichern";
+    submitButton.textContent = editingPlaceId ? "Änderungen speichern" : "Ort speichern";
   }
 }
 
-function deleteLocalPlace(id) {
+async function removePlaceFromTrip(id) {
   const place = placesData.places.find(p => p.id === id);
-  if (!place?.isLocalPlace) return;
-
-  if (!confirm(`„${place.name}“ wirklich löschen?`)) return;
-
+  if (!place?.supabaseId || !currentTripId) return;
+  if (!confirm(`„${place.name}“ aus dieser Reise entfernen?\n\nDer Ort selbst bleibt in der Ortsdatenbank erhalten.`)) return;
   const previousDay = (state.places[id] || {}).plannedDay || "";
-
-  const marker = markers.get(id);
-  if (marker) marker.map = null;
-  markers.delete(id);
-
-  const localPlaces = loadLocalPlaces().filter(item => item.id !== id);
-  saveLocalPlaces(localPlaces);
-
+  const { error } = await supabaseClient.from("trip_places").delete()
+    .eq("trip_id", currentTripId).eq("place_id", place.supabaseId);
+  if (error) { setStatus(`⚠️ Entfernen fehlgeschlagen: ${error.message}`); return; }
+  const marker = markers.get(id); if (marker) marker.map = null; markers.delete(id);
   placesData.places = placesData.places.filter(item => item.id !== id);
   delete state.places[id];
+  localStorage.setItem("budapestMapState", JSON.stringify(state));
   if (previousDay) normalizeDayOrder(previousDay);
-  saveState();
-
-  applyFilters();
-
-  if (activeRouteDay === previousDay) {
-    const routePlaces = getRoutePlacesForDay(previousDay);
-    if (routePlaces.length >= 2) showDayRoute(previousDay);
-    else clearDayRoute();
-  } else {
-    updateRouteControls();
-  }
-
-  infoWindow.close();
-  setStatus(`„${place.name}“ wurde gelöscht.`);
+  applyFilters(); updateRouteControls(); infoWindow.close();
+  setStatus(`☁️ „${place.name}“ wurde aus der Reise entfernt.`);
 }
-
-
 
 function getPlacesForDay(dayId) {
   return placesData.places
