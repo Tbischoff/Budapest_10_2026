@@ -382,3 +382,15 @@ Beim Import werden die selbst gespeicherten Orte ebenfalls wiederhergestellt. Ä
 - 57 Orte werden aus `places` geladen und über `trip_places` mit der Reise verknüpft
 - Besuchsstatus/Tageszuordnung werden bereits gelesen
 - Schreiboperationen bleiben in Phase 1 noch lokal; zentrale Synchronisation folgt in Phase 2
+
+
+## V1.0.0 – Phase 2
+Die bestehende Reiseplanung wird jetzt nach Supabase geschrieben:
+- Tageszuordnung
+- Reihenfolge
+- besucht
+- Startzeit und Endzeit
+
+Schreibvorgänge werden kurz gebündelt und per Upsert nach `trip_places` übertragen.
+Bei einem Cloud-Fehler bleibt der lokale Stand erhalten und die Statuszeile meldet den Fehler.
+Vor dem Einsatz muss `docs/V1.0.0_PHASE2_DATABASE.sql` einmal in Supabase ausgeführt werden.

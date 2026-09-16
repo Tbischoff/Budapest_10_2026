@@ -6,6 +6,12 @@ const SUPABASE_CONFIG = {
 const TRIP_NAME = "Budapest 2026";
 let supabaseClient = null;
 let currentUser = null;
+let currentTripId = null;
+let currentTripDays = [];
+let supabaseSyncTimer = null;
+let supabaseSyncInProgress = false;
+let supabaseSyncQueued = false;
+let suppressSupabaseSync = true;
 
 const CONFIG = {
   // Google Maps JavaScript API key eintragen.
@@ -146,7 +152,7 @@ async function loadSupabaseTripData() {
 
   const { data: tripPlaces, error: tpError } = await supabaseClient
     .from("trip_places")
-    .select("place_id,trip_day_id,planned_order,planned_time,visited")
+    .select("place_id,trip_day_id,planned_order,planned_time,planned_end_time,visited")
     .eq("trip_id", trip.id);
   if (tpError) throw tpError;
 
@@ -157,6 +163,8 @@ async function loadSupabaseTripData() {
     .order("day_date");
   if (daysError) throw daysError;
 
+  currentTripId = trip.id;
+  currentTripDays = tripDays;
   const dayById = new Map(tripDays.map(day => [day.id, day.day_date]));
   const tpByPlaceId = new Map(tripPlaces.map(item => [item.place_id, item]));
 
@@ -170,7 +178,10 @@ async function loadSupabaseTripData() {
       else delete ps.plannedDay;
       if (relation.planned_order != null) ps.plannedOrder = relation.planned_order;
       else delete ps.plannedOrder;
-      if (relation.planned_time) ps.plannedTime = relation.planned_time;
+      if (relation.planned_time) ps.startTime = relation.planned_time.slice(0, 5);
+      else delete ps.startTime;
+      if (relation.planned_end_time) ps.endTime = relation.planned_end_time.slice(0, 5);
+      else delete ps.endTime;
     }
     return {
       id: frontendId,
@@ -225,7 +236,8 @@ async function bootstrap() {
     await createMarkers();
     applyFilters();
 
-    setStatus(`☁️ ${placesData.places.length} Orte aus Supabase geladen.`);
+    suppressSupabaseSync = false;
+    setStatus(`☁️ ${placesData.places.length} Orte aus Supabase geladen · Synchronisation aktiv.`);
   } catch (err) {
     console.error(err);
     setStatus(`Fehler: ${err.message}`);
@@ -2636,6 +2648,63 @@ function loadState() {
 
 function saveState() {
   localStorage.setItem("budapestMapState", JSON.stringify(state));
+  scheduleSupabasePlanningSync();
+}
+
+function scheduleSupabasePlanningSync() {
+  if (suppressSupabaseSync || !supabaseClient || !currentUser || !currentTripId) return;
+  window.clearTimeout(supabaseSyncTimer);
+  supabaseSyncTimer = window.setTimeout(syncPlanningToSupabase, 250);
+}
+
+function normalizeDbTime(value) {
+  if (!value) return null;
+  return /^\d{2}:\d{2}$/.test(value) ? `${value}:00` : value;
+}
+
+async function syncPlanningToSupabase() {
+  if (supabaseSyncInProgress) {
+    supabaseSyncQueued = true;
+    return;
+  }
+
+  supabaseSyncInProgress = true;
+  try {
+    const dayIdByDate = new Map(currentTripDays.map(day => [day.day_date, day.id]));
+    const rows = placesData.places
+      .filter(place => place.supabaseId)
+      .map(place => {
+        const saved = state.places[place.id] || {};
+        return {
+          trip_id: currentTripId,
+          place_id: place.supabaseId,
+          trip_day_id: saved.plannedDay ? (dayIdByDate.get(saved.plannedDay) || null) : null,
+          planned_order: Number.isInteger(saved.plannedOrder) ? saved.plannedOrder : null,
+          planned_time: normalizeDbTime(saved.startTime),
+          planned_end_time: normalizeDbTime(saved.endTime),
+          visited: Boolean(saved.visited),
+          updated_at: new Date().toISOString()
+        };
+      });
+
+    if (!rows.length) return;
+
+    const { error } = await supabaseClient
+      .from("trip_places")
+      .upsert(rows, { onConflict: "trip_id,place_id" });
+
+    if (error) throw error;
+    setStatus("☁️ Planung synchronisiert.");
+  } catch (error) {
+    console.error("Supabase-Synchronisation:", error);
+    setStatus(`⚠️ Lokal gespeichert, Cloud-Synchronisation fehlgeschlagen: ${error.message}`);
+  } finally {
+    supabaseSyncInProgress = false;
+    if (supabaseSyncQueued) {
+      supabaseSyncQueued = false;
+      scheduleSupabasePlanningSync();
+    }
+  }
 }
 
 function getCachedPosition(id) {
