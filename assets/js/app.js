@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.0.0 · Phase 4 · Build 14";
+const APP_VERSION = "v1.0.0 · Phase 4 · Build 15";
 
 const SUPABASE_CONFIG = {
   url: "https://fjlezfzninkltblcctds.supabase.co",
@@ -2206,7 +2206,7 @@ async function showNextPlace() {
   // "Nächster Ort" folgt ab Build 14 ausschließlich der geplanten
   // Tagesreihenfolge. Der aktuelle GPS-Standort wird hier nicht mehr
   // als neuer Startpunkt in die Tagesroute eingefügt.
-  if (destinations.length === 1) {
+  if (destinations.length === 1 && routeStartMode !== "current") {
     clearRenderedRoute();
     activeRouteDay = null;
     activeRouteSummary = null;
@@ -2230,14 +2230,27 @@ async function showNextPlace() {
 
   try {
     const Route = await ensureRoutesLibrary();
-    const routePoints = destinations.map(item => item.position);
+    const plannedRoutePoints = destinations.map(item => item.position);
+
+    // Build 15: "Nächster Ort" respects the route-start option selected by
+    // the user. If "current location" is selected, GPS remains the origin;
+    // otherwise the route starts at the first remaining planned place.
+    const useCurrentLocation = routeStartMode === "current";
+    if (useCurrentLocation && !userPosition) {
+      setStatus("Aktueller Standort ist noch nicht verfügbar. Bitte Standort aktualisieren.");
+      return;
+    }
+
+    const routePoints = useCurrentLocation
+      ? [userPosition, ...plannedRoutePoints]
+      : plannedRoutePoints;
 
     const routes = [];
     let totalDistanceMeters = 0;
     let totalDurationMillis = 0;
 
     // Segmentweise rechnen, damit die geplante Reihenfolge garantiert
-    // erhalten bleibt: nächster offener Ort -> weiterer offener Ort -> ...
+    // erhalten bleibt. Nur der Startpunkt hängt von der gewählten Option ab.
     for (let i = 0; i < routePoints.length - 1; i += 1) {
       const { routes: segmentRoutes } = await Route.computeRoutes({
         origin: routePoints[i],

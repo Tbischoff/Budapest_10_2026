@@ -519,3 +519,9 @@ Legacy coordinate migration:
 - The remaining route now follows only the planned, unvisited places in agenda order.
 - If only one place remains, it is focused without creating an unnecessary route.
 - On smartphones, selecting a day in the Plan tab keeps the Plan tab open.
+
+### V1.0.0 · Phase 4 · Build 15
+- "Nächster Ort" now respects the selected route-start option.
+- If "current" / current location is selected, the remaining route starts at GPS and continues through unvisited places in planned order.
+- If the planned-first-place option is selected, the remaining route starts at the first unvisited planned place.
+- The mobile Plan-tab behavior from Build 14 is unchanged.
