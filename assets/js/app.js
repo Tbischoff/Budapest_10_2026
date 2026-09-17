@@ -1818,18 +1818,21 @@ function resetPlaceSearchAfterPlanning() {
   const reset = () => {
     const searchInput = document.getElementById("searchInput");
     if (!searchInput) return;
+
+    window.clearTimeout(searchDebounceTimer);
     searchInput.value = "";
-    // Mobile browsers can keep the native search control visually stale
-    // unless its normal input/change flow is triggered as well.
-    searchInput.dispatchEvent(new Event("input", { bubbles: true }));
-    searchInput.dispatchEvent(new Event("change", { bubbles: true }));
-    renderSearchSuggestions();
+    searchInput.blur();
+
     hideSearchSuggestions();
+    applyFilters();
   };
 
+  // Desktop immediately; mobile browsers may restore the value while a
+  // native select/button interaction is still being completed.
   reset();
   window.requestAnimationFrame(reset);
-  window.setTimeout(reset, 80);
+  window.setTimeout(reset, 120);
+  window.setTimeout(reset, 350);
 }
 
 function setPlannedDay(id, dayId) {
@@ -2491,7 +2494,6 @@ function renderPlaceList(filteredPlaces) {
       <div class="place-card-meta">
         ${escapeHtml(categoryLabel(place.category))}
         ${userPosition && distanceToPlace(place) != null ? ` · 📍 ${escapeHtml(formatDistance(distanceToPlace(place)))} entfernt` : ""}
-        ${saved.plannedDay ? ` · 🗓️ ${escapeHtml(dayLongLabel(saved.plannedDay))}` : ""}
         ${saved.plannedDay && formatPlannedTime(saved) ? ` · 🕐 ${escapeHtml(formatPlannedTime(saved))}` : ""}
         ${saved.visited ? " · ✓ besucht" : ""}
       </div>
@@ -2940,6 +2942,8 @@ function toggleVisited(id) {
   const item = ensurePlaceState(id);
   item.visited = !item.visited;
   saveState();
+
+  resetPlaceSearchAfterPlanning();
   applyFilters();
 
   const place = placesData.places.find(p => p.id === id);

@@ -545,3 +545,10 @@ The application now displays the release version simply as `v1.0.0`.
 ### v1.0.0 – Mobile search correction
 - Search reset after assigning a place to a day is now applied robustly on mobile browsers too.
 - The search field is cleared immediately and once again after the UI update, and native input/change events are triggered.
+
+
+## v1.0.0 – Mobile Search + Date Fix
+- Doppelte Datumsanzeige in Ortskarten entfernt; der kompakte Tages-Badge bleibt erhalten.
+- Suchreset nach Planungsaktionen für mobile Browser robuster gemacht.
+- Smart-Search-Timer wird beim Reset abgebrochen, Suchfeld verliert Fokus und die Liste wird direkt neu gerendert.
+- Suchreset wird zusätzlich nach „besucht“/„nicht besucht“ ausgeführt.
