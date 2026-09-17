@@ -530,3 +530,8 @@ Legacy coordinate migration:
 - If a day route is visible, changing the trip day automatically displays the new day's route.
 - If no route is visible, changing days keeps the route hidden.
 - Existing route-start selection remains respected.
+
+## v1.0.0 – Final Release
+Build 16 was accepted as the final v1.0.0 release candidate.
+All five planned acceptance-test areas were completed successfully.
+The application now displays the release version simply as `v1.0.0`.

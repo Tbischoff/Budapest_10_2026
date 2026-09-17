@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.0.0 · Phase 4 · Build 16";
+const APP_VERSION = "v1.0.0";
 
 const SUPABASE_CONFIG = {
   url: "https://fjlezfzninkltblcctds.supabase.co",
