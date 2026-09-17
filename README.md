@@ -525,3 +525,8 @@ Legacy coordinate migration:
 - If "current" / current location is selected, the remaining route starts at GPS and continues through unvisited places in planned order.
 - If the planned-first-place option is selected, the remaining route starts at the first unvisited planned place.
 - The mobile Plan-tab behavior from Build 14 is unchanged.
+
+### V1.0.0 · Phase 4 · Build 16
+- If a day route is visible, changing the trip day automatically displays the new day's route.
+- If no route is visible, changing days keeps the route hidden.
+- Existing route-start selection remains respected.

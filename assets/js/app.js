@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.0.0 · Phase 4 · Build 15";
+const APP_VERSION = "v1.0.0 · Phase 4 · Build 16";
 
 const SUPABASE_CONFIG = {
   url: "https://fjlezfzninkltblcctds.supabase.co",
@@ -1742,7 +1742,11 @@ function renderDayFilters() {
 
     if (selectedDayFilter === item.id) button.classList.add("active");
 
-    button.addEventListener("click", () => {
+    button.addEventListener("click", async () => {
+      // Build 16: War bereits eine Route sichtbar, bleibt der Routenmodus
+      // beim Tageswechsel aktiv und die Route wird für den neuen Tag ersetzt.
+      const keepRouteVisible = Boolean(activeRouteDay && dayRoutePolylines.length);
+
       selectedDayFilter = item.id;
       document.querySelectorAll(".day-filter-button").forEach(btn => {
         btn.classList.toggle("active", btn.dataset.day === selectedDayFilter);
@@ -1754,6 +1758,10 @@ function renderDayFilters() {
 
       applyFilters();
       updateRouteControls();
+
+      if (keepRouteVisible && TRIP_DAYS.some(day => day.id === selectedDayFilter)) {
+        await showDayRoute(selectedDayFilter);
+      }
 
       // Build 14: Im mobilen Plan bleibt der Plan-Tab nach der
       // Auswahl eines Reisetages geöffnet.
