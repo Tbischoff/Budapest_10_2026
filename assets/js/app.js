@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.0.0 · Phase 4 · Build 10";
+const APP_VERSION = "v1.0.0 · Phase 4 · Build 11";
 
 const SUPABASE_CONFIG = {
   url: "https://fjlezfzninkltblcctds.supabase.co",
@@ -689,7 +689,7 @@ async function createMarkers() {
       place.lng = position.lng;
       cachePosition(place.id, position);
       resolved.push({ place, position });
-    } else if (canGeocode(place)) {
+    } else if (place.googlePlaceId || canGeocode(place)) {
       needsGeocoding.push(place);
     }
 
@@ -710,7 +710,10 @@ async function createMarkers() {
 
     const results = await Promise.all(
       batch.map(async place => {
-        const position = await geocodePlaceWithRetry(place);
+        const position = place.googlePlaceId
+          ? (await geocodePlaceIdWithRetry(place)) ||
+            (canGeocode(place) ? await geocodePlaceWithRetry(place) : null)
+          : await geocodePlaceWithRetry(place);
 
         if (position) {
           // Supabase is the authoritative store. Legacy places that still have
@@ -782,6 +785,47 @@ async function createMarkers() {
 function isPlausibleBudapestPosition(position) {
   const p = normalizeLatLng(position);
   return !!p && p.lat >= 47.3 && p.lat <= 47.7 && p.lng >= 18.8 && p.lng <= 19.4;
+}
+
+function geocodePlaceIdWithRetry(place, attempt = 0) {
+  return new Promise(resolve => {
+    if (!place.googlePlaceId) {
+      resolve(null);
+      return;
+    }
+
+    geocoder.geocode({ placeId: place.googlePlaceId }, async (results, status) => {
+      if (status === "OK" && results?.length) {
+        const result = results.find(item => {
+          const loc = item.geometry?.location;
+          return loc && isPlausibleBudapestPosition({ lat: loc.lat(), lng: loc.lng() });
+        });
+
+        if (result) {
+          const loc = result.geometry.location;
+          resolve({
+            lat: loc.lat(),
+            lng: loc.lng(),
+            googlePlaceId: result.place_id || place.googlePlaceId
+          });
+          return;
+        }
+
+        console.warn("Place-ID außerhalb Budapest verworfen:", place.name);
+        resolve(null);
+        return;
+      }
+
+      if (status === "OVER_QUERY_LIMIT" && attempt < 4) {
+        await delay(700 * (attempt + 1));
+        resolve(await geocodePlaceIdWithRetry(place, attempt + 1));
+        return;
+      }
+
+      console.warn("Place-ID konnte nicht aufgelöst werden:", place.name, status);
+      resolve(null);
+    });
+  });
 }
 
 function geocodePlaceWithRetry(place, attempt = 0) {

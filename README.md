@@ -495,3 +495,10 @@ Legacy coordinate migration:
 - Only plausible Budapest-area results are accepted.
 - latitude, longitude and google_place_id are persisted to Supabase.
 - Ambiguous city-only addresses are skipped.
+
+
+### V1.0.0 · Phase 4 · Build 11
+- Resolves 0/0 places with an existing Google Place ID by Place ID first.
+- Validates returned positions against the Budapest area.
+- Falls back to address geocoding where appropriate.
+- Persists latitude, longitude and the confirmed Place ID to Supabase.
