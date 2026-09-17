@@ -495,3 +495,27 @@ Legacy coordinate migration:
 - Only plausible Budapest-area results are accepted.
 - latitude, longitude and google_place_id are persisted to Supabase.
 - Ambiguous city-only addresses are skipped.
+
+
+### V1.0.0 · Phase 4 · Build 11
+- Resolves 0/0 places with an existing Google Place ID by Place ID first.
+- Validates returned positions against the Budapest area.
+- Falls back to address geocoding where appropriate.
+- Persists latitude, longitude and the confirmed Place ID to Supabase.
+
+### V1.0.0 · Phase 4 · Build 12
+- Fix: normal "Ort hinzufügen" geocoding is global again.
+- Budapest plausibility bounds remain only for legacy 0/0 coordinate repair.
+- No other feature changes.
+
+### V1.0.0 · Phase 4 · Build 13
+- Regression fix verified against the complete handleAddPlace flow.
+- New manually entered places use unrestricted global geocoding.
+- Address changes while editing also use unrestricted global geocoding.
+- Budapest-only plausibility checks remain exclusively in legacy coordinate repair.
+
+### V1.0.0 · Phase 4 · Build 14
+- "Nächster Ort" no longer rebuilds the remaining day route from the current GPS position.
+- The remaining route now follows only the planned, unvisited places in agenda order.
+- If only one place remains, it is focused without creating an unnecessary route.
+- On smartphones, selecting a day in the Plan tab keeps the Plan tab open.

@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.0.0 · Phase 4 · Build 10";
+const APP_VERSION = "v1.0.0 · Phase 4 · Build 14";
 
 const SUPABASE_CONFIG = {
   url: "https://fjlezfzninkltblcctds.supabase.co",
@@ -689,7 +689,7 @@ async function createMarkers() {
       place.lng = position.lng;
       cachePosition(place.id, position);
       resolved.push({ place, position });
-    } else if (canGeocode(place)) {
+    } else if (place.googlePlaceId || canGeocode(place)) {
       needsGeocoding.push(place);
     }
 
@@ -710,7 +710,10 @@ async function createMarkers() {
 
     const results = await Promise.all(
       batch.map(async place => {
-        const position = await geocodePlaceWithRetry(place);
+        const position = place.googlePlaceId
+          ? (await geocodePlaceIdWithRetry(place)) ||
+            (canGeocode(place) ? await geocodePlaceWithRetry(place) : null)
+          : await geocodePlaceWithRetry(place);
 
         if (position) {
           // Supabase is the authoritative store. Legacy places that still have
@@ -782,6 +785,74 @@ async function createMarkers() {
 function isPlausibleBudapestPosition(position) {
   const p = normalizeLatLng(position);
   return !!p && p.lat >= 47.3 && p.lat <= 47.7 && p.lng >= 18.8 && p.lng <= 19.4;
+}
+
+function geocodePlaceIdWithRetry(place, attempt = 0) {
+  return new Promise(resolve => {
+    if (!place.googlePlaceId) {
+      resolve(null);
+      return;
+    }
+
+    geocoder.geocode({ placeId: place.googlePlaceId }, async (results, status) => {
+      if (status === "OK" && results?.length) {
+        const result = results.find(item => {
+          const loc = item.geometry?.location;
+          return loc && isPlausibleBudapestPosition({ lat: loc.lat(), lng: loc.lng() });
+        });
+
+        if (result) {
+          const loc = result.geometry.location;
+          resolve({
+            lat: loc.lat(),
+            lng: loc.lng(),
+            googlePlaceId: result.place_id || place.googlePlaceId
+          });
+          return;
+        }
+
+        console.warn("Place-ID außerhalb Budapest verworfen:", place.name);
+        resolve(null);
+        return;
+      }
+
+      if (status === "OVER_QUERY_LIMIT" && attempt < 4) {
+        await delay(700 * (attempt + 1));
+        resolve(await geocodePlaceIdWithRetry(place, attempt + 1));
+        return;
+      }
+
+      console.warn("Place-ID konnte nicht aufgelöst werden:", place.name, status);
+      resolve(null);
+    });
+  });
+}
+
+function geocodePlaceGlobally(place, attempt = 0) {
+  return new Promise(resolve => {
+    const query = [place.name, place.address].filter(Boolean).join(", ");
+    geocoder.geocode({ address: query }, async (results, status) => {
+      if (status === "OK" && results?.length) {
+        const result = results[0];
+        const loc = result.geometry?.location;
+        if (loc) {
+          resolve({
+            lat: loc.lat(),
+            lng: loc.lng(),
+            googlePlaceId: result.place_id || place.googlePlaceId || null
+          });
+          return;
+        }
+      }
+      if (status === "OVER_QUERY_LIMIT" && attempt < 4) {
+        await delay(700 * (attempt + 1));
+        resolve(await geocodePlaceGlobally(place, attempt + 1));
+        return;
+      }
+      console.warn("Globales Geocoding fehlgeschlagen:", place.name, status);
+      resolve(null);
+    });
+  });
 }
 
 function geocodePlaceWithRetry(place, attempt = 0) {
@@ -989,13 +1060,13 @@ async function handleAddPlace(event) {
         lng: Number(place.lng)
       };
       if (!Number.isFinite(position.lat) || !Number.isFinite(position.lng)) {
-        position = await geocodePlaceWithRetry({ name, address });
+        position = await geocodePlaceGlobally({ name, address });
         if (!position) throw new Error("Die Position des Ortes konnte nicht ermittelt werden.");
       }
       const addressChanged = address !== place.address;
       if (addressChanged) {
         submitButton.textContent = "Adresse wird geprüft …";
-        position = await geocodePlaceWithRetry({ name, address });
+        position = await geocodePlaceGlobally({ name, address });
         if (!position) throw new Error("Die neue Adresse konnte nicht gefunden werden.");
       }
       const { error } = await supabaseClient.from("places").update({
@@ -1021,7 +1092,7 @@ async function handleAddPlace(event) {
     submitButton.textContent = "Adresse wird geprüft …";
     let position = selectedGooglePlace?.location
       ? { lat: selectedGooglePlace.location.lat(), lng: selectedGooglePlace.location.lng() }
-      : await geocodePlaceWithRetry({ name, address });
+      : await geocodePlaceGlobally({ name, address });
     if (!position) throw new Error("Die Adresse konnte nicht gefunden werden.");
 
     const { data: dbPlace, error: placeError } = await supabaseClient.from("places").insert({
@@ -1684,11 +1755,8 @@ function renderDayFilters() {
       applyFilters();
       updateRouteControls();
 
-      // Auf dem Smartphone nach Auswahl eines konkreten Reisetages
-      // direkt zurück zur Karte wechseln.
-      if (isMobileLayout() && TRIP_DAYS.some(day => day.id === selectedDayFilter)) {
-        setMobileView("map");
-      }
+      // Build 14: Im mobilen Plan bleibt der Plan-Tab nach der
+      // Auswahl eines Reisetages geöffnet.
     });
 
     container.appendChild(button);
@@ -2116,11 +2184,6 @@ async function showNextPlace() {
     return;
   }
 
-  if (!userPosition) {
-    setStatus("Für die Route wird dein aktueller Standort benötigt. Bitte zuerst „Standort aktualisieren“ verwenden.");
-    return;
-  }
-
   const destinations = remainingPlaces
     .map(place => {
       const marker = markers.get(place.id);
@@ -2140,23 +2203,41 @@ async function showNextPlace() {
   renderDayAgenda();
   refreshAllMarkerAppearances();
 
+  // "Nächster Ort" folgt ab Build 14 ausschließlich der geplanten
+  // Tagesreihenfolge. Der aktuelle GPS-Standort wird hier nicht mehr
+  // als neuer Startpunkt in die Tagesroute eingefügt.
+  if (destinations.length === 1) {
+    clearRenderedRoute();
+    activeRouteDay = null;
+    activeRouteSummary = null;
+
+    const marker = markers.get(nextPlace.id);
+    const position = marker ? getMarkerPosition(marker) : null;
+    if (position) {
+      map.panTo(position);
+      if (map.getZoom() < 15) map.setZoom(15);
+    }
+
+    window.setTimeout(() => openPlace(nextPlace), 180);
+    updateRouteControls();
+    setStatus(`🧭 Nächster Ort: ${nextPlace.name} · danach ist der Tagesplan abgeschlossen.`);
+    return;
+  }
+
   routeLoading = true;
   updateRouteControls();
-  setStatus(`Restliche Tagesroute ab aktuellem Standort wird berechnet …`);
+  setStatus(`Restliche Tagesroute ab „${nextPlace.name}“ wird berechnet …`);
 
   try {
     const Route = await ensureRoutesLibrary();
-    const routePoints = [
-      { lat: userPosition.lat, lng: userPosition.lng },
-      ...destinations.map(item => item.position)
-    ];
+    const routePoints = destinations.map(item => item.position);
 
     const routes = [];
     let totalDistanceMeters = 0;
     let totalDurationMillis = 0;
 
-    // Wie bei der bestehenden Tagesroute segmentweise rechnen, damit die
-    // Reihenfolge der Tagesagenda garantiert erhalten bleibt.
+    // Segmentweise rechnen, damit die geplante Reihenfolge garantiert
+    // erhalten bleibt: nächster offener Ort -> weiterer offener Ort -> ...
     for (let i = 0; i < routePoints.length - 1; i += 1) {
       const { routes: segmentRoutes } = await Route.computeRoutes({
         origin: routePoints[i],
@@ -2196,8 +2277,12 @@ async function showNextPlace() {
       route.path?.forEach(point => bounds.extend(point));
     });
 
-    activeRouteDay = null;
-    activeRouteSummary = null;
+    activeRouteDay = day.id;
+    activeRouteSummary = {
+      distanceMeters: totalDistanceMeters,
+      durationMillis: totalDurationMillis,
+      placeCount: destinations.length
+    };
 
     if (!bounds.isEmpty()) {
       map.fitBounds(bounds, 70);
@@ -2210,7 +2295,7 @@ async function showNextPlace() {
     window.setTimeout(() => openPlace(nextPlace), 180);
 
     setStatus(
-      `🧭 Noch ${destinations.length} ${destinations.length === 1 ? "Ort" : "Orte"} · nächster: ${nextPlace.name} · ${formatRouteDistance(totalDistanceMeters)} · ${formatRouteDuration(totalDurationMillis)}`
+      `🧭 Noch ${destinations.length} ${destinations.length === 1 ? "Ort" : "Orte"} · nächster: ${nextPlace.name} · Reststrecke ${formatRouteDistance(totalDistanceMeters)} · ${formatRouteDuration(totalDurationMillis)}`
     );
   } catch (error) {
     console.error("Routes API – restliche Tagesroute:", error);
@@ -2223,6 +2308,7 @@ async function showNextPlace() {
     updateRouteControls();
   }
 }
+
 
 function renderDayAgenda() {
   const container = document.getElementById("dayAgenda");
