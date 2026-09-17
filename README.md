@@ -507,3 +507,9 @@ Legacy coordinate migration:
 - Fix: normal "Ort hinzufügen" geocoding is global again.
 - Budapest plausibility bounds remain only for legacy 0/0 coordinate repair.
 - No other feature changes.
+
+### V1.0.0 · Phase 4 · Build 13
+- Regression fix verified against the complete handleAddPlace flow.
+- New manually entered places use unrestricted global geocoding.
+- Address changes while editing also use unrestricted global geocoding.
+- Budapest-only plausibility checks remain exclusively in legacy coordinate repair.

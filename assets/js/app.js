@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.0.0 · Phase 4 · Build 12";
+const APP_VERSION = "v1.0.0 · Phase 4 · Build 13";
 
 const SUPABASE_CONFIG = {
   url: "https://fjlezfzninkltblcctds.supabase.co",
@@ -1066,7 +1066,7 @@ async function handleAddPlace(event) {
       const addressChanged = address !== place.address;
       if (addressChanged) {
         submitButton.textContent = "Adresse wird geprüft …";
-        position = await geocodePlaceWithRetry({ name, address });
+        position = await geocodePlaceGlobally({ name, address });
         if (!position) throw new Error("Die neue Adresse konnte nicht gefunden werden.");
       }
       const { error } = await supabaseClient.from("places").update({
@@ -1092,7 +1092,7 @@ async function handleAddPlace(event) {
     submitButton.textContent = "Adresse wird geprüft …";
     let position = selectedGooglePlace?.location
       ? { lat: selectedGooglePlace.location.lat(), lng: selectedGooglePlace.location.lng() }
-      : await geocodePlaceWithRetry({ name, address });
+      : await geocodePlaceGlobally({ name, address });
     if (!position) throw new Error("Die Adresse konnte nicht gefunden werden.");
 
     const { data: dbPlace, error: placeError } = await supabaseClient.from("places").insert({
