@@ -1843,6 +1843,20 @@ function setPlannedDay(id, dayId) {
 
   saveState();
   updateDayCounts();
+
+  // v1.0.0 UX-Korrektur:
+  // Nach erfolgreicher Zuweisung eines über die Suche gefilterten Ortes
+  // ist der Suchvorgang abgeschlossen. Nur den Suchtext zurücksetzen;
+  // Kategorie-, Tages- und weitere Filter bleiben unverändert.
+  if (dayId) {
+    const searchInput = document.getElementById("searchInput");
+    if (searchInput && searchInput.value.trim()) {
+      searchInput.value = "";
+      renderSearchSuggestions();
+      hideSearchSuggestions();
+    }
+  }
+
   applyFilters();
 
   if (activeRouteDay && (activeRouteDay === previousDay || activeRouteDay === dayId)) {

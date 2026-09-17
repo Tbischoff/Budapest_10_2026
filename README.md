@@ -535,3 +535,9 @@ Legacy coordinate migration:
 Build 16 was accepted as the final v1.0.0 release candidate.
 All five planned acceptance-test areas were completed successfully.
 The application now displays the release version simply as `v1.0.0`.
+
+### v1.0.0 – UX correction
+- After assigning a place to a trip day, an active place-search term is cleared automatically.
+- Search suggestions are closed and the normal place list/map view is restored.
+- Category, day, local-tip and visited filters remain unchanged.
+- Removing a day assignment does not clear the search.
