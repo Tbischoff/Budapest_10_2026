@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.0.0 · Phase 4 · Build 11";
+const APP_VERSION = "v1.0.0 · Phase 4 · Build 12";
 
 const SUPABASE_CONFIG = {
   url: "https://fjlezfzninkltblcctds.supabase.co",
@@ -828,6 +828,33 @@ function geocodePlaceIdWithRetry(place, attempt = 0) {
   });
 }
 
+function geocodePlaceGlobally(place, attempt = 0) {
+  return new Promise(resolve => {
+    const query = [place.name, place.address].filter(Boolean).join(", ");
+    geocoder.geocode({ address: query }, async (results, status) => {
+      if (status === "OK" && results?.length) {
+        const result = results[0];
+        const loc = result.geometry?.location;
+        if (loc) {
+          resolve({
+            lat: loc.lat(),
+            lng: loc.lng(),
+            googlePlaceId: result.place_id || place.googlePlaceId || null
+          });
+          return;
+        }
+      }
+      if (status === "OVER_QUERY_LIMIT" && attempt < 4) {
+        await delay(700 * (attempt + 1));
+        resolve(await geocodePlaceGlobally(place, attempt + 1));
+        return;
+      }
+      console.warn("Globales Geocoding fehlgeschlagen:", place.name, status);
+      resolve(null);
+    });
+  });
+}
+
 function geocodePlaceWithRetry(place, attempt = 0) {
   return new Promise(resolve => {
     const query = [place.name, place.address, "Hungary"].filter(Boolean).join(", ");
@@ -1033,7 +1060,7 @@ async function handleAddPlace(event) {
         lng: Number(place.lng)
       };
       if (!Number.isFinite(position.lat) || !Number.isFinite(position.lng)) {
-        position = await geocodePlaceWithRetry({ name, address });
+        position = await geocodePlaceGlobally({ name, address });
         if (!position) throw new Error("Die Position des Ortes konnte nicht ermittelt werden.");
       }
       const addressChanged = address !== place.address;

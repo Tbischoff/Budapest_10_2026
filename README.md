@@ -502,3 +502,8 @@ Legacy coordinate migration:
 - Validates returned positions against the Budapest area.
 - Falls back to address geocoding where appropriate.
 - Persists latitude, longitude and the confirmed Place ID to Supabase.
+
+### V1.0.0 · Phase 4 · Build 12
+- Fix: normal "Ort hinzufügen" geocoding is global again.
+- Budapest plausibility bounds remain only for legacy 0/0 coordinate repair.
+- No other feature changes.
