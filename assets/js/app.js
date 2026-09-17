@@ -1814,6 +1814,24 @@ function dayOptionsHtml(selectedDay) {
   return html;
 }
 
+function resetPlaceSearchAfterPlanning() {
+  const reset = () => {
+    const searchInput = document.getElementById("searchInput");
+    if (!searchInput) return;
+    searchInput.value = "";
+    // Mobile browsers can keep the native search control visually stale
+    // unless its normal input/change flow is triggered as well.
+    searchInput.dispatchEvent(new Event("input", { bubbles: true }));
+    searchInput.dispatchEvent(new Event("change", { bubbles: true }));
+    renderSearchSuggestions();
+    hideSearchSuggestions();
+  };
+
+  reset();
+  window.requestAnimationFrame(reset);
+  window.setTimeout(reset, 80);
+}
+
 function setPlannedDay(id, dayId) {
   const item = ensurePlaceState(id);
   const previousDay = item.plannedDay || "";
@@ -1849,12 +1867,7 @@ function setPlannedDay(id, dayId) {
   // ist der Suchvorgang abgeschlossen. Nur den Suchtext zurücksetzen;
   // Kategorie-, Tages- und weitere Filter bleiben unverändert.
   if (dayId) {
-    const searchInput = document.getElementById("searchInput");
-    if (searchInput && searchInput.value.trim()) {
-      searchInput.value = "";
-      renderSearchSuggestions();
-      hideSearchSuggestions();
-    }
+    resetPlaceSearchAfterPlanning();
   }
 
   applyFilters();

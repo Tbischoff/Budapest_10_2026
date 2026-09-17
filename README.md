@@ -541,3 +541,7 @@ The application now displays the release version simply as `v1.0.0`.
 - Search suggestions are closed and the normal place list/map view is restored.
 - Category, day, local-tip and visited filters remain unchanged.
 - Removing a day assignment does not clear the search.
+
+### v1.0.0 – Mobile search correction
+- Search reset after assigning a place to a day is now applied robustly on mobile browsers too.
+- The search field is cleared immediately and once again after the UI update, and native input/change events are triggered.
