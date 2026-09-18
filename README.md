@@ -551,7 +551,7 @@ The application now displays the release version simply as `v1.0.0`.
 - Neue Backups verwenden `backupVersion: 2` und enthalten keine Auth-Session oder API-Zugangsdaten.
 - Import von v2-Backups schreibt Orte, Reisetage und Planung kontrolliert nach Supabase zurück und ersetzt die Ortszuordnungen der aktuell geöffneten Reise.
 - Globale Ortsdatensätze werden beim Restore nicht gelöscht, damit künftig gemeinsam genutzte Orte anderer Reisen erhalten bleiben.
-- Alte v1-Backups bleiben aus Kompatibilitätsgründen importierbar; sie werden weiterhin nur lokal wiederhergestellt und entsprechend gekennzeichnet.
+- Alte v1-Backups bleiben eingeschränkt importierbar; die lokalen Planungsdaten werden weiterhin nur im Browser wiederhergestellt. Die frühere separate `budapestLocalPlaces`-Ablage wird ab v1.1.0 nicht mehr übernommen.
 - Import prüft Struktur, Referenzen und Dateigröße vor dem Schreiben.
 
 ### Backup-Hardening – reisebezogener Export/Import
@@ -561,3 +561,13 @@ The application now displays the release version simply as `v1.0.0`.
 - Vor einem Supabase-Restore wird die `trip.id` des Backups mit der aktuell geöffneten Reise verglichen.
 - Bei abweichender Reise wird der Import vor jeder Datenänderung abgebrochen und zeigt Quell- und Zielreise an.
 - Der Restore selbst prüft die Reise-ID zusätzlich nochmals (Defense in Depth).
+
+
+## v1.1.0 – Security Hardening
+- Zugriff auf Reise-, Tages- und Planungsdaten wird in Supabase über Trip-Mitgliedschaften und Row Level Security abgesichert.
+- Orte werden nicht mehr als vollständige statische Legacy-Daten über GitHub Pages ausgeliefert; `data/places.js` enthält nur noch öffentliche Metadaten und `tryInBudapest`, `data/places.json` wurde entfernt.
+- Externe Website-Links werden zentral auf `http`/`https` validiert; unsichere Schemes wie `javascript:` oder `data:` werden nicht als Link ausgegeben.
+- Supabase-Backups sind reisebezogen und werden vor dem Restore strukturell sowie gegen die aktuell geöffnete Reise geprüft.
+- Der nicht mehr verwendete Legacy-Speicher `budapestLocalPlaces` sowie die zugehörigen Lade-, Speicher- und Merge-Funktionen wurden entfernt.
+- `budapestMapState` bleibt vorerst als lokaler UI-/Planungszustand bestehen und synchronisiert weiterhin mit Supabase.
+- Versionsanzeige und Backup-Metadaten wurden auf `v1.1.0` aktualisiert.

@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.0.0";
+const APP_VERSION = "v1.1.0";
 
 const SUPABASE_CONFIG = {
   url: "https://fjlezfzninkltblcctds.supabase.co",
@@ -967,38 +967,6 @@ function openPlace(place) {
   if (markerPosition) map.panTo(markerPosition);
 }
 
-
-const LOCAL_PLACES_KEY = "budapestLocalPlaces";
-
-function loadLocalPlaces() {
-  try {
-    const parsed = JSON.parse(localStorage.getItem(LOCAL_PLACES_KEY));
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveLocalPlaces(items) {
-  localStorage.setItem(LOCAL_PLACES_KEY, JSON.stringify(items));
-}
-
-function mergeLocalPlaces() {
-  const localPlaces = loadLocalPlaces();
-
-  for (const place of localPlaces) {
-    if (!placesData.places.some(existing => existing.id === place.id)) {
-      placesData.places.push(place);
-    }
-  }
-}
-
-function createLocalPlaceId() {
-  if (window.crypto?.randomUUID) {
-    return `local-${crypto.randomUUID()}`;
-  }
-  return `local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-}
 
 function openAddPlaceDialog() {
   const dialog = document.getElementById("addPlaceDialog");
@@ -2720,7 +2688,7 @@ async function buildBackupPayload() {
     app: "Travel Planner",
     backupVersion: 2,
     backupType: "supabase-trip",
-    appVersion: "1.0.0",
+    appVersion: "1.1.0",
     exportedAt: new Date().toISOString(),
     supabase: {
       trip: tripResult.data,
@@ -2890,10 +2858,6 @@ async function importBackupFile(file) {
       if (!window.confirm("Altes Backup (v1) importieren?\n\nDieses Backup stammt noch aus der lokalen Version. Es wird nur in den lokalen Browser-Speicher importiert und NICHT nach Supabase geschrieben.")) return;
       state = payload.data;
       saveState();
-      if (Array.isArray(payload.localPlaces)) saveLocalPlaces(payload.localPlaces);
-      else if (Array.isArray(payload.placeDatabase)) {
-        saveLocalPlaces(payload.placeDatabase.filter(place => place.isLocalPlace || place.source === "localStorage" || place.source === "googlePlaces"));
-      }
       setStatus("📥 Altes lokales Backup importiert. App wird neu geladen …");
       window.setTimeout(() => window.location.reload(), 400);
       return;
@@ -2935,7 +2899,6 @@ async function importBackupFile(file) {
 
     // Lokale Altstände dürfen den frisch restaurierten Cloud-Stand nicht überlagern.
     localStorage.removeItem("budapestMapState");
-    localStorage.removeItem(LOCAL_PLACES_KEY);
     setStatus("📥 Supabase-Backup wiederhergestellt. App wird neu geladen …");
     window.setTimeout(() => window.location.reload(), 600);
   } catch (error) {

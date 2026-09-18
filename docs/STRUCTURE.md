@@ -27,8 +27,8 @@ Anwendungslogik:
 - Uhrzeiten
 - Standort und Entfernung
 - Tagesroute
-- lokale Speicherung
-- eigene Orte
+- lokaler UI-Zustand für die Reiseplanung
+- Supabase-Synchronisierung und eigene Orte
 
 ### `assets/icons/favicon.svg`
 Browser-/Tab-Icon.
@@ -38,10 +38,9 @@ Browser-/Tab-Icon.
 Daten der Anwendung.
 
 ### `data/places.js`
-Vom Browser direkt geladene Ortsdaten (`window.BUDAPEST_PLACES_DATA`).
+Enthält nur noch öffentliche Metadaten und `tryInBudapest`. Die eigentlichen Orte werden nach erfolgreicher Anmeldung aus Supabase geladen.
 
-### `data/places.json`
-JSON-Version als Datenquelle/Backup für Pflege und spätere Migration in eine Datenbank.
+Die frühere Datei `data/places.json` wurde entfernt. Sie war nach der Supabase-Migration ungenutzt und hätte veraltete Ortsdaten öffentlich über GitHub Pages ausgeliefert.
 
 ## `docs/`
 
