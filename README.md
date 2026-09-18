@@ -571,3 +571,9 @@ The application now displays the release version simply as `v1.0.0`.
 - Der nicht mehr verwendete Legacy-Speicher `budapestLocalPlaces` sowie die zugehörigen Lade-, Speicher- und Merge-Funktionen wurden entfernt.
 - `budapestMapState` bleibt vorerst als lokaler UI-/Planungszustand bestehen und synchronisiert weiterhin mit Supabase.
 - Versionsanzeige und Backup-Metadaten wurden auf `v1.1.0` aktualisiert.
+
+### Security-Hardening v1.1.0 – CSP-Vorbereitung
+- Inline-Eventhandler (`onclick`, `onchange`) aus dynamisch erzeugtem HTML entfernt.
+- Interaktionen verwenden nun zentrale Event-Delegation über `data-action` und `addEventListener`.
+- Nicht mehr benötigte globale `window.*`-Exporte der UI-Aktionen entfernt.
+- Damit ist der eigene Anwendungscode für eine strengere Content Security Policy vorbereitet.

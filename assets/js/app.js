@@ -949,12 +949,12 @@ function openPlace(place) {
       ${renderPlaceExtraDetails(place)}
       <div class="info-actions">
         <a class="primary" href="${mapsUrl}" target="_blank" rel="noopener">Google Maps öffnen</a>
-        <select class="day-select" onchange="setPlannedDay('${place.id}', this.value)">
+        <select class="day-select" data-action="set-planned-day" data-place-id="${place.id}">
           ${dayOptionsHtml(saved.plannedDay || "")}
         </select>
-        <button onclick="toggleVisited('${place.id}')">${saved.visited ? "✓ Besucht" : "○ Als besucht markieren"}</button>
-        <button onclick="openEditPlaceDialog('${place.id}')">Bearbeiten</button>
-        <button class="danger" onclick="removePlaceFromTrip('${place.id}')">Aus Reise entfernen</button>
+        <button type="button" data-action="toggle-visited" data-place-id="${place.id}">${saved.visited ? "✓ Besucht" : "○ Als besucht markieren"}</button>
+        <button type="button" data-action="edit-place" data-place-id="${place.id}">Bearbeiten</button>
+        <button type="button" class="danger" data-action="remove-place" data-place-id="${place.id}">Aus Reise entfernen</button>
       </div>
     </div>
   `;
@@ -1246,21 +1246,21 @@ function orderControlsHtml(place, saved) {
   const canMoveDown = index < dayPlaces.length - 1;
 
   return `
-    <div class="order-controls" onclick="event.stopPropagation()">
+    <div class="order-controls" data-stop-place-click="true">
       <span class="order-number" title="Reihenfolge">${index + 1}</span>
       <button
         type="button"
         class="order-button"
         title="Nach oben"
         ${canMoveUp ? "" : "disabled"}
-        onclick="event.stopPropagation(); movePlaceInDay('${place.id}', -1)"
+        data-action="move-place" data-place-id="${place.id}" data-direction="-1"
       >↑</button>
       <button
         type="button"
         class="order-button"
         title="Nach unten"
         ${canMoveDown ? "" : "disabled"}
-        onclick="event.stopPropagation(); movePlaceInDay('${place.id}', 1)"
+        data-action="move-place" data-place-id="${place.id}" data-direction="1"
       >↓</button>
     </div>
   `;
@@ -1370,14 +1370,11 @@ function plannedTimeEditorHtml(place, saved) {
       <div class="time-editor-actions">
         <button
           type="button"
-          onclick="setPlannedTime(
-            '${place.id}',
-            document.getElementById('startTime-${place.id}').value,
-            document.getElementById('endTime-${place.id}').value
-          )"
+          data-action="save-planned-time"
+          data-place-id="${place.id}"
         >Zeit speichern</button>
         ${(start || end)
-          ? `<button type="button" class="secondary-time-button" onclick="clearPlannedTime('${place.id}')">Entfernen</button>`
+          ? `<button type="button" class="secondary-time-button" data-action="clear-planned-time" data-place-id="${place.id}">Entfernen</button>`
           : ""}
       </div>
     </div>
@@ -2377,7 +2374,7 @@ function renderDayAgenda() {
             type="button"
             class="agenda-visited-button ${saved.visited ? "visited" : ""}"
             title="${saved.visited ? "Als nicht besucht markieren" : "Als besucht markieren"}"
-            onclick="event.stopPropagation(); toggleVisited('${place.id}')"
+            data-action="toggle-visited" data-place-id="${place.id}"
           >${saved.visited ? "✓" : "○"}</button>
         </div>
         ${leg ? `
@@ -2404,7 +2401,8 @@ function renderDayAgenda() {
   `;
 
   container.querySelectorAll(".agenda-item").forEach(item => {
-    item.addEventListener("click", () => {
+    item.addEventListener("click", event => {
+      if (event.target.closest("[data-action]")) return;
       const place = placesData.places.find(p => p.id === item.dataset.placeId);
       if (!place) return;
 
@@ -2467,7 +2465,8 @@ function renderPlaceList(filteredPlaces) {
       ${place.notes ? `<div class="place-card-note">${escapeHtml(place.notes)}</div>` : ""}
     `;
 
-    card.addEventListener("click", () => {
+    card.addEventListener("click", event => {
+      if (event.target.closest("[data-action], [data-stop-place-click]")) return;
       const marker = markers.get(place.id);
       if (marker) {
         openPlace(place);
@@ -2909,6 +2908,42 @@ async function importBackupFile(file) {
 }
 
 function wireControls() {
+  // Zentrale Event-Delegation statt Inline-onclick/onchange.
+  // Das erleichtert eine strikte Content Security Policy und hält dynamisches HTML frei von JavaScript-Handlern.
+  document.addEventListener("click", event => {
+    const stopContainer = event.target.closest("[data-stop-place-click]");
+    if (stopContainer) event.stopPropagation();
+
+    const actionElement = event.target.closest("[data-action]");
+    if (!actionElement) return;
+
+    const { action, placeId } = actionElement.dataset;
+    if (!action || !placeId) return;
+
+    if (["toggle-visited", "move-place"].includes(action)) event.stopPropagation();
+
+    if (action === "toggle-visited") {
+      toggleVisited(placeId);
+    } else if (action === "edit-place") {
+      openEditPlaceDialog(placeId);
+    } else if (action === "remove-place") {
+      removePlaceFromTrip(placeId);
+    } else if (action === "move-place") {
+      movePlaceInDay(placeId, Number(actionElement.dataset.direction));
+    } else if (action === "save-planned-time") {
+      const startInput = document.getElementById(`startTime-${placeId}`);
+      const endInput = document.getElementById(`endTime-${placeId}`);
+      setPlannedTime(placeId, startInput?.value || "", endInput?.value || "");
+    } else if (action === "clear-planned-time") {
+      clearPlannedTime(placeId);
+    }
+  });
+
+  document.addEventListener("change", event => {
+    const actionElement = event.target.closest('[data-action="set-planned-day"]');
+    if (!actionElement) return;
+    setPlannedDay(actionElement.dataset.placeId, actionElement.value);
+  });
   document.getElementById("exportBackupButton")?.addEventListener("click", exportBackup);
   document.getElementById("importBackupButton")?.addEventListener("click", () => document.getElementById("backupFileInput")?.click());
   document.getElementById("backupFileInput")?.addEventListener("change", async event => {
@@ -3234,14 +3269,3 @@ function escapeHtml(value) {
     .replaceAll("'", "&#039;");
 }
 
-window.toggleVisited = toggleVisited;
-window.setPlannedDay = setPlannedDay;
-window.setPlannedTime = setPlannedTime;
-window.clearPlannedTime = clearPlannedTime;
-window.movePlaceInDay = movePlaceInDay;
-window.showDayRoute = showDayRoute;
-window.clearDayRoute = clearDayRoute;
-window.openDayRouteInGoogleMaps = openDayRouteInGoogleMaps;
-window.setRouteStartMode = setRouteStartMode;
-window.openEditPlaceDialog = openEditPlaceDialog;
-window.removePlaceFromTrip = removePlaceFromTrip;
