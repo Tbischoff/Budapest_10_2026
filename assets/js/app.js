@@ -909,9 +909,10 @@ function renderPlaceExtraDetails(place) {
     );
   }
 
-  if (place.website) {
+  const safeWebsiteUrl = getSafeWebsiteUrl(place.website);
+  if (safeWebsiteUrl) {
     details.push(
-      `<div class="info-detail">🌐 <a href="${escapeHtml(place.website)}" target="_blank" rel="noopener noreferrer">Website öffnen</a></div>`
+      `<div class="info-detail">🌐 <a href="${escapeHtml(safeWebsiteUrl)}" target="_blank" rel="noopener noreferrer">Website öffnen</a></div>`
     );
   }
 
@@ -3240,6 +3241,24 @@ function cachePosition(id, position) {
 
 function delay(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function getSafeWebsiteUrl(value) {
+  const rawValue = String(value ?? "").trim();
+  if (!rawValue) return null;
+
+  // Komfort: Domains ohne Protokoll werden als HTTPS behandelt.
+  const candidate = /^[a-zA-Z][a-zA-Z\d+.-]*:/.test(rawValue)
+    ? rawValue
+    : `https://${rawValue}`;
+
+  try {
+    const url = new URL(candidate);
+    if (url.protocol !== "https:" && url.protocol !== "http:") return null;
+    return url.href;
+  } catch {
+    return null;
+  }
 }
 
 function escapeHtml(value) {
