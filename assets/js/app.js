@@ -2945,6 +2945,7 @@ function wireControls() {
   document.getElementById("routeStartMode").addEventListener("change", event => setRouteStartMode(event.target.value));
   document.getElementById("addPlaceBtn").addEventListener("click", openAddPlaceDialog);
   document.getElementById("cancelPlaceBtn").addEventListener("click", closeAddPlaceDialog);
+  document.getElementById("cancelPlaceBtnBottom").addEventListener("click", closeAddPlaceDialog);
   document.getElementById("addPlaceForm").addEventListener("submit", handleAddPlace);
 
   const addPlaceDialog = document.getElementById("addPlaceDialog");
