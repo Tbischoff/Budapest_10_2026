@@ -546,9 +546,18 @@ The application now displays the release version simply as `v1.0.0`.
 - Search reset after assigning a place to a day is now applied robustly on mobile browsers too.
 - The search field is cleared immediately and once again after the UI update, and native input/change events are triggered.
 
+### Backup-Hardening – Supabase-Backup/Restore
+- Backup-Export liest die aktuell geöffnete Reise direkt aus Supabase (`trips`, `trip_days`, `trip_places` und die zugeordneten `places`).
+- Neue Backups verwenden `backupVersion: 2` und enthalten keine Auth-Session oder API-Zugangsdaten.
+- Import von v2-Backups schreibt Orte, Reisetage und Planung kontrolliert nach Supabase zurück und ersetzt die Ortszuordnungen der aktuell geöffneten Reise.
+- Globale Ortsdatensätze werden beim Restore nicht gelöscht, damit künftig gemeinsam genutzte Orte anderer Reisen erhalten bleiben.
+- Alte v1-Backups bleiben aus Kompatibilitätsgründen importierbar; sie werden weiterhin nur lokal wiederhergestellt und entsprechend gekennzeichnet.
+- Import prüft Struktur, Referenzen und Dateigröße vor dem Schreiben.
 
-## v1.0.0 – Mobile Search + Date Fix
-- Doppelte Datumsanzeige in Ortskarten entfernt; der kompakte Tages-Badge bleibt erhalten.
-- Suchreset nach Planungsaktionen für mobile Browser robuster gemacht.
-- Smart-Search-Timer wird beim Reset abgebrochen, Suchfeld verliert Fokus und die Liste wird direkt neu gerendert.
-- Suchreset wird zusätzlich nach „besucht“/„nicht besucht“ ausgeführt.
+### Backup-Hardening – reisebezogener Export/Import
+- Supabase-Backup wird immer für die aktuell geladene `currentTripId` erstellt.
+- Dateiname wird aus dem Namen der Reise erzeugt, z. B. `budapest-2026-backup-2026-09-18.json`.
+- Backupformat ist als `Travel Planner` gekennzeichnet; vorhandene `Budapest Map`-Backups bleiben lesbar.
+- Vor einem Supabase-Restore wird die `trip.id` des Backups mit der aktuell geöffneten Reise verglichen.
+- Bei abweichender Reise wird der Import vor jeder Datenänderung abgebrochen und zeigt Quell- und Zielreise an.
+- Der Restore selbst prüft die Reise-ID zusätzlich nochmals (Defense in Depth).

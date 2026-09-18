@@ -1818,21 +1818,18 @@ function resetPlaceSearchAfterPlanning() {
   const reset = () => {
     const searchInput = document.getElementById("searchInput");
     if (!searchInput) return;
-
-    window.clearTimeout(searchDebounceTimer);
     searchInput.value = "";
-    searchInput.blur();
-
+    // Mobile browsers can keep the native search control visually stale
+    // unless its normal input/change flow is triggered as well.
+    searchInput.dispatchEvent(new Event("input", { bubbles: true }));
+    searchInput.dispatchEvent(new Event("change", { bubbles: true }));
+    renderSearchSuggestions();
     hideSearchSuggestions();
-    applyFilters();
   };
 
-  // Desktop immediately; mobile browsers may restore the value while a
-  // native select/button interaction is still being completed.
   reset();
   window.requestAnimationFrame(reset);
-  window.setTimeout(reset, 120);
-  window.setTimeout(reset, 350);
+  window.setTimeout(reset, 80);
 }
 
 function setPlannedDay(id, dayId) {
@@ -2494,6 +2491,7 @@ function renderPlaceList(filteredPlaces) {
       <div class="place-card-meta">
         ${escapeHtml(categoryLabel(place.category))}
         ${userPosition && distanceToPlace(place) != null ? ` · 📍 ${escapeHtml(formatDistance(distanceToPlace(place)))} entfernt` : ""}
+        ${saved.plannedDay ? ` · 🗓️ ${escapeHtml(dayLongLabel(saved.plannedDay))}` : ""}
         ${saved.plannedDay && formatPlannedTime(saved) ? ` · 🕐 ${escapeHtml(formatPlannedTime(saved))}` : ""}
         ${saved.visited ? " · ✓ besucht" : ""}
       </div>
@@ -2694,68 +2692,255 @@ function fitVisibleMarkers() {
 }
 
 
-function buildBackupPayload() {
+async function buildBackupPayload() {
+  if (!supabaseClient || !currentUser || !currentTripId) {
+    throw new Error("Für ein Datenbank-Backup musst du angemeldet sein und eine Reise geladen haben.");
+  }
+
+  const [tripResult, daysResult, relationsResult] = await Promise.all([
+    supabaseClient.from("trips").select("*").eq("id", currentTripId).single(),
+    supabaseClient.from("trip_days").select("*").eq("trip_id", currentTripId).order("day_date"),
+    supabaseClient.from("trip_places").select("*").eq("trip_id", currentTripId)
+  ]);
+
+  if (tripResult.error) throw tripResult.error;
+  if (daysResult.error) throw daysResult.error;
+  if (relationsResult.error) throw relationsResult.error;
+
+  const placeIds = [...new Set((relationsResult.data || []).map(row => row.place_id).filter(Boolean))];
+  let dbPlaces = [];
+  if (placeIds.length) {
+    const placesResult = await supabaseClient.from("places").select("*").in("id", placeIds).order("name");
+    if (placesResult.error) throw placesResult.error;
+    dbPlaces = placesResult.data || [];
+  }
+
   return {
-    app: "Budapest Map",
-    backupVersion: 1,
-    appVersion: "0.9.17",
+    app: "Travel Planner",
+    backupVersion: 2,
+    backupType: "supabase-trip",
+    appVersion: "1.0.0",
     exportedAt: new Date().toISOString(),
-    data: state,
-    localPlaces: loadLocalPlaces(),
-    placeDatabase: placesData?.places ? JSON.parse(JSON.stringify(placesData.places)) : []
+    supabase: {
+      trip: tripResult.data,
+      tripDays: daysResult.data || [],
+      tripPlaces: relationsResult.data || [],
+      places: dbPlaces
+    }
   };
 }
 
-function exportBackup() {
+async function exportBackup() {
+  const button = document.getElementById("exportBackupButton");
+  const originalText = button?.textContent;
   try {
-    const blob = new Blob([JSON.stringify(buildBackupPayload(), null, 2)], { type: "application/json" });
+    if (button) {
+      button.disabled = true;
+      button.textContent = "Backup wird erstellt …";
+    }
+    setStatus("💾 Datenbank-Backup wird erstellt …");
+    const payload = await buildBackupPayload();
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `budapest-map-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    const tripName = payload.supabase.trip?.name || "reise";
+    const safeTripName = tripName
+      .normalize("NFKD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-zA-Z0-9_-]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .toLowerCase() || "reise";
+    link.download = `${safeTripName}-backup-${new Date().toISOString().slice(0, 10)}.json`;
     document.body.appendChild(link);
     link.click();
     link.remove();
     URL.revokeObjectURL(url);
-    setStatus("💾 Backup wurde exportiert.");
+    setStatus(`💾 Datenbank-Backup exportiert · ${payload.supabase.places.length} Orte.`);
   } catch (error) {
     console.error("Backup-Export:", error);
-    setStatus("Backup konnte nicht exportiert werden.");
+    setStatus(`⚠️ Backup konnte nicht exportiert werden: ${error.message}`);
+  } finally {
+    if (button) {
+      button.disabled = false;
+      button.textContent = originalText;
+    }
   }
 }
 
 function validateBackupPayload(payload) {
-  if (!payload || payload.app !== "Budapest Map" || payload.backupVersion !== 1) {
-    throw new Error("Die Datei ist kein unterstütztes Budapest-Map-Backup.");
+  if (!payload || !["Budapest Map", "Travel Planner"].includes(payload.app)) {
+    throw new Error("Die Datei ist kein unterstütztes Travel-Planner-Backup.");
   }
-  if (!payload.data || typeof payload.data !== "object" || !payload.data.places) {
-    throw new Error("Im Backup fehlen Planungsdaten.");
+
+  if (payload.backupVersion === 1) {
+    if (!payload.data || typeof payload.data !== "object" || !payload.data.places) {
+      throw new Error("Im alten Backup fehlen Planungsdaten.");
+    }
+    return { version: 1, payload };
   }
-  return payload.data;
+
+  if (payload.backupVersion !== 2 || payload.backupType !== "supabase-trip") {
+    throw new Error("Diese Backup-Version wird nicht unterstützt.");
+  }
+
+  const db = payload.supabase;
+  if (!db || !db.trip || !Array.isArray(db.tripDays) || !Array.isArray(db.tripPlaces) || !Array.isArray(db.places)) {
+    throw new Error("Im Datenbank-Backup fehlen erforderliche Tabellen oder Reisedaten.");
+  }
+  if (!db.trip.id || !db.trip.name) throw new Error("Die Reise im Backup ist unvollständig.");
+  if (db.places.length > 5000 || db.tripDays.length > 1000 || db.tripPlaces.length > 10000) {
+    throw new Error("Das Backup enthält unerwartet viele Datensätze und wurde aus Sicherheitsgründen abgebrochen.");
+  }
+
+  const placeIds = new Set(db.places.map(row => row?.id).filter(Boolean));
+  const dayIds = new Set(db.tripDays.map(row => row?.id).filter(Boolean));
+  for (const row of db.tripPlaces) {
+    if (!row?.place_id || !placeIds.has(row.place_id)) throw new Error("Das Backup enthält eine ungültige Ortszuordnung.");
+    if (row.trip_day_id && !dayIds.has(row.trip_day_id)) throw new Error("Das Backup enthält eine ungültige Tageszuordnung.");
+  }
+
+  return { version: 2, payload };
+}
+
+function cleanBackupRow(row, excluded = []) {
+  if (!row || typeof row !== "object" || Array.isArray(row)) return null;
+  const blocked = new Set(["__proto__", "prototype", "constructor", ...excluded]);
+  return Object.fromEntries(Object.entries(row).filter(([key]) => !blocked.has(key)));
+}
+
+async function restoreSupabaseBackup(payload) {
+  if (!supabaseClient || !currentUser || !currentTripId) {
+    throw new Error("Für den Import musst du angemeldet sein und eine Reise geladen haben.");
+  }
+
+  const db = payload.supabase;
+  const targetTripId = currentTripId;
+  const sourceTripId = db.trip.id;
+
+  // Ein Restore darf ausschließlich in genau die Reise zurückgeschrieben werden,
+  // aus der das Backup stammt. Das verhindert, dass z. B. ein Budapest-Backup
+  // versehentlich eine später geöffnete Rom-Reise überschreibt.
+  if (sourceTripId !== targetTripId) {
+    const { data: targetTrip, error: targetTripError } = await supabaseClient
+      .from("trips")
+      .select("id,name")
+      .eq("id", targetTripId)
+      .single();
+    if (targetTripError) throw targetTripError;
+    throw new Error(`Dieses Backup gehört zur Reise „${db.trip.name}“. Aktuell geöffnet ist „${targetTrip?.name || "Unbekannte Reise"}“. Der Import wurde abgebrochen.`);
+  }
+
+  const tripUpdate = cleanBackupRow(db.trip, ["id", "created_at"]);
+  const { error: tripError } = await supabaseClient.from("trips").update({
+    ...tripUpdate,
+    updated_at: new Date().toISOString()
+  }).eq("id", targetTripId);
+  if (tripError) throw tripError;
+
+  // Orte zuerst wiederherstellen, damit alle Fremdschlüssel der Planung gültig sind.
+  if (db.places.length) {
+    const placeRows = db.places.map(row => cleanBackupRow(row)).filter(Boolean);
+    const { error: placesError } = await supabaseClient.from("places").upsert(placeRows, { onConflict: "id" });
+    if (placesError) throw placesError;
+  }
+
+  // Reisetage behalten ihre IDs aus dem Backup, werden aber der aktuell geöffneten Reise zugeordnet.
+  if (db.tripDays.length) {
+    const dayRows = db.tripDays.map(row => ({
+      ...cleanBackupRow(row),
+      trip_id: targetTripId
+    }));
+    const { error: daysError } = await supabaseClient.from("trip_days").upsert(dayRows, { onConflict: "id" });
+    if (daysError) throw daysError;
+  }
+
+  // Der Restore ersetzt die Ortszuordnungen der aktuellen Reise. Die globalen
+  // Ortsdatensätze selbst werden dabei nicht gelöscht, weil sie später auch von
+  // anderen Reisen verwendet werden können.
+  const { error: clearRelationsError } = await supabaseClient.from("trip_places").delete().eq("trip_id", targetTripId);
+  if (clearRelationsError) throw clearRelationsError;
+
+  if (db.tripPlaces.length) {
+    const relationRows = db.tripPlaces.map(row => ({
+      ...cleanBackupRow(row, ["id", "created_at"]),
+      trip_id: targetTripId,
+      updated_at: new Date().toISOString()
+    }));
+    const { error: relationsError } = await supabaseClient.from("trip_places").upsert(relationRows, { onConflict: "trip_id,place_id" });
+    if (relationsError) throw relationsError;
+  }
+
+  console.info(`Supabase-Backup wiederhergestellt: ${db.places.length} Orte, ${db.tripPlaces.length} Zuordnungen; Quelle ${sourceTripId}, Ziel ${targetTripId}.`);
 }
 
 async function importBackupFile(file) {
   if (!file) return;
+  if (file.size > 10 * 1024 * 1024) {
+    window.alert("Backup konnte nicht importiert werden:\nDie Datei ist größer als 10 MB.");
+    return;
+  }
+
   try {
     const payload = JSON.parse(await file.text());
-    const importedState = validateBackupPayload(payload);
-    if (!window.confirm("Backup importieren?\\n\\nDer lokale Stand auf diesem Gerät wird durch das Backup ersetzt.")) return;
-    state = importedState;
-    saveState();
+    const validated = validateBackupPayload(payload);
 
-    // Ab v0.9.17 erweitert: auch selbst gespeicherte Orte wiederherstellen.
-    if (Array.isArray(payload.localPlaces)) {
-      saveLocalPlaces(payload.localPlaces);
-    } else if (Array.isArray(payload.placeDatabase)) {
-      // Fallback: aus dem vollständigen Ortsbestand nur lokale/eigene Orte übernehmen.
-      saveLocalPlaces(payload.placeDatabase.filter(place => place.isLocalPlace || place.source === "localStorage" || place.source === "googlePlaces"));
+    if (validated.version === 1) {
+      if (!window.confirm("Altes Backup (v1) importieren?\n\nDieses Backup stammt noch aus der lokalen Version. Es wird nur in den lokalen Browser-Speicher importiert und NICHT nach Supabase geschrieben.")) return;
+      state = payload.data;
+      saveState();
+      if (Array.isArray(payload.localPlaces)) saveLocalPlaces(payload.localPlaces);
+      else if (Array.isArray(payload.placeDatabase)) {
+        saveLocalPlaces(payload.placeDatabase.filter(place => place.isLocalPlace || place.source === "localStorage" || place.source === "googlePlaces"));
+      }
+      setStatus("📥 Altes lokales Backup importiert. App wird neu geladen …");
+      window.setTimeout(() => window.location.reload(), 400);
+      return;
     }
 
-    setStatus("📥 Backup inkl. gespeicherter Orte importiert. App wird neu geladen …");
-    window.setTimeout(() => window.location.reload(), 400);
+    const db = payload.supabase;
+
+    // Vor der Bestätigung prüfen, ob das Backup zur aktuell geöffneten Reise gehört.
+    if (!currentTripId) throw new Error("Es ist keine Reise geöffnet.");
+    const { data: activeTrip, error: activeTripError } = await supabaseClient
+      .from("trips")
+      .select("id,name")
+      .eq("id", currentTripId)
+      .single();
+    if (activeTripError) throw activeTripError;
+    if (db.trip.id !== activeTrip.id) {
+      throw new Error(`Dieses Backup gehört zur Reise „${db.trip.name}“. Aktuell geöffnet ist „${activeTrip.name}“. Bitte öffne zuerst die passende Reise.`);
+    }
+
+    const message = [
+      "Datenbank-Backup nach Supabase importieren?",
+      "",
+      `Reise: ${db.trip.name}`,
+      `Orte: ${db.places.length}`,
+      `Reisetage: ${db.tripDays.length}`,
+      `Planungs-Zuordnungen: ${db.tripPlaces.length}`,
+      "",
+      "Die aktuelle Reiseplanung in Supabase wird durch den Stand aus dem Backup ersetzt. Globale Orte anderer Reisen werden nicht gelöscht."
+    ].join("\n");
+    if (!window.confirm(message)) return;
+
+    setStatus("📥 Datenbank-Backup wird nach Supabase geschrieben …");
+    suppressSupabaseSync = true;
+    try {
+      await restoreSupabaseBackup(payload);
+    } finally {
+      suppressSupabaseSync = false;
+    }
+
+    // Lokale Altstände dürfen den frisch restaurierten Cloud-Stand nicht überlagern.
+    localStorage.removeItem("budapestMapState");
+    localStorage.removeItem(LOCAL_PLACES_KEY);
+    setStatus("📥 Supabase-Backup wiederhergestellt. App wird neu geladen …");
+    window.setTimeout(() => window.location.reload(), 600);
   } catch (error) {
+    suppressSupabaseSync = false;
     console.error("Backup-Import:", error);
-    window.alert(`Backup konnte nicht importiert werden:\\n${error.message}`);
+    window.alert(`Backup konnte nicht importiert werden:\n${error.message}`);
   }
 }
 
@@ -2942,8 +3127,6 @@ function toggleVisited(id) {
   const item = ensurePlaceState(id);
   item.visited = !item.visited;
   saveState();
-
-  resetPlaceSearchAfterPlanning();
   applyFilters();
 
   const place = placesData.places.find(p => p.id === id);
