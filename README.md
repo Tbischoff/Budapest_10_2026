@@ -577,3 +577,7 @@ The application now displays the release version simply as `v1.0.0`.
 - Interaktionen verwenden nun zentrale Event-Delegation über `data-action` und `addEventListener`.
 - Nicht mehr benötigte globale `window.*`-Exporte der UI-Aktionen entfernt.
 - Damit ist der eigene Anwendungscode für eine strengere Content Security Policy vorbereitet.
+
+## Security-Hardening v1.1.0
+
+Die Content Security Policy (CSP) ist Bestandteil des produktiven v1.1.0-Stands. Sie wurde mit Login, Karte, Markern, Google-Ortssuche, Routing, Planung, CRUD, Realtime, Logout/Login und Backup getestet.
