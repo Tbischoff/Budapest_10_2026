@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.6.2";
+const APP_VERSION = "v1.6.3";
 
 function syncVersionLabels() {
   document.querySelectorAll(".app-version").forEach(el => { el.textContent = APP_VERSION; });
@@ -74,6 +74,7 @@ let todayRouteClickMode = "planned";
 let todayRouteTargetId = null;
 let currentMobileView = "map";
 let lastFocusedPlaceId = null;
+let activeInfoPlaceId = null;
 let searchDebounceTimer = null;
 
 let map;
@@ -775,6 +776,12 @@ function focusExistingPlaceOnMap(place, { openInfo = true } = {}) {
     if (placeFocusId) lastFocusedPlaceId = placeFocusId;
     if (!openInfo) return;
 
+    // Ist genau dieses InfoWindow bereits geöffnet und der Marker weiterhin
+    // sichtbar, gibt es nichts neu zu initialisieren. Insbesondere kein
+    // close()/open(), weil Google Maps dabei den sichtbaren Fokusrahmen des
+    // InfoWindow kurz entfernt und erneut setzt.
+    if (samePlaceStillVisible && activeInfoPlaceId === placeFocusId) return;
+
     // Das InfoWindow erst öffnen, wenn der neue Mittelpunkt wirklich von Maps
     // übernommen wurde. Dessen eigene Korrektur bewegt die Karte anschließend
     // höchstens einmal minimal, falls das komplette Fenster am Rand läge.
@@ -825,8 +832,15 @@ function initMap() {
   geocoder = new google.maps.Geocoder();
   infoWindow = new google.maps.InfoWindow({ disableAutoPan: true });
 
+  // Den aktuell geöffneten Ort separat merken. So können wiederholte Klicks
+  // auf denselben Listeneintrag erkennen, dass das InfoWindow bereits offen ist.
+  infoWindow.addListener("closeclick", () => {
+    activeInfoPlaceId = null;
+  });
+
   // Marker-Infofenster auch durch Tippen/Klicken auf die Karte schließen.
   map.addListener("click", () => {
+    activeInfoPlaceId = null;
     infoWindow.close();
   });
 
@@ -1255,6 +1269,11 @@ function openPlace(place) {
   const marker = markers.get(place.id);
   if (!marker) return;
 
+  const placeFocusId = place.id ?? place.supabaseId ?? place.googlePlaceId ?? null;
+  // openPlace kann auch aus anderen UI-Pfaden aufgerufen werden. Auch dort
+  // dasselbe bereits geöffnete InfoWindow nicht unnötig neu aufbauen.
+  if (placeFocusId && activeInfoPlaceId === placeFocusId) return;
+
   const saved = state.places[place.id] || {};
   const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.name + " " + place.address)}`;
 
@@ -1344,6 +1363,7 @@ function openPlace(place) {
   });
 
   infoWindow.open({ map, anchor: marker });
+  activeInfoPlaceId = placeFocusId;
 }
 
 
@@ -3863,6 +3883,7 @@ function setMobileView(view) {
   }
 
   if (infoWindow && targetView !== "map") {
+    activeInfoPlaceId = null;
     infoWindow.close();
   }
 
