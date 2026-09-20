@@ -74,6 +74,7 @@ let searchDebounceTimer = null;
 let map;
 let geocoder;
 let infoWindow;
+let pendingInfoWindowPan = false;
 let placesData;
 let markers = new Map();
 let activeCategories = new Set();
@@ -505,6 +506,50 @@ function initMap() {
 
   geocoder = new google.maps.Geocoder();
   infoWindow = new google.maps.InfoWindow({ disableAutoPan: true });
+
+  // Google-Auto-Pan bleibt deaktiviert. Stattdessen verschieben wir die Karte
+  // nach dem Rendern nur um die Pixel, die wirklich nötig sind, damit das
+  // Infofenster vollständig im sichtbaren Kartenbereich liegt.
+  infoWindow.addListener("domready", () => {
+    if (!pendingInfoWindowPan) return;
+    pendingInfoWindowPan = false;
+
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      const mapElement = document.getElementById("map");
+      const contentElement = document.querySelector(".info-window");
+      if (!mapElement || !contentElement || !map) return;
+
+      const mapRect = mapElement.getBoundingClientRect();
+      const infoRect = contentElement.getBoundingClientRect();
+      const padding = 24;
+
+      let panX = 0;
+      let panY = 0;
+
+      const leftLimit = mapRect.left + padding;
+      const rightLimit = mapRect.right - padding;
+      const topLimit = mapRect.top + padding;
+      const bottomLimit = mapRect.bottom - padding;
+
+      if (infoRect.left < leftLimit) {
+        panX = infoRect.left - leftLimit;
+      } else if (infoRect.right > rightLimit) {
+        panX = infoRect.right - rightLimit;
+      }
+
+      if (infoRect.top < topLimit) {
+        panY = infoRect.top - topLimit;
+      } else if (infoRect.bottom > bottomLimit) {
+        panY = infoRect.bottom - bottomLimit;
+      }
+
+      // Kleine Rundungsabweichungen ignorieren. Wenn alles sichtbar ist,
+      // bleibt die Karte exakt an ihrer bisherigen Position.
+      if (Math.abs(panX) > 1 || Math.abs(panY) > 1) {
+        map.panBy(panX, panY);
+      }
+    }));
+  });
 
   // Marker-Infofenster auch durch Tippen/Klicken auf die Karte schließen.
   map.addListener("click", () => {
@@ -973,10 +1018,10 @@ function openPlace(place) {
   infoWindow.close();
   infoWindow.setContent(html);
 
-  // Marker-Klicks dürfen die Karte nicht verschieben. disableAutoPan wird
-  // bereits beim Erzeugen des InfoWindow gesetzt und hier vorsichtshalber erneut
-  // beibehalten. Auch auf Mobilgeräten erfolgt kein eigenes panTo/panBy.
+  // Google darf nicht selbst pannen. Nach dem Rendern prüfen wir einmal, ob
+  // das Infofenster am Rand abgeschnitten wäre, und korrigieren dann minimal.
   infoWindow.setOptions({ disableAutoPan: true });
+  pendingInfoWindowPan = true;
   infoWindow.open({ map, anchor: marker });
 }
 
