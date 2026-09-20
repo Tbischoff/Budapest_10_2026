@@ -3626,10 +3626,22 @@ function initMobileTryToggle() {
   const heading = section?.querySelector(":scope > h2");
   if (!section || !button || !heading) return;
 
+  const tryList = document.getElementById("tryList");
+
   const setExpanded = expanded => {
     section.classList.toggle("mobile-try-collapsed", !expanded);
     button.setAttribute("aria-expanded", String(expanded));
     button.setAttribute("aria-label", `In Budapest probieren ${expanded ? "einklappen" : "aufklappen"}`);
+
+    // Mobile uses an explicit inline display state. This avoids the desktop
+    // collapsible rules from overriding the mobile section state.
+    if (window.innerWidth <= 820 && tryList) {
+      if (expanded) {
+        tryList.style.removeProperty("display");
+      } else {
+        tryList.style.setProperty("display", "none", "important");
+      }
+    }
   };
   setExpanded(false);
 
