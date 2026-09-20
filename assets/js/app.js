@@ -3411,6 +3411,7 @@ function wireControls() {
 
   document.getElementById("mobileClose").addEventListener("click", () => setMobileView("map"));
   document.getElementById("mobileNavMap").addEventListener("click", () => setMobileView("map"));
+  document.getElementById("mobileNavToday").addEventListener("click", () => setMobileView("today"));
   document.getElementById("mobileNavPlan").addEventListener("click", () => setMobileView("plan"));
   document.getElementById("mobileNavPlaces").addEventListener("click", () => setMobileView("places"));
   document.getElementById("mobileScrim").addEventListener("click", () => setMobileView("map"));
