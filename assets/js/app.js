@@ -648,12 +648,24 @@ async function initGooglePlaceAutocomplete() {
   }
 }
 
-function resetGooglePlaceSelection() {
+function resetGooglePlaceSelection({ recreateAutocomplete = false } = {}) {
   selectedGooglePlace = null;
   const selection = document.getElementById("googlePlaceSelection");
   if (selection) {
     selection.hidden = true;
     selection.innerHTML = "";
+  }
+
+  // PlaceAutocompleteElement keeps its own input state (especially noticeable
+  // on mobile). Recreating it is the most reliable way to guarantee an empty
+  // Google search whenever the add dialog is closed.
+  if (recreateAutocomplete) {
+    const host = document.getElementById("googlePlaceAutocomplete");
+    if (googlePlaceAutocompleteElement) googlePlaceAutocompleteElement.remove();
+    googlePlaceAutocompleteElement = null;
+    if (host) host.innerHTML = "";
+  } else if (googlePlaceAutocompleteElement) {
+    try { googlePlaceAutocompleteElement.value = ""; } catch (_) {}
   }
 }
 
@@ -1134,7 +1146,7 @@ function openPlace(place) {
         </select>
         <button type="button" data-action="toggle-visited" data-place-id="${place.id}">${saved.visited ? "✓ Besucht" : "○ Als besucht markieren"}</button>
         <button type="button" data-action="edit-place" data-place-id="${place.id}">Bearbeiten</button>
-        <button type="button" class="danger" data-action="remove-place" data-place-id="${place.id}">Aus Reise entfernen</button>
+        <button type="button" class="danger" data-action="remove-place" data-place-id="${place.id}">Aus Reise & Datenbank löschen</button>
       </div>
     </div>
   `;
@@ -1235,6 +1247,15 @@ function closeAddPlaceDialog() {
   const dialog = document.getElementById("addPlaceDialog");
   if (typeof dialog.close === "function") dialog.close();
   else dialog.removeAttribute("open");
+
+  // Every close path (X, Abbrechen, Speichern, backdrop) must leave a clean
+  // add dialog. In edit mode the fields are populated again on next open.
+  document.getElementById("addPlaceForm")?.reset();
+  document.getElementById("placeFormMessage").textContent = "";
+  editingPlaceId = null;
+  resetGooglePlaceSelection({ recreateAutocomplete: true });
+  // Prepare a fresh Google search element for the next opening.
+  initGooglePlaceAutocomplete();
 }
 
 async function handleAddPlace(event) {
@@ -1418,9 +1439,31 @@ async function handleAddPlace(event) {
     setStatus(`☁️ „${draft.name}“ wurde zur Reise hinzugefügt.`);
   } catch (error) {
     console.error("Ort speichern:", error);
-    if (error?.code === "23505" && String(error?.message || "").includes("places_google_place_id_unique")) {
-      message.textContent = "Dieser Google-Ort ist bereits gespeichert. Bitte den Dialog schließen und den vorhandenen Ort verwenden.";
-      setStatus("ℹ️ Dieser Google-Ort ist bereits vorhanden; es wurde kein Duplikat angelegt.");
+    if (error?.code === "23505" && String(error?.message || "").includes("places_google_place_id_unique") && selectedGooglePlace?.id) {
+      // On another user's/mobile session RLS may intentionally hide an orphaned
+      // central place row. The database helper can safely reuse it after
+      // verifying membership of the current trip.
+      const selectedDbDay = selectedTripDay
+        ? currentTripDays.find(day => day.day_date === selectedTripDay)
+        : null;
+      const nextOrder = selectedTripDay ? getPlacesForDay(selectedTripDay).length + 1 : null;
+      const { data: recovered, error: recoverError } = await supabaseClient.rpc("link_existing_google_place", {
+        p_trip_id: currentTripId,
+        p_google_place_id: String(selectedGooglePlace.id),
+        p_trip_day_id: selectedDbDay?.id || null,
+        p_planned_order: nextOrder
+      });
+      if (recoverError) {
+        console.error("Vorhandenen Google-Ort verknüpfen:", recoverError);
+        message.textContent = `Vorhandener Ort konnte nicht verknüpft werden: ${recoverError.message}`;
+      } else {
+        await refreshTripPlacesFromSupabase();
+        const recoveredId = recovered?.place_id;
+        closeAddPlaceDialog();
+        const linkedPlace = placesData.places.find(place => place.supabaseId === recoveredId);
+        if (linkedPlace) openPlace(linkedPlace);
+        setStatus(`☁️ „${recovered?.place_name || name}“ war bereits gespeichert und wurde dieser Reise hinzugefügt.`);
+      }
     } else {
       message.textContent = `Speichern fehlgeschlagen: ${error.message}`;
     }
@@ -1433,18 +1476,34 @@ async function handleAddPlace(event) {
 async function removePlaceFromTrip(id) {
   const place = placesData.places.find(p => p.id === id);
   if (!place?.supabaseId || !currentTripId) return;
-  if (!confirm(`„${place.name}“ aus dieser Reise entfernen?\n\nDer Ort selbst bleibt in der Ortsdatenbank erhalten.`)) return;
+  if (!confirm(`„${place.name}“ wirklich löschen?\n\nDer Ort wird aus dieser Reise UND aus der Ortsdatenbank gelöscht.`)) return;
+
   const previousDay = (state.places[id] || {}).plannedDay || "";
-  const { error } = await supabaseClient.from("trip_places").delete()
-    .eq("trip_id", currentTripId).eq("place_id", place.supabaseId);
-  if (error) { setStatus(`⚠️ Entfernen fehlgeschlagen: ${error.message}`); return; }
-  const marker = markers.get(id); if (marker) marker.map = null; markers.delete(id);
+  const { data, error } = await supabaseClient.rpc("delete_place_from_trip", {
+    p_trip_id: currentTripId,
+    p_place_id: place.supabaseId
+  });
+  if (error) {
+    console.error("Ort vollständig löschen:", error);
+    setStatus(`⚠️ Löschen fehlgeschlagen: ${error.message}`);
+    return;
+  }
+
+  const marker = markers.get(id);
+  if (marker) marker.map = null;
+  markers.delete(id);
   placesData.places = placesData.places.filter(item => item.id !== id);
   delete state.places[id];
   localStorage.setItem("budapestMapState", JSON.stringify(state));
   if (previousDay) normalizeDayOrder(previousDay);
-  applyFilters(); updateRouteControls(); infoWindow.close();
-  setStatus(`☁️ „${place.name}“ wurde aus der Reise entfernt.`);
+  applyFilters();
+  updateRouteControls();
+  infoWindow.close();
+
+  const deletedFromDatabase = data?.deleted_from_database !== false;
+  setStatus(deletedFromDatabase
+    ? `☁️ „${place.name}“ wurde aus der Reise und der Datenbank gelöscht.`
+    : `☁️ „${place.name}“ wurde aus dieser Reise entfernt. Der Ort wird noch von einer anderen Reise verwendet.`);
 }
 
 function getPlacesForDay(dayId) {
