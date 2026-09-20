@@ -504,7 +504,7 @@ function initMap() {
   });
 
   geocoder = new google.maps.Geocoder();
-  infoWindow = new google.maps.InfoWindow();
+  infoWindow = new google.maps.InfoWindow({ disableAutoPan: true });
 
   // Marker-Infofenster auch durch Tippen/Klicken auf die Karte schließen.
   map.addListener("click", () => {
@@ -973,22 +973,11 @@ function openPlace(place) {
   infoWindow.close();
   infoWindow.setContent(html);
 
-  // Googles eigenes Auto-Panning ist immer deaktiviert. Andernfalls kann es auf
-  // mobilen Browsern trotz sichtbarem Marker zu einem kurzen Hoch-/Zurückspringen
-  // kommen. Falls ein Marker mobil wirklich zu nah am Rand liegt, verschieben wir
-  // die Karte stattdessen kontrolliert genau einmal selbst.
-  const needsMobilePan = isMobileLayout() && !isMarkerInSafeViewport(place);
+  // Marker-Klicks dürfen die Karte nicht verschieben. disableAutoPan wird
+  // bereits beim Erzeugen des InfoWindow gesetzt und hier vorsichtshalber erneut
+  // beibehalten. Auch auf Mobilgeräten erfolgt kein eigenes panTo/panBy.
   infoWindow.setOptions({ disableAutoPan: true });
   infoWindow.open({ map, anchor: marker });
-
-  if (needsMobilePan) {
-    const position = getMarkerPosition(marker);
-    if (position) {
-      window.setTimeout(() => {
-        map.panTo(position);
-      }, 0);
-    }
-  }
 }
 
 
