@@ -3618,3 +3618,32 @@ function initDesktopSidebarUi() {
 }
 
 document.addEventListener("DOMContentLoaded", initDesktopSidebarUi);
+
+// v1.5.0 – Mobile Plan: "In Budapest probieren" is collapsible and closed by default.
+function initMobileTryToggle() {
+  const section = document.querySelector(".mobile-try-collapsible");
+  const button = document.getElementById("mobileTryToggle");
+  const heading = section?.querySelector(":scope > h2");
+  if (!section || !button || !heading) return;
+
+  const setExpanded = expanded => {
+    section.classList.toggle("mobile-try-collapsed", !expanded);
+    button.setAttribute("aria-expanded", String(expanded));
+    button.setAttribute("aria-label", `In Budapest probieren ${expanded ? "einklappen" : "aufklappen"}`);
+  };
+  setExpanded(false);
+
+  button.addEventListener("click", event => {
+    event.stopPropagation();
+    setExpanded(section.classList.contains("mobile-try-collapsed"));
+  });
+  heading.addEventListener("click", event => {
+    if (window.innerWidth > 820) return;
+    if (event.target.closest("button") && event.target !== button) return;
+    if (event.target === button || button.contains(event.target)) return;
+    button.click();
+  });
+}
+
+document.addEventListener("DOMContentLoaded", initMobileTryToggle);
+

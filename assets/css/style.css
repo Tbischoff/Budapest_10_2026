@@ -1950,3 +1950,16 @@ h2 {
 .try-dialog-actions .secondary-button { width:auto; }
 .dialog-spacer { flex:1; }
 .danger-button { border:1px solid #c95d55; background:#fff; color:#a43d35; border-radius:10px; padding:9px 12px; cursor:pointer; }
+
+
+/* v1.5.0 – mobile "In Budapest probieren" collapsible, closed by default */
+.mobile-try-toggle {
+  margin-left:auto; border:0; background:transparent; color:var(--muted); cursor:pointer;
+  padding:4px 7px; border-radius:8px; font-size:16px; line-height:1;
+}
+@media (max-width: 820px) {
+  .mobile-try-collapsible > h2 { display:flex; align-items:center; gap:8px; cursor:pointer; user-select:none; }
+  .mobile-try-toggle span { display:block; transition:transform .16s ease; }
+  .mobile-try-collapsible:not(.mobile-try-collapsed) .mobile-try-toggle span { transform:rotate(180deg); }
+  .mobile-try-collapsible.mobile-try-collapsed > #tryList { display:none !important; }
+}
