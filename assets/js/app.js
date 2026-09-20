@@ -1291,10 +1291,67 @@ async function handleAddPlace(event) {
     }
 
     if (selectedGooglePlace?.id) {
-      const duplicate = placesData.places.find(place => place.googlePlaceId === selectedGooglePlace.id);
+      const googlePlaceId = String(selectedGooglePlace.id).trim();
+      const duplicate = placesData.places.find(place =>
+        place.googlePlaceId && String(place.googlePlaceId).trim() === googlePlaceId
+      );
       if (duplicate) {
         message.textContent = `„${duplicate.name}“ ist bereits in dieser Reise gespeichert.`;
+        closeAddPlaceDialog();
         openPlace(duplicate);
+        setStatus(`ℹ️ „${duplicate.name}“ ist bereits in dieser Reise vorhanden.`);
+        return;
+      }
+
+      // A Google place can already exist in the central places table without
+      // currently being linked to this trip (for example after an earlier
+      // interrupted add operation). Reuse that row instead of violating the
+      // global unique constraint on google_place_id.
+      const { data: existingDbPlace, error: existingPlaceError } = await supabaseClient
+        .from("places")
+        .select("*")
+        .eq("google_place_id", googlePlaceId)
+        .maybeSingle();
+      if (existingPlaceError) throw existingPlaceError;
+
+      if (existingDbPlace) {
+        const { data: existingRelation, error: relationLookupError } = await supabaseClient
+          .from("trip_places")
+          .select("id")
+          .eq("trip_id", currentTripId)
+          .eq("place_id", existingDbPlace.id)
+          .maybeSingle();
+        if (relationLookupError) throw relationLookupError;
+
+        if (!existingRelation) {
+          const selectedDbDay = selectedTripDay
+            ? currentTripDays.find(day => day.day_date === selectedTripDay)
+            : null;
+          const nextOrder = selectedTripDay
+            ? getPlacesForDay(selectedTripDay).length + 1
+            : null;
+          const { error: linkError } = await supabaseClient.from("trip_places").insert({
+            trip_id: currentTripId,
+            place_id: existingDbPlace.id,
+            trip_day_id: selectedDbDay?.id || null,
+            planned_order: nextOrder
+          });
+          if (linkError) throw linkError;
+          await refreshTripPlacesFromSupabase();
+          closeAddPlaceDialog();
+          const linkedPlace = placesData.places.find(place => place.supabaseId === existingDbPlace.id);
+          if (linkedPlace) openPlace(linkedPlace);
+          setStatus(`☁️ „${existingDbPlace.name}“ war bereits gespeichert und wurde dieser Reise hinzugefügt.`);
+          return;
+        }
+
+        // Defensive fallback: if Realtime/local state was briefly stale, reload
+        // the trip and open the already-linked place instead of inserting again.
+        await refreshTripPlacesFromSupabase();
+        closeAddPlaceDialog();
+        const linkedPlace = placesData.places.find(place => place.supabaseId === existingDbPlace.id);
+        if (linkedPlace) openPlace(linkedPlace);
+        setStatus(`ℹ️ „${existingDbPlace.name}“ ist bereits in dieser Reise vorhanden.`);
         return;
       }
     }
@@ -1361,7 +1418,12 @@ async function handleAddPlace(event) {
     setStatus(`☁️ „${draft.name}“ wurde zur Reise hinzugefügt.`);
   } catch (error) {
     console.error("Ort speichern:", error);
-    message.textContent = `Speichern fehlgeschlagen: ${error.message}`;
+    if (error?.code === "23505" && String(error?.message || "").includes("places_google_place_id_unique")) {
+      message.textContent = "Dieser Google-Ort ist bereits gespeichert. Bitte den Dialog schließen und den vorhandenen Ort verwenden.";
+      setStatus("ℹ️ Dieser Google-Ort ist bereits vorhanden; es wurde kein Duplikat angelegt.");
+    } else {
+      message.textContent = `Speichern fehlgeschlagen: ${error.message}`;
+    }
   } finally {
     submitButton.disabled = false;
     submitButton.textContent = editingPlaceId ? "Änderungen speichern" : "Ort speichern";
