@@ -972,10 +972,13 @@ function openPlace(place) {
 
   infoWindow.close();
   infoWindow.setContent(html);
-  infoWindow.open({ map, anchor: marker });
 
-  const markerPosition = getMarkerPosition(marker);
-  if (markerPosition) map.panTo(markerPosition);
+  // Die Karte bleibt beim Marker-Klick ruhig, solange der Marker auf Mobilgeräten
+  // in einem sicheren sichtbaren Bereich liegt. Nur bei Markern nahe am Rand darf
+  // Google automatisch verschieben, damit das Infofenster erreichbar bleibt.
+  const allowAutoPan = isMobileLayout() && !isMarkerInSafeViewport(place);
+  infoWindow.setOptions({ disableAutoPan: !allowAutoPan });
+  infoWindow.open({ map, anchor: marker });
 }
 
 
@@ -3127,6 +3130,30 @@ function renderTryListFresh() {
   const container = document.getElementById("tryList");
   container.innerHTML = "";
   renderTryList();
+}
+
+function isMarkerInSafeViewport(place) {
+  const bounds = map?.getBounds?.();
+  if (!bounds || !place) return false;
+
+  const ne = bounds.getNorthEast();
+  const sw = bounds.getSouthWest();
+  const lat = Number(place.lat);
+  const lng = Number(place.lng);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return false;
+
+  const latSpan = ne.lat() - sw.lat();
+  const lngSpan = ne.lng() - sw.lng();
+  if (latSpan <= 0 || lngSpan <= 0) return false;
+
+  // Auf Mobilgeräten braucht das Infofenster vor allem oberhalb des Markers Platz.
+  // Deshalb ist der obere Sicherheitsabstand größer als unten/seitlich.
+  const safeNorth = ne.lat() - latSpan * 0.38;
+  const safeSouth = sw.lat() + latSpan * 0.16;
+  const safeWest = sw.lng() + lngSpan * 0.14;
+  const safeEast = ne.lng() - lngSpan * 0.14;
+
+  return lat >= safeSouth && lat <= safeNorth && lng >= safeWest && lng <= safeEast;
 }
 
 function isMobileLayout() {
