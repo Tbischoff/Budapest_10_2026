@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.6.4";
+const APP_VERSION = "v1.7.0";
 
 function syncVersionLabels() {
   document.querySelectorAll(".app-version").forEach(el => { el.textContent = APP_VERSION; });
@@ -3015,6 +3015,84 @@ function renderTodayView() {
   });
 }
 
+function wireAgendaDragAndDrop(container, dayId) {
+  const timeline = container.querySelector(".agenda-timeline");
+  if (!timeline || !dayId) return;
+
+  let drag = null;
+
+  const finishDrag = (cancelled = false) => {
+    if (!drag) return;
+    const { handle, wrapper, pointerId, originalIds } = drag;
+    try { handle.releasePointerCapture(pointerId); } catch {}
+    document.body.classList.remove("agenda-dragging");
+    wrapper.classList.remove("agenda-drag-active");
+
+    const orderedWrappers = [...timeline.querySelectorAll(":scope > .agenda-place-wrap")];
+    const newIds = orderedWrappers.map(el => el.dataset.agendaPlaceId).filter(Boolean);
+    const changed = !cancelled && newIds.length === originalIds.length && newIds.some((id, index) => id !== originalIds[index]);
+
+    drag = null;
+
+    if (cancelled) {
+      renderDayAgenda();
+      return;
+    }
+
+    if (!changed) return;
+
+    newIds.forEach((id, index) => {
+      ensurePlaceState(id).plannedOrder = index + 1;
+    });
+
+    // Exactly one save after dropping: local state immediately, Supabase via
+    // the existing debounced planning sync.
+    saveState();
+    applyFilters();
+    if (activeRouteDay === dayId) showDayRoute(dayId);
+    else updateRouteControls();
+    setStatus(`Reihenfolge für ${dayLongLabel(dayId)} aktualisiert.`);
+  };
+
+  timeline.querySelectorAll(".agenda-drag-handle").forEach(handle => {
+    handle.addEventListener("pointerdown", event => {
+      if (event.button !== undefined && event.button !== 0) return;
+      const wrapper = handle.closest(".agenda-place-wrap");
+      if (!wrapper) return;
+      event.preventDefault();
+      event.stopPropagation();
+
+      drag = {
+        handle,
+        wrapper,
+        pointerId: event.pointerId,
+        originalIds: [...timeline.querySelectorAll(":scope > .agenda-place-wrap")].map(el => el.dataset.agendaPlaceId)
+      };
+      try { handle.setPointerCapture(event.pointerId); } catch {}
+      document.body.classList.add("agenda-dragging");
+      wrapper.classList.add("agenda-drag-active");
+    });
+
+    handle.addEventListener("pointermove", event => {
+      if (!drag || drag.pointerId !== event.pointerId) return;
+      event.preventDefault();
+      const target = document.elementFromPoint(event.clientX, event.clientY)?.closest(".agenda-place-wrap");
+      if (!target || target === drag.wrapper || target.parentElement !== timeline) return;
+
+      const rect = target.getBoundingClientRect();
+      const before = event.clientY < rect.top + rect.height / 2;
+      timeline.insertBefore(drag.wrapper, before ? target : target.nextSibling);
+    });
+
+    handle.addEventListener("pointerup", event => {
+      if (!drag || drag.pointerId !== event.pointerId) return;
+      event.preventDefault();
+      finishDrag(false);
+    });
+    handle.addEventListener("pointercancel", () => finishDrag(true));
+  });
+}
+
 function renderDayAgenda() {
   renderTodayView();
   const container = document.getElementById("dayAgenda");
@@ -3063,7 +3141,7 @@ function renderDayAgenda() {
     const category = categoryLabel(place.category);
 
     return `
-      <div class="agenda-place-wrap">
+      <div class="agenda-place-wrap" data-agenda-place-id="${escapeHtml(place.id)}">
         <div class="agenda-timeline-row">
           <div class="agenda-time-column">
             <div class="agenda-time ${time ? "" : "agenda-time-open"}">${time ? escapeHtml(time) : "offen"}</div>
@@ -3072,6 +3150,7 @@ function renderDayAgenda() {
           </div>
           <div class="agenda-content-column">
             <div class="agenda-item ${saved.visited ? "agenda-item-visited" : ""}" data-place-id="${place.id}">
+              <button type="button" class="agenda-drag-handle" data-drag-place-id="${escapeHtml(place.id)}" aria-label="${escapeHtml(place.name)} verschieben" title="Ziehen, um Reihenfolge zu ändern">⋮⋮</button>
               <div class="agenda-main">
                 <div class="agenda-title">${CATEGORY_ICONS[place.category] || "•"} ${escapeHtml(place.name)}</div>
                 <div class="agenda-meta">
@@ -3124,6 +3203,8 @@ function renderDayAgenda() {
       Wege in der Timeline sind Luftlinien-Schätzungen. Die genaue Fußroute wird über „Fußroute anzeigen“ berechnet.
     </div>
   `;
+
+  wireAgendaDragAndDrop(container, selectedDay.id);
 
   container.querySelectorAll(".agenda-item").forEach(item => {
     item.addEventListener("click", event => {

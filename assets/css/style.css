@@ -2103,3 +2103,60 @@ h2 {
     cursor: not-allowed;
   }
 }
+
+
+/* v1.7.0: Drag & Drop der Tagesplanung (Maus + Touch über Pointer Events) */
+.agenda-item {
+  position: relative;
+}
+
+.agenda-drag-handle {
+  flex: 0 0 32px;
+  width: 32px;
+  min-height: 40px;
+  border: 0;
+  background: transparent;
+  color: #78817f;
+  font-size: 19px;
+  font-weight: 900;
+  line-height: 1;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  border-radius: 8px;
+}
+
+.agenda-drag-handle:hover,
+.agenda-drag-handle:focus-visible {
+  background: #eef4f2;
+  color: var(--accent);
+  outline: none;
+}
+
+.agenda-drag-active {
+  opacity: .72;
+  transform: scale(.99);
+}
+
+.agenda-drag-active .agenda-item {
+  box-shadow: 0 7px 20px rgba(25, 52, 48, .16);
+  border-color: var(--accent);
+}
+
+body.agenda-dragging {
+  cursor: grabbing;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+body.agenda-dragging .agenda-drag-handle { cursor: grabbing; }
+
+@media (max-width: 760px) {
+  .agenda-drag-handle {
+    flex-basis: 36px;
+    width: 36px;
+    min-height: 44px;
+    font-size: 20px;
+  }
+}
