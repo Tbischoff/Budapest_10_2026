@@ -2676,9 +2676,40 @@ function renderTodayView() {
       selectedDayFilter = day.id;
 
       const requestedMode = todayRouteClickMode;
+
+      // Den Folgemodus VOR der Routenberechnung setzen. showNextPlace() rendert
+      // Teile der mobilen Ansicht neu; dadurch kann der aktuell geklickte Button
+      // ersetzt werden. So übernimmt der neu gerenderte Button zuverlässig den
+      // nächsten Modus statt wieder bei „Startpunkt“ zu beginnen.
+      todayRouteClickMode = requestedMode === "planned" ? "current" : "planned";
+
       if (requestedMode === "current" && !userPosition) {
-        setStatus("Aktueller Standort ist noch nicht verfügbar. Bitte zuerst „Mein Standort“ aktualisieren.");
-        return;
+        // Beim zweiten Klick den Standort direkt anfordern, statt vorauszusetzen,
+        // dass „Mein Standort“ vorher manuell verwendet wurde.
+        try {
+          if (!navigator.geolocation) throw new Error("Geolocation wird nicht unterstützt.");
+          const position = await new Promise((resolve, reject) => {
+            navigator.geolocation.getCurrentPosition(resolve, reject, {
+              enableHighAccuracy: true, timeout: 8000, maximumAge: 60000
+            });
+          });
+          userPosition = {
+            lat: position.coords.latitude,
+            lng: position.coords.longitude
+          };
+          updateUserLocationMarker();
+          updateDistanceControls();
+          updateRouteControls();
+          applyFilters();
+        } catch (error) {
+          console.error("Heute – Standort für Route:", error);
+        }
+        if (!userPosition) {
+          todayRouteClickMode = "current";
+          renderTodayView();
+          setStatus("Aktueller Standort konnte nicht ermittelt werden. Bitte Standortfreigabe prüfen.");
+          return;
+        }
       }
 
       routeStartMode = requestedMode;
@@ -2687,10 +2718,9 @@ function renderTodayView() {
 
       await showNextPlace();
 
-      // Nach erfolgreichem/ausgelöstem ersten Versuch bietet derselbe Button
-      // die Route vom aktuellen Standort an. Danach wird wieder zurückgeschaltet.
-      todayRouteClickMode = requestedMode === "planned" ? "current" : "planned";
-      updateTodayRouteButton();
+      // Falls showNextPlace() die Heute-Ansicht nicht ohnehin neu aufgebaut hat,
+      // den sichtbaren Button auf den Folgemodus aktualisieren.
+      renderTodayView();
     });
   }
 
