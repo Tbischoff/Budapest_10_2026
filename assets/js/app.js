@@ -973,12 +973,22 @@ function openPlace(place) {
   infoWindow.close();
   infoWindow.setContent(html);
 
-  // Die Karte bleibt beim Marker-Klick ruhig, solange der Marker auf Mobilgeräten
-  // in einem sicheren sichtbaren Bereich liegt. Nur bei Markern nahe am Rand darf
-  // Google automatisch verschieben, damit das Infofenster erreichbar bleibt.
-  const allowAutoPan = isMobileLayout() && !isMarkerInSafeViewport(place);
-  infoWindow.setOptions({ disableAutoPan: !allowAutoPan });
+  // Googles eigenes Auto-Panning ist immer deaktiviert. Andernfalls kann es auf
+  // mobilen Browsern trotz sichtbarem Marker zu einem kurzen Hoch-/Zurückspringen
+  // kommen. Falls ein Marker mobil wirklich zu nah am Rand liegt, verschieben wir
+  // die Karte stattdessen kontrolliert genau einmal selbst.
+  const needsMobilePan = isMobileLayout() && !isMarkerInSafeViewport(place);
+  infoWindow.setOptions({ disableAutoPan: true });
   infoWindow.open({ map, anchor: marker });
+
+  if (needsMobilePan) {
+    const position = getMarkerPosition(marker);
+    if (position) {
+      window.setTimeout(() => {
+        map.panTo(position);
+      }, 0);
+    }
+  }
 }
 
 
