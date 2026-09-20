@@ -631,16 +631,28 @@ async function initGooglePlaceAutocomplete() {
       document.getElementById("placeName").value = place.displayName || "";
       document.getElementById("placeAddress").value = place.formattedAddress || "";
 
-      const existingPlace = placesData?.places?.find(item => item.googlePlaceId && item.googlePlaceId === place.id);
+      const existingPlace = placesData?.places?.find(item =>
+        item.googlePlaceId && String(item.googlePlaceId).trim() === String(place.id).trim()
+      );
       const selection = document.getElementById("googlePlaceSelection");
+      const saveButton = document.getElementById("savePlaceBtn");
       selection.hidden = false;
+      selection.classList.toggle("is-existing", Boolean(existingPlace));
       selection.innerHTML = existingPlace
-        ? `<strong>✓ ${escapeHtml(place.displayName || "Google-Ort ausgewählt")}</strong>
-           <span>${escapeHtml(place.formattedAddress || "")}</span>
-           <span>ℹ️ Dieser Google-Ort ist bereits in der Reise gespeichert.</span>`
+        ? `<div class="existing-place-icon" aria-hidden="true">✓</div>
+           <div class="existing-place-copy">
+             <strong>Ort bereits vorhanden</strong>
+             <span class="existing-place-name">${escapeHtml(place.displayName || existingPlace.name || "Google-Ort")}</span>
+             <span>${escapeHtml(place.formattedAddress || existingPlace.address || "")}</span>
+             <span class="existing-place-hint">Dieser Ort ist bereits in deiner Budapest-Reise gespeichert.</span>
+           </div>`
         : `<strong>✓ ${escapeHtml(place.displayName || "Google-Ort ausgewählt")}</strong>
            <span>${escapeHtml(place.formattedAddress || "")}</span>
            <span>Google-Daten werden beim Speichern automatisch übernommen.</span>`;
+      if (saveButton) {
+        saveButton.textContent = existingPlace ? "Vorhandenen Ort anzeigen" : "Ort speichern";
+        saveButton.classList.toggle("existing-place-action", Boolean(existingPlace));
+      }
     });
   } catch (error) {
     console.error("Google Places konnte nicht geladen werden:", error);
@@ -654,6 +666,12 @@ function resetGooglePlaceSelection({ recreateAutocomplete = false } = {}) {
   if (selection) {
     selection.hidden = true;
     selection.innerHTML = "";
+    selection.classList.remove("is-existing");
+  }
+  const saveButton = document.getElementById("savePlaceBtn");
+  if (saveButton && !editingPlaceId) {
+    saveButton.textContent = "Ort speichern";
+    saveButton.classList.remove("existing-place-action");
   }
 
   // PlaceAutocompleteElement keeps its own input state (especially noticeable

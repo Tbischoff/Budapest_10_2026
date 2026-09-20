@@ -2013,3 +2013,49 @@ h2 {
 @media (min-width: 821px) {
   #todayOverviewPanel { display: none !important; }
 }
+
+/* v1.6.0 – prominenter Hinweis für bereits vorhandene Google-Orte */
+.google-place-selection.is-existing {
+  grid-template-columns: 42px minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  padding: 14px;
+  border: 2px solid var(--accent);
+  background: var(--accent-soft);
+  font-size: 12px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .08);
+}
+.google-place-selection.is-existing .existing-place-icon {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  font-size: 20px;
+  font-weight: 900;
+}
+.google-place-selection.is-existing .existing-place-copy { display: grid; gap: 4px; min-width: 0; }
+.google-place-selection.is-existing .existing-place-copy > strong {
+  color: var(--text);
+  font-size: 16px;
+  line-height: 1.2;
+}
+.google-place-selection.is-existing .existing-place-name {
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 800;
+}
+.google-place-selection.is-existing .existing-place-hint {
+  margin-top: 4px;
+  color: var(--text);
+  font-weight: 700;
+  line-height: 1.35;
+}
+#savePlaceBtn.existing-place-action { font-weight: 800; }
+@media (max-width: 760px) {
+  .google-place-selection.is-existing { padding: 15px 13px; border-radius: 12px; }
+  .google-place-selection.is-existing .existing-place-copy > strong { font-size: 17px; }
+  .google-place-selection.is-existing .existing-place-hint { font-size: 13px; }
+}
