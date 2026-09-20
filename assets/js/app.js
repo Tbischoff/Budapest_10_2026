@@ -1,6 +1,13 @@
 
 const APP_VERSION = "v1.3.0";
 
+function syncVersionLabels() {
+  document.querySelectorAll(".app-version").forEach(el => { el.textContent = APP_VERSION; });
+  const loginVersion = document.getElementById("loginVersion");
+  if (loginVersion) loginVersion.textContent = APP_VERSION;
+}
+
+
 const SUPABASE_CONFIG = {
   url: "https://fjlezfzninkltblcctds.supabase.co",
   publishableKey: "sb_publishable_h1U0zQu-XoJzVQsIqHtJNg_yGyurAr7"
@@ -2753,7 +2760,7 @@ async function buildBackupPayload() {
     app: "Travel Planner",
     backupVersion: 2,
     backupType: "supabase-trip",
-    appVersion: "1.1.0",
+    appVersion: APP_VERSION.replace(/^v/i, ""),
     exportedAt: new Date().toISOString(),
     supabase: {
       trip: tripResult.data,
@@ -3335,3 +3342,10 @@ function escapeHtml(value) {
     .replaceAll("'", "&#039;");
 }
 
+
+
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", syncVersionLabels, { once: true });
+} else {
+  syncVersionLabels();
+}
