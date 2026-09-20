@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.7.1";
+const APP_VERSION = "v1.7.2";
 
 function syncVersionLabels() {
   document.querySelectorAll(".app-version").forEach(el => { el.textContent = APP_VERSION; });
@@ -3026,6 +3026,14 @@ function wireAgendaDragAndDrop(container, dayId) {
       .forEach(el => el.classList.remove("agenda-drop-before", "agenda-drop-after"));
   };
 
+  const refreshVisibleOrder = () => {
+    const wrappers = [...timeline.querySelectorAll(":scope > .agenda-place-wrap")];
+    wrappers.forEach((wrapper, index) => {
+      const dot = wrapper.querySelector(".agenda-timeline-dot");
+      if (dot && !dot.classList.contains("visited")) dot.textContent = String(index + 1);
+    });
+  };
+
   const finishDrag = (cancelled = false) => {
     if (!drag) return;
     const { handle, wrapper, pointerId, originalIds } = drag;
@@ -3045,18 +3053,56 @@ function wireAgendaDragAndDrop(container, dayId) {
       return;
     }
 
-    if (!changed) return;
+    if (!changed) {
+      refreshVisibleOrder();
+      return;
+    }
 
     newIds.forEach((id, index) => {
       ensurePlaceState(id).plannedOrder = index + 1;
     });
 
+    // Erst den neuen Stand lokal festschreiben, dann die Ansicht komplett neu
+    // aufbauen. So bleiben Timeline-Nummern, Wege und Kartenreihenfolge synchron.
     saveState();
     applyFilters();
     if (activeRouteDay === dayId) showDayRoute(dayId);
     else updateRouteControls();
     setStatus(`Reihenfolge für ${dayLongLabel(dayId)} aktualisiert.`);
   };
+
+  const moveDrag = event => {
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    event.preventDefault();
+
+    const target = document.elementFromPoint(event.clientX, event.clientY)?.closest(".agenda-place-wrap");
+    clearDropHints();
+    if (!target || target === drag.wrapper || target.parentElement !== timeline) return;
+
+    const rect = target.getBoundingClientRect();
+    const before = event.clientY < rect.top + rect.height / 2;
+    target.classList.add(before ? "agenda-drop-before" : "agenda-drop-after");
+
+    const reference = before ? target : target.nextSibling;
+    if (reference !== drag.wrapper) {
+      timeline.insertBefore(drag.wrapper, reference);
+      refreshVisibleOrder();
+    }
+  };
+
+  const endDrag = event => {
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    event.preventDefault();
+    finishDrag(false);
+  };
+
+  // Pointer-Up zusätzlich global behandeln. Auf mobilen Browsern kann der Finger
+  // den kleinen Griff verlassen; dann muss der Drag trotzdem sicher beendet werden.
+  document.addEventListener("pointermove", moveDrag, { passive: false });
+  document.addEventListener("pointerup", endDrag, { passive: false });
+  document.addEventListener("pointercancel", event => {
+    if (drag && drag.pointerId === event.pointerId) finishDrag(true);
+  });
 
   timeline.querySelectorAll(".agenda-drag-handle").forEach(handle => {
     handle.addEventListener("pointerdown", event => {
@@ -3076,31 +3122,6 @@ function wireAgendaDragAndDrop(container, dayId) {
       document.body.classList.add("agenda-dragging");
       wrapper.classList.add("agenda-drag-active");
     });
-
-    handle.addEventListener("pointermove", event => {
-      if (!drag || drag.pointerId !== event.pointerId) return;
-      event.preventDefault();
-
-      const target = document.elementFromPoint(event.clientX, event.clientY)?.closest(".agenda-place-wrap");
-      clearDropHints();
-      if (!target || target === drag.wrapper || target.parentElement !== timeline) return;
-
-      const rect = target.getBoundingClientRect();
-      const before = event.clientY < rect.top + rect.height / 2;
-      target.classList.add(before ? "agenda-drop-before" : "agenda-drop-after");
-
-      const reference = before ? target : target.nextSibling;
-      if (reference !== drag.wrapper && (reference?.previousSibling !== drag.wrapper || before)) {
-        timeline.insertBefore(drag.wrapper, reference);
-      }
-    });
-
-    handle.addEventListener("pointerup", event => {
-      if (!drag || drag.pointerId !== event.pointerId) return;
-      event.preventDefault();
-      finishDrag(false);
-    });
-    handle.addEventListener("pointercancel", () => finishDrag(true));
   });
 }
 function renderDayAgenda() {
@@ -3270,7 +3291,6 @@ function renderPlaceList(filteredPlaces) {
         <span class="place-card-name">${CATEGORY_ICONS[place.category] || "•"} ${escapeHtml(place.name)}</span>
         <span class="place-card-badges">${saved.plannedDay ? `🗓️ ${escapeHtml(dayShortLabel(saved.plannedDay))}` : ""}${place.localTip ? " ⭐" : ""}${place.isLocalPlace ? " 📌" : ""}</span>
       </div>
-      ${orderControlsHtml(place, saved)}
       <div class="place-card-meta">
         ${escapeHtml(categoryLabel(place.category))}
         ${userPosition && distanceToPlace(place) != null ? ` · 📍 ${escapeHtml(formatDistance(distanceToPlace(place)))} entfernt` : ""}
