@@ -589,3 +589,12 @@ Die Content Security Policy (CSP) ist Bestandteil des produktiven v1.2.0-Stands.
 - Ein neuer Ort kann beim Speichern optional direkt einem Reisetag zugewiesen werden.
 - Bereits in der Reise vorhandene Google-Orte werden anhand der Google Place ID erkannt und nicht doppelt angelegt.
 - Speicherung erfolgt weiterhin über Supabase; bestehende Security-/CSP-Regeln aus v1.1.0 bleiben erhalten.
+
+## v1.3.0 – Verbesserte Tagesübersicht
+
+- Tagesagenda als mobile Timeline mit deutlich sichtbaren Zeitfenstern und Reihenfolge.
+- Tageskopf mit Anzahl der Orte, besucht/offen, Orten ohne Uhrzeit und Fortschrittsanzeige.
+- Kategorie und optional Entfernung zum aktuellen Standort direkt in der Timeline.
+- Besuchte Orte werden weiterhin abgehakt und optisch zurückgenommen.
+- Laufweg zwischen den Stationen bleibt als kompakte Schätzung sichtbar; die exakte Fußroute wird weiterhin bewusst über Google Routes berechnet.
+- Die bestehende geplante Reihenfolge bleibt maßgeblich, damit Timeline und Routenplanung konsistent bleiben.

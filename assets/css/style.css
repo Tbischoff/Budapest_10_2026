@@ -1593,3 +1593,153 @@ h2 {
   font-weight: 700;
   letter-spacing: .02em;
 }
+
+/* =========================================================
+   v1.3.0 – Mobile Tages-Timeline
+   ========================================================= */
+.agenda-day-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+  margin-bottom: 8px;
+}
+
+.agenda-day-kicker {
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.agenda-day-title {
+  margin-top: 2px;
+  font-size: 14px;
+  font-weight: 850;
+  line-height: 1.2;
+}
+
+.agenda-day-stats {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.35;
+}
+
+.agenda-progress-badge {
+  flex: 0 0 auto;
+  min-width: 44px;
+  padding: 6px 8px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 850;
+  text-align: center;
+}
+
+.agenda-progress-track {
+  height: 5px;
+  overflow: hidden;
+  margin: 0 0 12px;
+  border-radius: 999px;
+  background: var(--surface-soft);
+}
+
+.agenda-progress-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+  transition: width .2s ease;
+}
+
+.agenda-timeline {
+  display: grid;
+  gap: 0;
+}
+
+.agenda-timeline-row {
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr);
+  gap: 8px;
+}
+
+.agenda-time-column {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 0;
+}
+
+.agenda-time {
+  width: 100%;
+  min-height: 17px;
+  color: var(--text);
+  font-size: 9px;
+  font-weight: 800;
+  line-height: 1.2;
+  text-align: center;
+}
+
+.agenda-time-open {
+  color: var(--muted);
+  font-weight: 650;
+}
+
+.agenda-timeline-dot {
+  position: relative;
+  z-index: 2;
+  width: 27px;
+  height: 27px;
+  margin-top: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--accent);
+  border-radius: 50%;
+  background: #fff;
+  color: var(--accent);
+  font-size: 10px;
+  font-weight: 850;
+}
+
+.agenda-timeline-dot.visited {
+  background: var(--accent);
+  color: #fff;
+}
+
+.agenda-timeline-line {
+  position: absolute;
+  top: 47px;
+  bottom: -24px;
+  width: 2px;
+  background: var(--border);
+}
+
+.agenda-content-column {
+  min-width: 0;
+  padding-bottom: 8px;
+}
+
+.agenda-timeline .agenda-item {
+  grid-template-columns: minmax(0, 1fr) 34px;
+}
+
+.agenda-timeline .agenda-leg {
+  grid-template-columns: 22px 1fr;
+  padding-left: 7px;
+  min-height: 27px;
+}
+
+@media (max-width: 820px) {
+  .agenda-day-title { font-size: 16px; }
+  .agenda-day-stats { font-size: 11px; }
+  .agenda-progress-badge { font-size: 12px; }
+  .agenda-timeline-row { grid-template-columns: 64px minmax(0, 1fr); gap: 9px; }
+  .agenda-time { font-size: 10px; }
+  .agenda-timeline-dot { width: 31px; height: 31px; font-size: 11px; }
+  .agenda-timeline-line { top: 51px; bottom: -26px; }
+  .agenda-timeline .agenda-item { grid-template-columns: minmax(0, 1fr) 40px; }
+}

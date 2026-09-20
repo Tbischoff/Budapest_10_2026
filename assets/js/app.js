@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.2.0";
+const APP_VERSION = "v1.3.0";
 
 const SUPABASE_CONFIG = {
   url: "https://fjlezfzninkltblcctds.supabase.co",
@@ -2376,6 +2376,13 @@ function renderDayAgenda() {
 
   if (!dayPlaces.length) {
     container.innerHTML = `
+      <div class="agenda-day-header">
+        <div>
+          <div class="agenda-day-kicker">Tagesplan</div>
+          <div class="agenda-day-title">${escapeHtml(selectedDay.label)}</div>
+        </div>
+        <div class="agenda-progress-badge">0 Orte</div>
+      </div>
       <div class="agenda-empty">
         Für ${escapeHtml(selectedDay.label)} sind noch keine Orte geplant.
       </div>
@@ -2383,6 +2390,10 @@ function renderDayAgenda() {
     return;
   }
 
+  const visitedCount = dayPlaces.filter(place => Boolean((state.places[place.id] || {}).visited)).length;
+  const openCount = dayPlaces.length - visitedCount;
+  const timedCount = dayPlaces.filter(place => Boolean(formatPlannedTime(state.places[place.id] || {}))).length;
+  const progressPercent = Math.round((visitedCount / dayPlaces.length) * 100);
   const { legs, totalDistance, totalMinutes } = getAgendaLegs(dayPlaces);
 
   const agendaHtml = dayPlaces.map((place, index) => {
@@ -2390,38 +2401,60 @@ function renderDayAgenda() {
     const time = formatPlannedTime(saved);
     const distance = userPosition ? distanceToPlace(place) : null;
     const leg = legs[index];
+    const category = categoryLabel(place.category);
 
     return `
       <div class="agenda-place-wrap">
-        <div class="agenda-item ${saved.visited ? "agenda-item-visited" : ""}" data-place-id="${place.id}">
-          <div class="agenda-order">${index + 1}</div>
-          <div class="agenda-main">
-            <div class="agenda-title">${CATEGORY_ICONS[place.category] || "•"} ${escapeHtml(place.name)}</div>
-            <div class="agenda-meta">
-              ${time ? `🕐 ${escapeHtml(time)}` : "🕐 keine Uhrzeit"}
-              ${distance != null ? ` · 📍 ${escapeHtml(formatDistance(distance))}` : ""}
-              ${saved.visited ? " · ✓ besucht" : ""}
+        <div class="agenda-timeline-row">
+          <div class="agenda-time-column">
+            <div class="agenda-time ${time ? "" : "agenda-time-open"}">${time ? escapeHtml(time) : "offen"}</div>
+            <div class="agenda-timeline-dot ${saved.visited ? "visited" : ""}">${saved.visited ? "✓" : index + 1}</div>
+            ${index < dayPlaces.length - 1 ? '<div class="agenda-timeline-line"></div>' : ""}
+          </div>
+          <div class="agenda-content-column">
+            <div class="agenda-item ${saved.visited ? "agenda-item-visited" : ""}" data-place-id="${place.id}">
+              <div class="agenda-main">
+                <div class="agenda-title">${CATEGORY_ICONS[place.category] || "•"} ${escapeHtml(place.name)}</div>
+                <div class="agenda-meta">
+                  ${escapeHtml(category)}
+                  ${distance != null ? ` · 📍 ${escapeHtml(formatDistance(distance))} entfernt` : ""}
+                  ${saved.visited ? " · ✓ besucht" : ""}
+                </div>
+              </div>
+              <button
+                type="button"
+                class="agenda-visited-button ${saved.visited ? "visited" : ""}"
+                title="${saved.visited ? "Als nicht besucht markieren" : "Als besucht markieren"}"
+                data-action="toggle-visited" data-place-id="${place.id}"
+              >${saved.visited ? "✓" : "○"}</button>
             </div>
+            ${leg ? `
+              <div class="agenda-leg">
+                <span>↓</span>
+                <span>ca. 🚶 ${escapeHtml(formatDistance(leg.distanceMeters))} · ${leg.minutes} Min.</span>
+              </div>
+            ` : ""}
           </div>
-          <button
-            type="button"
-            class="agenda-visited-button ${saved.visited ? "visited" : ""}"
-            title="${saved.visited ? "Als nicht besucht markieren" : "Als besucht markieren"}"
-            data-action="toggle-visited" data-place-id="${place.id}"
-          >${saved.visited ? "✓" : "○"}</button>
         </div>
-        ${leg ? `
-          <div class="agenda-leg">
-            <span>↓</span>
-            <span>ca. 🚶 ${escapeHtml(formatDistance(leg.distanceMeters))} · ${leg.minutes} Min.</span>
-          </div>
-        ` : ""}
       </div>
     `;
   }).join("");
 
   container.innerHTML = `
-    ${agendaHtml}
+    <div class="agenda-day-header">
+      <div>
+        <div class="agenda-day-kicker">Tagesplan</div>
+        <div class="agenda-day-title">${escapeHtml(selectedDay.label)}</div>
+        <div class="agenda-day-stats">${dayPlaces.length} ${dayPlaces.length === 1 ? "Ort" : "Orte"} · ${visitedCount} besucht · ${openCount} offen${timedCount < dayPlaces.length ? ` · ${dayPlaces.length - timedCount} ohne Uhrzeit` : ""}</div>
+      </div>
+      <div class="agenda-progress-badge">${progressPercent}%</div>
+    </div>
+    <div class="agenda-progress-track" aria-label="${visitedCount} von ${dayPlaces.length} Orten besucht">
+      <div class="agenda-progress-fill" style="width:${progressPercent}%"></div>
+    </div>
+    <div class="agenda-timeline">
+      ${agendaHtml}
+    </div>
     <div class="agenda-summary">
       <strong>${dayPlaces.length} ${dayPlaces.length === 1 ? "Ort" : "Orte"}</strong>
       ${dayPlaces.length > 1
@@ -2429,7 +2462,7 @@ function renderDayAgenda() {
         : `<span>Noch keine Wegstrecke</span>`}
     </div>
     <div class="agenda-estimate-note">
-      Wege in der Agenda sind Luftlinien-Schätzungen. Die genaue Fußroute wird über „Fußroute anzeigen“ berechnet.
+      Wege in der Timeline sind Luftlinien-Schätzungen. Die genaue Fußroute wird über „Fußroute anzeigen“ berechnet.
     </div>
   `;
 
