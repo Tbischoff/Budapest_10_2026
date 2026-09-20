@@ -631,27 +631,61 @@ async function initGooglePlaceAutocomplete() {
       document.getElementById("placeName").value = place.displayName || "";
       document.getElementById("placeAddress").value = place.formattedAddress || "";
 
-      const existingPlace = placesData?.places?.find(item =>
+      // First check the locally loaded trip data, then ask Supabase through a
+      // SECURITY DEFINER helper. The server-side check is important on mobile/
+      // secondary accounts because RLS can hide a central places row from a
+      // direct SELECT even though the unique Google Place ID already exists.
+      let existingPlace = placesData?.places?.find(item =>
         item.googlePlaceId && String(item.googlePlaceId).trim() === String(place.id).trim()
-      );
+      ) || null;
+      let existingPlaceStatus = existingPlace ? { exists: true, in_trip: true, place_id: existingPlace.supabaseId, place_name: existingPlace.name } : null;
+      if (!existingPlace && supabaseClient && currentTripId) {
+        try {
+          const { data: status, error: statusError } = await supabaseClient.rpc("get_google_place_status", {
+            p_trip_id: currentTripId,
+            p_google_place_id: String(place.id).trim()
+          });
+          if (statusError) throw statusError;
+          existingPlaceStatus = status || null;
+          if (status?.in_trip) {
+            existingPlace = placesData?.places?.find(item => item.supabaseId === status.place_id) || {
+              supabaseId: status.place_id,
+              name: status.place_name || place.displayName,
+              address: place.formattedAddress || ""
+            };
+          }
+        } catch (statusError) {
+          console.warn("Status des Google-Orts konnte nicht geprüft werden:", statusError);
+        }
+      }
+      const isAlreadyInTrip = Boolean(existingPlaceStatus?.in_trip || existingPlace);
+      const existsInDatabase = Boolean(existingPlaceStatus?.exists);
       const selection = document.getElementById("googlePlaceSelection");
       const saveButton = document.getElementById("savePlaceBtn");
       selection.hidden = false;
-      selection.classList.toggle("is-existing", Boolean(existingPlace));
-      selection.innerHTML = existingPlace
+      selection.classList.toggle("is-existing", isAlreadyInTrip || existsInDatabase);
+      selection.innerHTML = isAlreadyInTrip
         ? `<div class="existing-place-icon" aria-hidden="true">✓</div>
            <div class="existing-place-copy">
              <strong>Ort bereits vorhanden</strong>
-             <span class="existing-place-name">${escapeHtml(place.displayName || existingPlace.name || "Google-Ort")}</span>
-             <span>${escapeHtml(place.formattedAddress || existingPlace.address || "")}</span>
+             <span class="existing-place-name">${escapeHtml(place.displayName || existingPlace?.name || "Google-Ort")}</span>
+             <span>${escapeHtml(place.formattedAddress || existingPlace?.address || "")}</span>
              <span class="existing-place-hint">Dieser Ort ist bereits in deiner Budapest-Reise gespeichert.</span>
            </div>`
-        : `<strong>✓ ${escapeHtml(place.displayName || "Google-Ort ausgewählt")}</strong>
-           <span>${escapeHtml(place.formattedAddress || "")}</span>
-           <span>Google-Daten werden beim Speichern automatisch übernommen.</span>`;
+        : existsInDatabase
+          ? `<div class="existing-place-icon" aria-hidden="true">↗</div>
+             <div class="existing-place-copy">
+               <strong>Ort bereits in der Datenbank</strong>
+               <span class="existing-place-name">${escapeHtml(place.displayName || existingPlaceStatus?.place_name || "Google-Ort")}</span>
+               <span>${escapeHtml(place.formattedAddress || "")}</span>
+               <span class="existing-place-hint">Der Ort wird beim Speichern mit dieser Budapest-Reise verknüpft – es wird kein Duplikat angelegt.</span>
+             </div>`
+          : `<strong>✓ ${escapeHtml(place.displayName || "Google-Ort ausgewählt")}</strong>
+             <span>${escapeHtml(place.formattedAddress || "")}</span>
+             <span>Google-Daten werden beim Speichern automatisch übernommen.</span>`;
       if (saveButton) {
-        saveButton.textContent = existingPlace ? "Vorhandenen Ort anzeigen" : "Ort speichern";
-        saveButton.classList.toggle("existing-place-action", Boolean(existingPlace));
+        saveButton.textContent = isAlreadyInTrip ? "Vorhandenen Ort anzeigen" : (existsInDatabase ? "Zur Reise hinzufügen" : "Ort speichern");
+        saveButton.classList.toggle("existing-place-action", isAlreadyInTrip || existsInDatabase);
       }
     });
   } catch (error) {
