@@ -48,6 +48,9 @@
       <div class="desktop-sidebar-actions desktop-only">
         <button id="desktopAddPlaceBtn" class="desktop-primary-action" type="button">＋ Ort hinzufügen</button>
         <button id="desktopFitBtn" class="desktop-secondary-action" type="button">☷ Alle anzeigen</button>
+        <button id="locateBtn" class="desktop-secondary-action" type="button">📍 Mein Standort</button>
+        <button id="distanceSortBtn" class="desktop-secondary-action" type="button" disabled>↕ Nähe sortieren</button>
+        <div id="locationText" class="desktop-location-status" aria-live="polite">Standort noch nicht freigegeben.</div>
       </div>
 
       <section class="panel search-results-panel desktop-places-panel desktop-collapsible" data-desktop-default-open="false" data-mobile-view="places">
@@ -58,21 +61,6 @@
         <div id="placeList" class="place-list"></div>
       </section>
 
-
-
-
-      <section class="panel location-panel desktop-collapsible" data-desktop-section="location" data-mobile-view="places">
-        <div class="panel-title-row">
-          <h2>Standort</h2>
-          <button id="distanceSortBtn" class="text-button distance-sort-button" type="button" disabled>
-            Nähe sortieren
-          </button>
-        </div>
-        <button id="locateBtn" class="location-button" type="button">📍 Mein Standort</button>
-        <div id="locationText" class="location-text">
-          Standort noch nicht freigegeben.
-        </div>
-      </section>
 
       <section class="panel desktop-collapsible" data-desktop-section="categories" data-mobile-view="places">
         <div class="panel-title-row">

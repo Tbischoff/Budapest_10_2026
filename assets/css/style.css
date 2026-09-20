@@ -1792,6 +1792,16 @@ h2 {
   }
   .desktop-primary-action { border: 1px solid var(--accent); background: var(--accent); color: #fff; }
   .desktop-secondary-action { border: 1px solid var(--border); background: var(--surface-soft); color: var(--text); }
+  .desktop-sidebar-actions #locateBtn,
+  .desktop-sidebar-actions #distanceSortBtn { width: 100%; }
+  .desktop-location-status {
+    grid-column: 1 / -1;
+    min-height: 0;
+    margin: -1px 2px 0;
+    font-size: 11px;
+    line-height: 1.35;
+    color: var(--text-muted);
+  }
 
   /* Reorder desktop information architecture without touching mobile DOM order. */
   .sidebar-header { order: 1; }
@@ -1800,10 +1810,9 @@ h2 {
   .desktop-plan-section { order: 4; }
   [data-desktop-section="categories"] { order: 5; }
   [data-desktop-section="filters"] { order: 6; }
-  [data-desktop-section="location"] { order: 7; }
-  .desktop-places-panel { order: 8; }
-  [data-desktop-section="try"] { order: 9; }
-  .sidebar-footer { order: 10; }
+  .desktop-places-panel { order: 7; }
+  [data-desktop-section="try"] { order: 8; }
+  .sidebar-footer { order: 9; }
   .desktop-intro { order: 2; }
 
   .panel {
