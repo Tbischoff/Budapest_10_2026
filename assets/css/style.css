@@ -2229,3 +2229,58 @@ body.agenda-dragging .agenda-place-wrap:not(.agenda-drag-active) .agenda-item {
   .agenda-drop-before::before,
   .agenda-drop-after::after { left: 72px; }
 }
+
+
+/* v1.7.3: Live-Reordering statt Drop-Linie */
+.agenda-drop-before::before,
+.agenda-drop-after::after {
+  display: none !important;
+  content: none !important;
+}
+
+.agenda-place-wrap {
+  transition: none;
+}
+
+.agenda-drag-placeholder .agenda-item {
+  opacity: .28;
+  background: #eef4f2;
+  border: 1.5px dashed rgba(31, 111, 95, .55);
+  box-shadow: none;
+}
+
+.agenda-drag-placeholder .agenda-item > * {
+  visibility: hidden;
+}
+
+.agenda-drag-placeholder .agenda-time-column {
+  opacity: .55;
+}
+
+.agenda-drag-ghost {
+  position: fixed !important;
+  z-index: 9999 !important;
+  margin: 0 !important;
+  pointer-events: none !important;
+  opacity: .96;
+  background: #fff !important;
+  border-color: var(--accent) !important;
+  box-shadow: 0 16px 34px rgba(25, 52, 48, .25) !important;
+  transform: translate3d(0,0,0) rotate(.25deg);
+  transform-origin: center;
+  transition: opacity .12s ease, box-shadow .12s ease;
+  will-change: transform;
+}
+
+.agenda-drag-ghost .agenda-drag-handle {
+  cursor: grabbing;
+}
+
+.agenda-drag-ghost-out {
+  opacity: 0;
+}
+
+body.agenda-dragging {
+  overflow: hidden;
+  touch-action: none;
+}

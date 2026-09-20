@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.7.2";
+const APP_VERSION = "v1.7.3";
 
 function syncVersionLabels() {
   document.querySelectorAll(".app-version").forEach(el => { el.textContent = APP_VERSION; });
@@ -3021,17 +3021,42 @@ function wireAgendaDragAndDrop(container, dayId) {
 
   let drag = null;
 
-  const clearDropHints = () => {
-    timeline.querySelectorAll(".agenda-drop-before, .agenda-drop-after")
-      .forEach(el => el.classList.remove("agenda-drop-before", "agenda-drop-after"));
-  };
+  const wrappers = () => [...timeline.querySelectorAll(":scope > .agenda-place-wrap")];
 
   const refreshVisibleOrder = () => {
-    const wrappers = [...timeline.querySelectorAll(":scope > .agenda-place-wrap")];
-    wrappers.forEach((wrapper, index) => {
+    wrappers().forEach((wrapper, index) => {
       const dot = wrapper.querySelector(".agenda-timeline-dot");
       if (dot && !dot.classList.contains("visited")) dot.textContent = String(index + 1);
     });
+  };
+
+  // FLIP animation: after a DOM reorder, animate all other cards from their
+  // previous screen position into the new one. This makes the destination
+  // obvious without a separate drop line.
+  const reorderWithAnimation = (wrapper, reference) => {
+    const beforeRects = new Map(wrappers().map(el => [el, el.getBoundingClientRect()]));
+    timeline.insertBefore(wrapper, reference);
+    refreshVisibleOrder();
+
+    wrappers().forEach(el => {
+      if (el === wrapper) return;
+      const before = beforeRects.get(el);
+      if (!before) return;
+      const after = el.getBoundingClientRect();
+      const deltaY = before.top - after.top;
+      if (Math.abs(deltaY) < 1) return;
+      el.animate(
+        [{ transform: `translateY(${deltaY}px)` }, { transform: "translateY(0)" }],
+        { duration: 180, easing: "cubic-bezier(.2,.8,.2,1)" }
+      );
+    });
+  };
+
+  const removeGhost = () => {
+    if (!drag?.ghost) return;
+    drag.ghost.classList.add("agenda-drag-ghost-out");
+    const ghost = drag.ghost;
+    window.setTimeout(() => ghost.remove(), 120);
   };
 
   const finishDrag = (cancelled = false) => {
@@ -3039,10 +3064,10 @@ function wireAgendaDragAndDrop(container, dayId) {
     const { handle, wrapper, pointerId, originalIds } = drag;
     try { handle.releasePointerCapture(pointerId); } catch {}
     document.body.classList.remove("agenda-dragging");
-    wrapper.classList.remove("agenda-drag-active");
-    clearDropHints();
+    wrapper.classList.remove("agenda-drag-placeholder");
+    removeGhost();
 
-    const orderedWrappers = [...timeline.querySelectorAll(":scope > .agenda-place-wrap")];
+    const orderedWrappers = wrappers();
     const newIds = orderedWrappers.map(el => el.dataset.agendaPlaceId).filter(Boolean);
     const changed = !cancelled && newIds.length === originalIds.length && newIds.some((id, index) => id !== originalIds[index]);
 
@@ -3062,8 +3087,6 @@ function wireAgendaDragAndDrop(container, dayId) {
       ensurePlaceState(id).plannedOrder = index + 1;
     });
 
-    // Erst den neuen Stand lokal festschreiben, dann die Ansicht komplett neu
-    // aufbauen. So bleiben Timeline-Nummern, Wege und Kartenreihenfolge synchron.
     saveState();
     applyFilters();
     if (activeRouteDay === dayId) showDayRoute(dayId);
@@ -3075,18 +3098,27 @@ function wireAgendaDragAndDrop(container, dayId) {
     if (!drag || drag.pointerId !== event.pointerId) return;
     event.preventDefault();
 
-    const target = document.elementFromPoint(event.clientX, event.clientY)?.closest(".agenda-place-wrap");
-    clearDropHints();
-    if (!target || target === drag.wrapper || target.parentElement !== timeline) return;
+    // The floating card follows the finger/mouse while the real card remains
+    // as a compact placeholder in the timeline.
+    if (drag.ghost) {
+      drag.ghost.style.transform = `translate3d(0, ${event.clientY - drag.startY}px, 0) rotate(.25deg)`;
+    }
 
-    const rect = target.getBoundingClientRect();
-    const before = event.clientY < rect.top + rect.height / 2;
-    target.classList.add(before ? "agenda-drop-before" : "agenda-drop-after");
+    const candidates = wrappers().filter(el => el !== drag.wrapper);
+    let reference = null;
+    for (const candidate of candidates) {
+      const rect = candidate.getBoundingClientRect();
+      if (event.clientY < rect.top + rect.height / 2) {
+        reference = candidate;
+        break;
+      }
+    }
 
-    const reference = before ? target : target.nextSibling;
-    if (reference !== drag.wrapper) {
-      timeline.insertBefore(drag.wrapper, reference);
-      refreshVisibleOrder();
+    const currentNext = drag.wrapper.nextElementSibling;
+    if (reference) {
+      if (reference !== currentNext) reorderWithAnimation(drag.wrapper, reference);
+    } else if (drag.wrapper !== timeline.lastElementChild) {
+      reorderWithAnimation(drag.wrapper, null);
     }
   };
 
@@ -3096,8 +3128,6 @@ function wireAgendaDragAndDrop(container, dayId) {
     finishDrag(false);
   };
 
-  // Pointer-Up zusätzlich global behandeln. Auf mobilen Browsern kann der Finger
-  // den kleinen Griff verlassen; dann muss der Drag trotzdem sicher beendet werden.
   document.addEventListener("pointermove", moveDrag, { passive: false });
   document.addEventListener("pointerup", endDrag, { passive: false });
   document.addEventListener("pointercancel", event => {
@@ -3112,15 +3142,30 @@ function wireAgendaDragAndDrop(container, dayId) {
       event.preventDefault();
       event.stopPropagation();
 
+      const item = wrapper.querySelector(".agenda-item");
+      const itemRect = item?.getBoundingClientRect();
+      const ghost = item?.cloneNode(true);
+      if (ghost && itemRect) {
+        ghost.classList.add("agenda-drag-ghost");
+        ghost.querySelectorAll("button").forEach(button => button.setAttribute("tabindex", "-1"));
+        ghost.style.left = `${itemRect.left}px`;
+        ghost.style.top = `${itemRect.top}px`;
+        ghost.style.width = `${itemRect.width}px`;
+        ghost.style.height = `${itemRect.height}px`;
+        document.body.appendChild(ghost);
+      }
+
       drag = {
         handle,
         wrapper,
+        ghost,
         pointerId: event.pointerId,
-        originalIds: [...timeline.querySelectorAll(":scope > .agenda-place-wrap")].map(el => el.dataset.agendaPlaceId)
+        startY: event.clientY,
+        originalIds: wrappers().map(el => el.dataset.agendaPlaceId)
       };
       try { handle.setPointerCapture(event.pointerId); } catch {}
       document.body.classList.add("agenda-dragging");
-      wrapper.classList.add("agenda-drag-active");
+      wrapper.classList.add("agenda-drag-placeholder");
     });
   });
 }
