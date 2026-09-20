@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.7.0";
+const APP_VERSION = "v1.7.1";
 
 function syncVersionLabels() {
   document.querySelectorAll(".app-version").forEach(el => { el.textContent = APP_VERSION; });
@@ -3021,12 +3021,18 @@ function wireAgendaDragAndDrop(container, dayId) {
 
   let drag = null;
 
+  const clearDropHints = () => {
+    timeline.querySelectorAll(".agenda-drop-before, .agenda-drop-after")
+      .forEach(el => el.classList.remove("agenda-drop-before", "agenda-drop-after"));
+  };
+
   const finishDrag = (cancelled = false) => {
     if (!drag) return;
     const { handle, wrapper, pointerId, originalIds } = drag;
     try { handle.releasePointerCapture(pointerId); } catch {}
     document.body.classList.remove("agenda-dragging");
     wrapper.classList.remove("agenda-drag-active");
+    clearDropHints();
 
     const orderedWrappers = [...timeline.querySelectorAll(":scope > .agenda-place-wrap")];
     const newIds = orderedWrappers.map(el => el.dataset.agendaPlaceId).filter(Boolean);
@@ -3045,8 +3051,6 @@ function wireAgendaDragAndDrop(container, dayId) {
       ensurePlaceState(id).plannedOrder = index + 1;
     });
 
-    // Exactly one save after dropping: local state immediately, Supabase via
-    // the existing debounced planning sync.
     saveState();
     applyFilters();
     if (activeRouteDay === dayId) showDayRoute(dayId);
@@ -3076,12 +3080,19 @@ function wireAgendaDragAndDrop(container, dayId) {
     handle.addEventListener("pointermove", event => {
       if (!drag || drag.pointerId !== event.pointerId) return;
       event.preventDefault();
+
       const target = document.elementFromPoint(event.clientX, event.clientY)?.closest(".agenda-place-wrap");
+      clearDropHints();
       if (!target || target === drag.wrapper || target.parentElement !== timeline) return;
 
       const rect = target.getBoundingClientRect();
       const before = event.clientY < rect.top + rect.height / 2;
-      timeline.insertBefore(drag.wrapper, before ? target : target.nextSibling);
+      target.classList.add(before ? "agenda-drop-before" : "agenda-drop-after");
+
+      const reference = before ? target : target.nextSibling;
+      if (reference !== drag.wrapper && (reference?.previousSibling !== drag.wrapper || before)) {
+        timeline.insertBefore(drag.wrapper, reference);
+      }
     });
 
     handle.addEventListener("pointerup", event => {
@@ -3092,7 +3103,6 @@ function wireAgendaDragAndDrop(container, dayId) {
     handle.addEventListener("pointercancel", () => finishDrag(true));
   });
 }
-
 function renderDayAgenda() {
   renderTodayView();
   const container = document.getElementById("dayAgenda");

@@ -1,4 +1,4 @@
-# Budapest Travel Planner v1.7.0
+# Budapest Travel Planner v1.7.1
 
 ## Neu: Drag & Drop Tagesplanung
 - Orte im ausgewählten Tagesplan über den Griff ⋮⋮ per Maus oder Touch verschieben.
@@ -10,3 +10,9 @@
 # Budapest 10/2026 – v1.6.3
 
 Patch: Wiederholter Klick auf denselben bereits sichtbaren Ort öffnet/fokussiert ein bereits geöffnetes InfoWindow nicht erneut. Der aktive InfoWindow-Ort wird explizit nachverfolgt und beim Schließen zurückgesetzt.
+
+
+## v1.7.1
+- Tageskarten im Drag-&-Drop-Modus wieder kompakt dargestellt.
+- Sichtbare Einfügelinie zeigt beim Ziehen die Zielposition.
+- Gezogene Karte wird angehoben/hervorgehoben.
