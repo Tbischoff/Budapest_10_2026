@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.1.0";
+const APP_VERSION = "v1.2.0";
 
 const SUPABASE_CONFIG = {
   url: "https://fjlezfzninkltblcctds.supabase.co",
@@ -455,12 +455,16 @@ async function initGooglePlaceAutocomplete() {
       document.getElementById("placeName").value = place.displayName || "";
       document.getElementById("placeAddress").value = place.formattedAddress || "";
 
+      const existingPlace = placesData?.places?.find(item => item.googlePlaceId && item.googlePlaceId === place.id);
       const selection = document.getElementById("googlePlaceSelection");
       selection.hidden = false;
-      selection.innerHTML = `
-        <strong>✓ ${escapeHtml(place.displayName || "Google-Ort ausgewählt")}</strong>
-        <span>${escapeHtml(place.formattedAddress || "")}</span>
-      `;
+      selection.innerHTML = existingPlace
+        ? `<strong>✓ ${escapeHtml(place.displayName || "Google-Ort ausgewählt")}</strong>
+           <span>${escapeHtml(place.formattedAddress || "")}</span>
+           <span>ℹ️ Dieser Google-Ort ist bereits in der Reise gespeichert.</span>`
+        : `<strong>✓ ${escapeHtml(place.displayName || "Google-Ort ausgewählt")}</strong>
+           <span>${escapeHtml(place.formattedAddress || "")}</span>
+           <span>Google-Daten werden beim Speichern automatisch übernommen.</span>`;
     });
   } catch (error) {
     console.error("Google Places konnte nicht geladen werden:", error);
@@ -977,6 +981,7 @@ function openAddPlaceDialog() {
   document.getElementById("placeDialogTitle").textContent = "Ort hinzufügen";
   document.getElementById("savePlaceBtn").textContent = "Ort speichern";
   document.getElementById("placeCategory").value = "food";
+  document.getElementById("placeTripDay").value = "";
   document.getElementById("placeFormMessage").textContent = "";
   if (typeof dialog.showModal === "function") dialog.showModal();
   else dialog.setAttribute("open", "");
@@ -994,6 +999,7 @@ function openEditPlaceDialog(id) {
   document.getElementById("placeCategory").value = place.category || "other";
   document.getElementById("placeNotes").value = place.notes || "";
   document.getElementById("placeLocalTip").checked = Boolean(place.localTip);
+  document.getElementById("placeTripDay").value = (state.places[place.id] || {}).plannedDay || "";
   document.getElementById("placeFormMessage").textContent = "";
   const dialog = document.getElementById("addPlaceDialog");
   if (typeof dialog.showModal === "function") dialog.showModal();
@@ -1015,6 +1021,7 @@ async function handleAddPlace(event) {
   const category = document.getElementById("placeCategory").value;
   const notes = document.getElementById("placeNotes").value.trim();
   const localTip = document.getElementById("placeLocalTip").checked;
+  const selectedTripDay = document.getElementById("placeTripDay").value;
   if (!name || !address) { message.textContent = "Bitte Name und Adresse eintragen."; return; }
 
   submitButton.disabled = true;
@@ -1058,6 +1065,15 @@ async function handleAddPlace(event) {
       return;
     }
 
+    if (selectedGooglePlace?.id) {
+      const duplicate = placesData.places.find(place => place.googlePlaceId === selectedGooglePlace.id);
+      if (duplicate) {
+        message.textContent = `„${duplicate.name}“ ist bereits in dieser Reise gespeichert.`;
+        openPlace(duplicate);
+        return;
+      }
+    }
+
     submitButton.textContent = "Adresse wird geprüft …";
     let position = selectedGooglePlace?.location
       ? { lat: selectedGooglePlace.location.lat(), lng: selectedGooglePlace.location.lng() }
@@ -1075,8 +1091,18 @@ async function handleAddPlace(event) {
     }).select("*").single();
     if (placeError) throw placeError;
 
+    const selectedDbDay = selectedTripDay
+      ? currentTripDays.find(day => day.day_date === selectedTripDay)
+      : null;
+    const nextOrder = selectedTripDay
+      ? getPlacesForDay(selectedTripDay).length + 1
+      : null;
+
     const { error: relationError } = await supabaseClient.from("trip_places").insert({
-      trip_id: currentTripId, place_id: dbPlace.id
+      trip_id: currentTripId,
+      place_id: dbPlace.id,
+      trip_day_id: selectedDbDay?.id || null,
+      planned_order: nextOrder
     });
     if (relationError) {
       await supabaseClient.from("places").delete().eq("id", dbPlace.id);
@@ -1091,6 +1117,13 @@ async function handleAddPlace(event) {
       localTip: Boolean(dbPlace.is_local_tip), source: dbPlace.source
     };
     placesData.places.push(draft);
+    if (selectedTripDay) {
+      const ps = ensurePlaceState(draft.id);
+      ps.plannedDay = selectedTripDay;
+      ps.plannedOrder = nextOrder;
+      ps.visited = false;
+      localStorage.setItem("budapestMapState", JSON.stringify(state));
+    }
     cachePosition(draft.id, position);
     const marker = createPlaceMarker(draft, position, map);
     marker.addEventListener("gmp-click", () => openPlace(draft));
