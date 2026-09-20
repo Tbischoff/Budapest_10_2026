@@ -11,7 +11,7 @@
 <body>
   <div id="authGate" class="auth-gate">
     <form id="loginForm" class="auth-card">
-      <div class="eyebrow">Travel Planner · <span id="loginVersion">v1.4.0</span></div>
+      <div class="eyebrow">Travel Planner · <span id="loginVersion">v1.6.0</span></div>
       <h1>Budapest Map</h1>
       <p>Bitte anmelden, um den gemeinsamen Reisestand zu laden.</p>
       <label class="form-field"><span>E-Mail</span><input id="loginEmail" type="email" autocomplete="username" required></label>
@@ -27,7 +27,7 @@
         <div>
           <div class="eyebrow">Budapest · 03.–07.10.2026</div>
           <h1>Budapest Map</h1>
-        <div class="app-version">v1.4.0</div>
+        <div class="app-version">v1.6.0</div>
         </div>
         <div class="account-actions">
           <button id="logoutButton" class="text-button" type="button">Abmelden</button>
@@ -80,6 +80,10 @@
           <button id="toggleAllBtn" class="text-button">Alle aus</button>
         </div>
         <div id="categoryFilters" class="filter-list"></div>
+      </section>
+
+      <section id="todayOverviewPanel" class="panel today-overview-panel mobile-only" data-mobile-view="today">
+        <div id="todayOverview" class="today-overview"></div>
       </section>
 
       <section class="panel desktop-collapsible desktop-plan-section" data-desktop-section="plan" data-mobile-view="plan">
@@ -182,6 +186,10 @@
     <button id="mobileNavMap" class="mobile-nav-button active" type="button" data-view="map">
       <span class="mobile-nav-icon">🗺️</span>
       <span>Karte</span>
+    </button>
+    <button id="mobileNavToday" class="mobile-nav-button" type="button" data-view="today">
+      <span class="mobile-nav-icon">☀️</span>
+      <span>Heute</span>
     </button>
     <button id="mobileNavPlan" class="mobile-nav-button" type="button" data-view="plan">
       <span class="mobile-nav-icon">📅</span>

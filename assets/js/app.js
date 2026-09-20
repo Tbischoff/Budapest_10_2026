@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.5.0";
+const APP_VERSION = "v1.6.0";
 
 function syncVersionLabels() {
   document.querySelectorAll(".app-version").forEach(el => { el.textContent = APP_VERSION; });
@@ -2557,7 +2557,121 @@ async function showNextPlace() {
 }
 
 
+function getTodayOverviewDay() {
+  const actualToday = getTripDayForDate();
+  if (actualToday) return { day: actualToday, preview: false };
+
+  // Vor/nach der Reise bleibt die neue Ansicht testbar: erster Reisetag als klar gekennzeichnete Vorschau.
+  const firstDay = TRIP_DAYS[0] || null;
+  return { day: firstDay, preview: Boolean(firstDay) };
+}
+
+function formatTodayDayTitle(day) {
+  if (!day) return "Heute";
+  const date = new Date(`${day.id}T12:00:00`);
+  return new Intl.DateTimeFormat("de-DE", {
+    weekday: "long", day: "2-digit", month: "long", year: "numeric"
+  }).format(date);
+}
+
+function renderTodayView() {
+  const container = document.getElementById("todayOverview");
+  if (!container) return;
+
+  const { day, preview } = getTodayOverviewDay();
+  if (!day) {
+    container.innerHTML = '<div class="today-empty">Kein Reisetag verfügbar.</div>';
+    return;
+  }
+
+  const dayPlaces = getPlacesForDay(day.id);
+  const openPlaces = dayPlaces.filter(place => !(state.places[place.id] || {}).visited);
+  const nextPlace = openPlaces[0] || null;
+  const visitedCount = dayPlaces.length - openPlaces.length;
+  const progress = dayPlaces.length ? Math.round((visitedCount / dayPlaces.length) * 100) : 0;
+  const dayIndex = Math.max(0, TRIP_DAYS.findIndex(item => item.id === day.id)) + 1;
+
+  const timeline = dayPlaces.map(place => {
+    const saved = state.places[place.id] || {};
+    const time = formatPlannedTime(saved) || "offen";
+    const isNext = nextPlace?.id === place.id;
+    return `
+      <div class="today-timeline-item ${saved.visited ? "visited" : ""} ${isNext ? "next" : ""}" data-today-place-id="${escapeHtml(place.id)}">
+        <button class="today-check" type="button" data-today-toggle="${escapeHtml(place.id)}" aria-label="${saved.visited ? "Als offen markieren" : "Als besucht markieren"}">${saved.visited ? "✓" : "○"}</button>
+        <span class="today-time">${escapeHtml(time)}</span>
+        <span class="today-place-name">${escapeHtml(place.name)}</span>
+      </div>`;
+  }).join("");
+
+  const nextCard = nextPlace ? `
+    <div class="today-next-card">
+      <div class="today-card-label">Nächster Ort</div>
+      <button class="today-next-main" type="button" data-today-show-place="${escapeHtml(nextPlace.id)}">
+        <span class="today-next-icon">${CATEGORY_ICONS[nextPlace.category] || "📍"}</span>
+        <span><strong>${escapeHtml(nextPlace.name)}</strong><small>${escapeHtml(categoryLabel(nextPlace.category))}${formatPlannedTime(state.places[nextPlace.id] || {}) ? ` · ${escapeHtml(formatPlannedTime(state.places[nextPlace.id] || {}))}` : ""}</small></span>
+        <span class="today-chevron">›</span>
+      </button>
+      <div class="today-next-actions">
+        <button id="todayRouteButton" class="primary-button today-action-button" type="button">🧭 Route anzeigen</button>
+        <button id="todayMapButton" class="secondary-button today-action-button" type="button" data-today-show-place="${escapeHtml(nextPlace.id)}">🗺️ Auf Karte</button>
+      </div>
+    </div>` : `
+    <div class="today-complete-card">✓ ${dayPlaces.length ? "Tagesplan abgeschlossen – alle Orte besucht." : "Für diesen Tag sind noch keine Orte geplant."}</div>`;
+
+  container.innerHTML = `
+    ${preview ? '<div class="today-preview-note">Vorschau · Die Reise hat noch nicht begonnen</div>' : ''}
+    <div class="today-day-card">
+      <div><div class="today-kicker">${preview ? "Erster Reisetag" : "Heute"}</div><h2>${escapeHtml(formatTodayDayTitle(day))}</h2><div class="today-day-label">${escapeHtml(day.label)}</div></div>
+      <span class="today-day-number">Tag ${dayIndex}</span>
+    </div>
+    ${nextCard}
+    <div class="today-plan-card">
+      <div class="today-plan-head"><strong>${preview ? "Planung" : "Heutige Planung"}</strong><span>${visitedCount} von ${dayPlaces.length} erledigt</span></div>
+      <div class="today-progress"><span style="width:${progress}%"></span></div>
+      <div class="today-timeline">${timeline || '<div class="today-empty">Noch keine Programmpunkte geplant.</div>'}</div>
+      <button id="todayOpenPlanButton" class="secondary-button today-open-plan" type="button">☷ Gesamten Tagesplan öffnen</button>
+    </div>`;
+
+  container.querySelectorAll("[data-today-show-place]").forEach(button => {
+    button.addEventListener("click", () => {
+      const place = placesData.places.find(item => item.id === button.dataset.todayShowPlace);
+      if (!place) return;
+      setMobileView("map");
+      const marker = markers.get(place.id);
+      const position = marker ? getMarkerPosition(marker) : null;
+      if (position) { map.panTo(position); if (map.getZoom() < 16) map.setZoom(16); }
+      window.setTimeout(() => openPlace(place), 180);
+    });
+  });
+
+  container.querySelectorAll("[data-today-toggle]").forEach(button => {
+    button.addEventListener("click", event => {
+      event.stopPropagation();
+      const item = ensurePlaceState(button.dataset.todayToggle);
+      item.visited = !item.visited;
+      saveState();
+      applyFilters();
+    });
+  });
+
+  document.getElementById("todayRouteButton")?.addEventListener("click", async () => {
+    selectedDayFilter = day.id;
+    routeStartMode = userPosition ? "current" : "planned";
+    const select = document.getElementById("routeStartMode");
+    if (select) select.value = routeStartMode;
+    await showNextPlace();
+  });
+
+  document.getElementById("todayOpenPlanButton")?.addEventListener("click", () => {
+    selectedDayFilter = day.id;
+    applyFilters();
+    renderDayFilters();
+    setMobileView("plan");
+  });
+}
+
 function renderDayAgenda() {
+  renderTodayView();
   const container = document.getElementById("dayAgenda");
   if (!container) return;
 
@@ -3369,7 +3483,7 @@ function isMobileLayout() {
 }
 
 function setMobileView(view) {
-  const normalizedView = ["map", "plan", "places"].includes(view) ? view : "map";
+  const normalizedView = ["map", "today", "plan", "places"].includes(view) ? view : "map";
   const sidebar = document.querySelector(".sidebar");
   const scrim = document.getElementById("mobileScrim");
 
@@ -3389,6 +3503,8 @@ function setMobileView(view) {
       : normalizedView;
 
   currentMobileView = targetView;
+
+  if (targetView === "today") renderTodayView();
 
   // Beim Wechsel der mobilen Hauptansicht kein altes Marker-Popup stehen lassen.
   if (infoWindow && targetView !== "map") {
