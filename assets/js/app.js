@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.5.0";
+const APP_VERSION = "v1.6.0";
 
 function syncVersionLabels() {
   document.querySelectorAll(".app-version").forEach(el => { el.textContent = APP_VERSION; });
@@ -70,6 +70,8 @@ let RouteClass = null;
 let routeLoading = false;
 let activeRouteSummary = null;
 let routeStartMode = "planned";
+let todayRouteClickMode = "planned";
+let todayRouteTargetId = null;
 let currentMobileView = "map";
 let searchDebounceTimer = null;
 
@@ -629,16 +631,62 @@ async function initGooglePlaceAutocomplete() {
       document.getElementById("placeName").value = place.displayName || "";
       document.getElementById("placeAddress").value = place.formattedAddress || "";
 
-      const existingPlace = placesData?.places?.find(item => item.googlePlaceId && item.googlePlaceId === place.id);
+      // First check the locally loaded trip data, then ask Supabase through a
+      // SECURITY DEFINER helper. The server-side check is important on mobile/
+      // secondary accounts because RLS can hide a central places row from a
+      // direct SELECT even though the unique Google Place ID already exists.
+      let existingPlace = placesData?.places?.find(item =>
+        item.googlePlaceId && String(item.googlePlaceId).trim() === String(place.id).trim()
+      ) || null;
+      let existingPlaceStatus = existingPlace ? { exists: true, in_trip: true, place_id: existingPlace.supabaseId, place_name: existingPlace.name } : null;
+      if (!existingPlace && supabaseClient && currentTripId) {
+        try {
+          const { data: status, error: statusError } = await supabaseClient.rpc("get_google_place_status", {
+            p_trip_id: currentTripId,
+            p_google_place_id: String(place.id).trim()
+          });
+          if (statusError) throw statusError;
+          existingPlaceStatus = status || null;
+          if (status?.in_trip) {
+            existingPlace = placesData?.places?.find(item => item.supabaseId === status.place_id) || {
+              supabaseId: status.place_id,
+              name: status.place_name || place.displayName,
+              address: place.formattedAddress || ""
+            };
+          }
+        } catch (statusError) {
+          console.warn("Status des Google-Orts konnte nicht geprüft werden:", statusError);
+        }
+      }
+      const isAlreadyInTrip = Boolean(existingPlaceStatus?.in_trip || existingPlace);
+      const existsInDatabase = Boolean(existingPlaceStatus?.exists);
       const selection = document.getElementById("googlePlaceSelection");
+      const saveButton = document.getElementById("savePlaceBtn");
       selection.hidden = false;
-      selection.innerHTML = existingPlace
-        ? `<strong>✓ ${escapeHtml(place.displayName || "Google-Ort ausgewählt")}</strong>
-           <span>${escapeHtml(place.formattedAddress || "")}</span>
-           <span>ℹ️ Dieser Google-Ort ist bereits in der Reise gespeichert.</span>`
-        : `<strong>✓ ${escapeHtml(place.displayName || "Google-Ort ausgewählt")}</strong>
-           <span>${escapeHtml(place.formattedAddress || "")}</span>
-           <span>Google-Daten werden beim Speichern automatisch übernommen.</span>`;
+      selection.classList.toggle("is-existing", isAlreadyInTrip || existsInDatabase);
+      selection.innerHTML = isAlreadyInTrip
+        ? `<div class="existing-place-icon" aria-hidden="true">✓</div>
+           <div class="existing-place-copy">
+             <strong>Ort bereits vorhanden</strong>
+             <span class="existing-place-name">${escapeHtml(place.displayName || existingPlace?.name || "Google-Ort")}</span>
+             <span>${escapeHtml(place.formattedAddress || existingPlace?.address || "")}</span>
+             <span class="existing-place-hint">Dieser Ort ist bereits in deiner Budapest-Reise gespeichert.</span>
+           </div>`
+        : existsInDatabase
+          ? `<div class="existing-place-icon" aria-hidden="true">↗</div>
+             <div class="existing-place-copy">
+               <strong>Ort bereits in der Datenbank</strong>
+               <span class="existing-place-name">${escapeHtml(place.displayName || existingPlaceStatus?.place_name || "Google-Ort")}</span>
+               <span>${escapeHtml(place.formattedAddress || "")}</span>
+               <span class="existing-place-hint">Der Ort wird beim Speichern mit dieser Budapest-Reise verknüpft – es wird kein Duplikat angelegt.</span>
+             </div>`
+          : `<strong>✓ ${escapeHtml(place.displayName || "Google-Ort ausgewählt")}</strong>
+             <span>${escapeHtml(place.formattedAddress || "")}</span>
+             <span>Google-Daten werden beim Speichern automatisch übernommen.</span>`;
+      if (saveButton) {
+        saveButton.textContent = isAlreadyInTrip ? "Vorhandenen Ort anzeigen" : (existsInDatabase ? "Zur Reise hinzufügen" : "Ort speichern");
+        saveButton.classList.toggle("existing-place-action", isAlreadyInTrip || existsInDatabase);
+      }
     });
   } catch (error) {
     console.error("Google Places konnte nicht geladen werden:", error);
@@ -646,12 +694,102 @@ async function initGooglePlaceAutocomplete() {
   }
 }
 
-function resetGooglePlaceSelection() {
+function resetGooglePlaceSelection({ recreateAutocomplete = false } = {}) {
   selectedGooglePlace = null;
   const selection = document.getElementById("googlePlaceSelection");
   if (selection) {
     selection.hidden = true;
     selection.innerHTML = "";
+    selection.classList.remove("is-existing");
+  }
+  const saveButton = document.getElementById("savePlaceBtn");
+  if (saveButton && !editingPlaceId) {
+    saveButton.textContent = "Ort speichern";
+    saveButton.classList.remove("existing-place-action");
+  }
+
+  // PlaceAutocompleteElement keeps its own input state (especially noticeable
+  // on mobile). Recreating it is the most reliable way to guarantee an empty
+  // Google search whenever the add dialog is closed.
+  if (recreateAutocomplete) {
+    const host = document.getElementById("googlePlaceAutocomplete");
+    if (googlePlaceAutocompleteElement) googlePlaceAutocompleteElement.remove();
+    googlePlaceAutocompleteElement = null;
+    if (host) host.innerHTML = "";
+  } else if (googlePlaceAutocompleteElement) {
+    try { googlePlaceAutocompleteElement.value = ""; } catch (_) {}
+  }
+}
+
+function focusExistingPlaceOnMap(place, { openInfo = true } = {}) {
+  if (!place || !map) return;
+
+  const marker = markers.get(place.id);
+  const position = marker
+    ? getMarkerPosition(marker)
+    : normalizeLatLng({ lat: place.lat, lng: place.lng });
+
+  if (!position) {
+    console.warn("Vorhandener Ort hat keine gültige Kartenposition:", place);
+    if (openInfo) openPlace(place);
+    return;
+  }
+
+  // Wichtig: Bei einem Wechsel aus einem mobilen Sheet/Dialog darf Maps erst
+  // fokussiert werden, wenn der Karten-Viewport wieder seine endgültige Größe
+  // hat. Der alte Code setzte den Mittelpunkt zweimal (vor und nach dem
+  // Übergang). Das konnte als sichtbares Springen enden – besonders bei großen
+  // Distanzen. Jetzt gibt es genau EINEN Fokusvorgang.
+  if (isMobileLayout() && currentMobileView !== "map") {
+    setMobileView("map");
+  }
+
+  const sidebar = document.querySelector(".sidebar");
+  let focusStarted = false;
+
+  const doFocus = () => {
+    if (focusStarted) return;
+    focusStarted = true;
+
+    google.maps.event.trigger(map, "resize");
+
+    // Für große Sprünge (z. B. Deutschland -> Budapest) immer direkt setzen,
+    // nicht animieren. So hängt das Ergebnis nicht vom bisherigen Viewport ab.
+    map.setCenter(position);
+    const currentZoom = Number(map.getZoom()) || 0;
+    if (currentZoom < 16) map.setZoom(16);
+
+    if (!openInfo) return;
+
+    // Das InfoWindow erst öffnen, wenn der neue Mittelpunkt wirklich von Maps
+    // übernommen wurde. Dessen eigene Korrektur bewegt die Karte anschließend
+    // höchstens einmal minimal, falls das komplette Fenster am Rand läge.
+    let opened = false;
+    const openOnce = () => {
+      if (opened) return;
+      opened = true;
+      openPlace(place);
+    };
+    google.maps.event.addListenerOnce(map, "idle", openOnce);
+    window.setTimeout(openOnce, 450);
+  };
+
+  // Ist auf Mobil gerade ein Bottom-Sheet am Schließen, auf dessen echtes
+  // transitionend warten statt mit mehreren setCenter-Aufrufen zu arbeiten.
+  if (isMobileLayout() && sidebar?.classList.contains("open")) {
+    const onTransitionEnd = event => {
+      if (event.target !== sidebar || event.propertyName !== "transform") return;
+      sidebar.removeEventListener("transitionend", onTransitionEnd);
+      requestAnimationFrame(doFocus);
+    };
+    sidebar.addEventListener("transitionend", onTransitionEnd);
+    // Fallback für Browser/Layouts ohne transitionend.
+    window.setTimeout(() => {
+      sidebar.removeEventListener("transitionend", onTransitionEnd);
+      requestAnimationFrame(doFocus);
+    }, 350);
+  } else {
+    requestAnimationFrame(() => requestAnimationFrame(doFocus));
   }
 }
 
@@ -1132,7 +1270,7 @@ function openPlace(place) {
         </select>
         <button type="button" data-action="toggle-visited" data-place-id="${place.id}">${saved.visited ? "✓ Besucht" : "○ Als besucht markieren"}</button>
         <button type="button" data-action="edit-place" data-place-id="${place.id}">Bearbeiten</button>
-        <button type="button" class="danger" data-action="remove-place" data-place-id="${place.id}">Aus Reise entfernen</button>
+        <button type="button" class="danger" data-action="remove-place" data-place-id="${place.id}">Aus Reise & Datenbank löschen</button>
       </div>
     </div>
   `;
@@ -1233,6 +1371,15 @@ function closeAddPlaceDialog() {
   const dialog = document.getElementById("addPlaceDialog");
   if (typeof dialog.close === "function") dialog.close();
   else dialog.removeAttribute("open");
+
+  // Every close path (X, Abbrechen, Speichern, backdrop) must leave a clean
+  // add dialog. In edit mode the fields are populated again on next open.
+  document.getElementById("addPlaceForm")?.reset();
+  document.getElementById("placeFormMessage").textContent = "";
+  editingPlaceId = null;
+  resetGooglePlaceSelection({ recreateAutocomplete: true });
+  // Prepare a fresh Google search element for the next opening.
+  initGooglePlaceAutocomplete();
 }
 
 async function handleAddPlace(event) {
@@ -1289,10 +1436,67 @@ async function handleAddPlace(event) {
     }
 
     if (selectedGooglePlace?.id) {
-      const duplicate = placesData.places.find(place => place.googlePlaceId === selectedGooglePlace.id);
+      const googlePlaceId = String(selectedGooglePlace.id).trim();
+      const duplicate = placesData.places.find(place =>
+        place.googlePlaceId && String(place.googlePlaceId).trim() === googlePlaceId
+      );
       if (duplicate) {
         message.textContent = `„${duplicate.name}“ ist bereits in dieser Reise gespeichert.`;
-        openPlace(duplicate);
+        closeAddPlaceDialog();
+        focusExistingPlaceOnMap(duplicate);
+        setStatus(`ℹ️ „${duplicate.name}“ ist bereits in dieser Reise vorhanden.`);
+        return;
+      }
+
+      // A Google place can already exist in the central places table without
+      // currently being linked to this trip (for example after an earlier
+      // interrupted add operation). Reuse that row instead of violating the
+      // global unique constraint on google_place_id.
+      const { data: existingDbPlace, error: existingPlaceError } = await supabaseClient
+        .from("places")
+        .select("*")
+        .eq("google_place_id", googlePlaceId)
+        .maybeSingle();
+      if (existingPlaceError) throw existingPlaceError;
+
+      if (existingDbPlace) {
+        const { data: existingRelation, error: relationLookupError } = await supabaseClient
+          .from("trip_places")
+          .select("id")
+          .eq("trip_id", currentTripId)
+          .eq("place_id", existingDbPlace.id)
+          .maybeSingle();
+        if (relationLookupError) throw relationLookupError;
+
+        if (!existingRelation) {
+          const selectedDbDay = selectedTripDay
+            ? currentTripDays.find(day => day.day_date === selectedTripDay)
+            : null;
+          const nextOrder = selectedTripDay
+            ? getPlacesForDay(selectedTripDay).length + 1
+            : null;
+          const { error: linkError } = await supabaseClient.from("trip_places").insert({
+            trip_id: currentTripId,
+            place_id: existingDbPlace.id,
+            trip_day_id: selectedDbDay?.id || null,
+            planned_order: nextOrder
+          });
+          if (linkError) throw linkError;
+          await refreshTripPlacesFromSupabase();
+          closeAddPlaceDialog();
+          const linkedPlace = placesData.places.find(place => place.supabaseId === existingDbPlace.id);
+          if (linkedPlace) focusExistingPlaceOnMap(linkedPlace);
+          setStatus(`☁️ „${existingDbPlace.name}“ war bereits gespeichert und wurde dieser Reise hinzugefügt.`);
+          return;
+        }
+
+        // Defensive fallback: if Realtime/local state was briefly stale, reload
+        // the trip and open the already-linked place instead of inserting again.
+        await refreshTripPlacesFromSupabase();
+        closeAddPlaceDialog();
+        const linkedPlace = placesData.places.find(place => place.supabaseId === existingDbPlace.id);
+        if (linkedPlace) focusExistingPlaceOnMap(linkedPlace);
+        setStatus(`ℹ️ „${existingDbPlace.name}“ ist bereits in dieser Reise vorhanden.`);
         return;
       }
     }
@@ -1359,7 +1563,34 @@ async function handleAddPlace(event) {
     setStatus(`☁️ „${draft.name}“ wurde zur Reise hinzugefügt.`);
   } catch (error) {
     console.error("Ort speichern:", error);
-    message.textContent = `Speichern fehlgeschlagen: ${error.message}`;
+    if (error?.code === "23505" && String(error?.message || "").includes("places_google_place_id_unique") && selectedGooglePlace?.id) {
+      // On another user's/mobile session RLS may intentionally hide an orphaned
+      // central place row. The database helper can safely reuse it after
+      // verifying membership of the current trip.
+      const selectedDbDay = selectedTripDay
+        ? currentTripDays.find(day => day.day_date === selectedTripDay)
+        : null;
+      const nextOrder = selectedTripDay ? getPlacesForDay(selectedTripDay).length + 1 : null;
+      const { data: recovered, error: recoverError } = await supabaseClient.rpc("link_existing_google_place", {
+        p_trip_id: currentTripId,
+        p_google_place_id: String(selectedGooglePlace.id),
+        p_trip_day_id: selectedDbDay?.id || null,
+        p_planned_order: nextOrder
+      });
+      if (recoverError) {
+        console.error("Vorhandenen Google-Ort verknüpfen:", recoverError);
+        message.textContent = `Vorhandener Ort konnte nicht verknüpft werden: ${recoverError.message}`;
+      } else {
+        await refreshTripPlacesFromSupabase();
+        const recoveredId = recovered?.place_id;
+        closeAddPlaceDialog();
+        const linkedPlace = placesData.places.find(place => place.supabaseId === recoveredId);
+        if (linkedPlace) focusExistingPlaceOnMap(linkedPlace);
+        setStatus(`☁️ „${recovered?.place_name || name}“ war bereits gespeichert und wurde dieser Reise hinzugefügt.`);
+      }
+    } else {
+      message.textContent = `Speichern fehlgeschlagen: ${error.message}`;
+    }
   } finally {
     submitButton.disabled = false;
     submitButton.textContent = editingPlaceId ? "Änderungen speichern" : "Ort speichern";
@@ -1369,18 +1600,34 @@ async function handleAddPlace(event) {
 async function removePlaceFromTrip(id) {
   const place = placesData.places.find(p => p.id === id);
   if (!place?.supabaseId || !currentTripId) return;
-  if (!confirm(`„${place.name}“ aus dieser Reise entfernen?\n\nDer Ort selbst bleibt in der Ortsdatenbank erhalten.`)) return;
+  if (!confirm(`„${place.name}“ wirklich löschen?\n\nDer Ort wird aus dieser Reise UND aus der Ortsdatenbank gelöscht.`)) return;
+
   const previousDay = (state.places[id] || {}).plannedDay || "";
-  const { error } = await supabaseClient.from("trip_places").delete()
-    .eq("trip_id", currentTripId).eq("place_id", place.supabaseId);
-  if (error) { setStatus(`⚠️ Entfernen fehlgeschlagen: ${error.message}`); return; }
-  const marker = markers.get(id); if (marker) marker.map = null; markers.delete(id);
+  const { data, error } = await supabaseClient.rpc("delete_place_from_trip", {
+    p_trip_id: currentTripId,
+    p_place_id: place.supabaseId
+  });
+  if (error) {
+    console.error("Ort vollständig löschen:", error);
+    setStatus(`⚠️ Löschen fehlgeschlagen: ${error.message}`);
+    return;
+  }
+
+  const marker = markers.get(id);
+  if (marker) marker.map = null;
+  markers.delete(id);
   placesData.places = placesData.places.filter(item => item.id !== id);
   delete state.places[id];
   localStorage.setItem("budapestMapState", JSON.stringify(state));
   if (previousDay) normalizeDayOrder(previousDay);
-  applyFilters(); updateRouteControls(); infoWindow.close();
-  setStatus(`☁️ „${place.name}“ wurde aus der Reise entfernt.`);
+  applyFilters();
+  updateRouteControls();
+  infoWindow.close();
+
+  const deletedFromDatabase = data?.deleted_from_database !== false;
+  setStatus(deletedFromDatabase
+    ? `☁️ „${place.name}“ wurde aus der Reise und der Datenbank gelöscht.`
+    : `☁️ „${place.name}“ wurde aus dieser Reise entfernt. Der Ort wird noch von einer anderen Reise verwendet.`);
 }
 
 function getPlacesForDay(dayId) {
@@ -2557,7 +2804,181 @@ async function showNextPlace() {
 }
 
 
+function getTodayOverviewDay() {
+  const actualToday = getTripDayForDate();
+  if (actualToday) return { day: actualToday, preview: false };
+
+  // Vor/nach der Reise bleibt die neue Ansicht testbar: erster Reisetag als klar gekennzeichnete Vorschau.
+  const firstDay = TRIP_DAYS[0] || null;
+  return { day: firstDay, preview: Boolean(firstDay) };
+}
+
+function formatTodayDayTitle(day) {
+  if (!day) return "Heute";
+  const date = new Date(`${day.id}T12:00:00`);
+  return new Intl.DateTimeFormat("de-DE", {
+    weekday: "long", day: "2-digit", month: "long", year: "numeric"
+  }).format(date);
+}
+
+function renderTodayView() {
+  const container = document.getElementById("todayOverview");
+  if (!container) return;
+
+  const { day, preview } = getTodayOverviewDay();
+  if (!day) {
+    container.innerHTML = '<div class="today-empty">Kein Reisetag verfügbar.</div>';
+    return;
+  }
+
+  const dayPlaces = getPlacesForDay(day.id);
+  const openPlaces = dayPlaces.filter(place => !(state.places[place.id] || {}).visited);
+  const nextPlace = openPlaces[0] || null;
+  const visitedCount = dayPlaces.length - openPlaces.length;
+  const progress = dayPlaces.length ? Math.round((visitedCount / dayPlaces.length) * 100) : 0;
+  const dayIndex = Math.max(0, TRIP_DAYS.findIndex(item => item.id === day.id)) + 1;
+
+  const timeline = dayPlaces.map(place => {
+    const saved = state.places[place.id] || {};
+    const time = formatPlannedTime(saved) || "offen";
+    const isNext = nextPlace?.id === place.id;
+    return `
+      <div class="today-timeline-item ${saved.visited ? "visited" : ""} ${isNext ? "next" : ""}" data-today-place-id="${escapeHtml(place.id)}">
+        <button class="today-check" type="button" data-today-toggle="${escapeHtml(place.id)}" aria-label="${saved.visited ? "Als offen markieren" : "Als besucht markieren"}">${saved.visited ? "✓" : "○"}</button>
+        <span class="today-time">${escapeHtml(time)}</span>
+        <span class="today-place-name">${escapeHtml(place.name)}</span>
+      </div>`;
+  }).join("");
+
+  const nextCard = nextPlace ? `
+    <div class="today-next-card">
+      <div class="today-card-label">Nächster Ort</div>
+      <button class="today-next-main" type="button" data-today-show-place="${escapeHtml(nextPlace.id)}">
+        <span class="today-next-icon">${CATEGORY_ICONS[nextPlace.category] || "📍"}</span>
+        <span><strong>${escapeHtml(nextPlace.name)}</strong><small>${escapeHtml(categoryLabel(nextPlace.category))}${formatPlannedTime(state.places[nextPlace.id] || {}) ? ` · ${escapeHtml(formatPlannedTime(state.places[nextPlace.id] || {}))}` : ""}</small></span>
+        <span class="today-chevron">›</span>
+      </button>
+      <div class="today-next-actions">
+        <button id="todayRouteButton" class="primary-button today-action-button" type="button">🧭 Route anzeigen</button>
+        <button id="todayMapButton" class="secondary-button today-action-button" type="button" data-today-show-place="${escapeHtml(nextPlace.id)}">🗺️ Auf Karte</button>
+      </div>
+    </div>` : `
+    <div class="today-complete-card">✓ ${dayPlaces.length ? "Tagesplan abgeschlossen – alle Orte besucht." : "Für diesen Tag sind noch keine Orte geplant."}</div>`;
+
+  container.innerHTML = `
+    ${preview ? '<div class="today-preview-note">Vorschau · Die Reise hat noch nicht begonnen</div>' : ''}
+    <div class="today-day-card">
+      <div><div class="today-kicker">${preview ? "Erster Reisetag" : "Heute"}</div><h2>${escapeHtml(formatTodayDayTitle(day))}</h2><div class="today-day-label">${escapeHtml(day.label)}</div></div>
+      <span class="today-day-number">Tag ${dayIndex}</span>
+    </div>
+    ${nextCard}
+    <div class="today-plan-card">
+      <div class="today-plan-head"><strong>${preview ? "Planung" : "Heutige Planung"}</strong><span>${visitedCount} von ${dayPlaces.length} erledigt</span></div>
+      <div class="today-progress"><span style="width:${progress}%"></span></div>
+      <div class="today-timeline">${timeline || '<div class="today-empty">Noch keine Programmpunkte geplant.</div>'}</div>
+      <button id="todayOpenPlanButton" class="secondary-button today-open-plan" type="button">☷ Gesamten Tagesplan öffnen</button>
+    </div>`;
+
+  container.querySelectorAll("[data-today-show-place]").forEach(button => {
+    button.addEventListener("click", () => {
+      const place = placesData.places.find(item => item.id === button.dataset.todayShowPlace);
+      if (!place) return;
+      setMobileView("map");
+      const marker = markers.get(place.id);
+      const position = marker ? getMarkerPosition(marker) : null;
+      if (position) { map.panTo(position); if (map.getZoom() < 16) map.setZoom(16); }
+      window.setTimeout(() => openPlace(place), 180);
+    });
+  });
+
+  container.querySelectorAll("[data-today-toggle]").forEach(button => {
+    button.addEventListener("click", event => {
+      event.stopPropagation();
+      const item = ensurePlaceState(button.dataset.todayToggle);
+      item.visited = !item.visited;
+      saveState();
+      applyFilters();
+    });
+  });
+
+  const todayRouteButton = document.getElementById("todayRouteButton");
+  if (todayRouteButton && nextPlace) {
+    // Für einen neuen nächsten Ort beginnt die Heute-Routenlogik wieder beim
+    // geplanten Startpunkt. Ein zweiter Klick wechselt bewusst auf GPS.
+    if (todayRouteTargetId !== nextPlace.id) {
+      todayRouteTargetId = nextPlace.id;
+      todayRouteClickMode = "planned";
+    }
+
+    const updateTodayRouteButton = () => {
+      todayRouteButton.textContent = todayRouteClickMode === "planned"
+        ? "🧭 Route ab Startpunkt"
+        : "📍 Route ab aktuellem Standort";
+    };
+    updateTodayRouteButton();
+
+    todayRouteButton.addEventListener("click", async () => {
+      selectedDayFilter = day.id;
+
+      const requestedMode = todayRouteClickMode;
+
+      // Den Folgemodus VOR der Routenberechnung setzen. showNextPlace() rendert
+      // Teile der mobilen Ansicht neu; dadurch kann der aktuell geklickte Button
+      // ersetzt werden. So übernimmt der neu gerenderte Button zuverlässig den
+      // nächsten Modus statt wieder bei „Startpunkt“ zu beginnen.
+      todayRouteClickMode = requestedMode === "planned" ? "current" : "planned";
+
+      if (requestedMode === "current" && !userPosition) {
+        // Beim zweiten Klick den Standort direkt anfordern, statt vorauszusetzen,
+        // dass „Mein Standort“ vorher manuell verwendet wurde.
+        try {
+          if (!navigator.geolocation) throw new Error("Geolocation wird nicht unterstützt.");
+          const position = await new Promise((resolve, reject) => {
+            navigator.geolocation.getCurrentPosition(resolve, reject, {
+              enableHighAccuracy: true, timeout: 8000, maximumAge: 60000
+            });
+          });
+          userPosition = {
+            lat: position.coords.latitude,
+            lng: position.coords.longitude
+          };
+          updateUserLocationMarker();
+          updateDistanceControls();
+          updateRouteControls();
+          applyFilters();
+        } catch (error) {
+          console.error("Heute – Standort für Route:", error);
+        }
+        if (!userPosition) {
+          todayRouteClickMode = "current";
+          renderTodayView();
+          setStatus("Aktueller Standort konnte nicht ermittelt werden. Bitte Standortfreigabe prüfen.");
+          return;
+        }
+      }
+
+      routeStartMode = requestedMode;
+      const select = document.getElementById("routeStartMode");
+      if (select) select.value = routeStartMode;
+
+      await showNextPlace();
+
+      // Falls showNextPlace() die Heute-Ansicht nicht ohnehin neu aufgebaut hat,
+      // den sichtbaren Button auf den Folgemodus aktualisieren.
+      renderTodayView();
+    });
+  }
+
+  document.getElementById("todayOpenPlanButton")?.addEventListener("click", () => {
+    selectedDayFilter = day.id;
+    applyFilters();
+    renderDayFilters();
+    setMobileView("plan");
+  });
+}
+
 function renderDayAgenda() {
+  renderTodayView();
   const container = document.getElementById("dayAgenda");
   if (!container) return;
 
@@ -3295,11 +3716,22 @@ function wireControls() {
     applyFilters();
   });
 
-  document.getElementById("mobileClose").addEventListener("click", () => setMobileView("map"));
-  document.getElementById("mobileNavMap").addEventListener("click", () => setMobileView("map"));
-  document.getElementById("mobileNavPlan").addEventListener("click", () => setMobileView("plan"));
-  document.getElementById("mobileNavPlaces").addEventListener("click", () => setMobileView("places"));
-  document.getElementById("mobileScrim").addEventListener("click", () => setMobileView("map"));
+  const bindMobileViewButton = (id, view) => {
+    const button = document.getElementById(id);
+    if (!button) return;
+    button.addEventListener("click", event => {
+      event.preventDefault();
+      event.stopPropagation();
+      setMobileView(view);
+    });
+  };
+
+  bindMobileViewButton("mobileClose", "map");
+  bindMobileViewButton("mobileNavMap", "map");
+  bindMobileViewButton("mobileNavToday", "today");
+  bindMobileViewButton("mobileNavPlan", "plan");
+  bindMobileViewButton("mobileNavPlaces", "places");
+  bindMobileViewButton("mobileScrim", "map");
   document.getElementById("mobileLocateBtn").addEventListener("click", requestUserLocation);
   document.getElementById("budapestBtn").addEventListener("click", centerMapOnBudapest);
 
@@ -3369,9 +3801,11 @@ function isMobileLayout() {
 }
 
 function setMobileView(view) {
-  const normalizedView = ["map", "plan", "places"].includes(view) ? view : "map";
+  const normalizedView = ["map", "today", "plan", "places"].includes(view) ? view : "map";
   const sidebar = document.querySelector(".sidebar");
   const scrim = document.getElementById("mobileScrim");
+
+  if (!sidebar) return;
 
   if (!isMobileLayout()) {
     currentMobileView = "map";
@@ -3390,11 +3824,8 @@ function setMobileView(view) {
 
   currentMobileView = targetView;
 
-  // Beim Wechsel der mobilen Hauptansicht kein altes Marker-Popup stehen lassen.
-  if (infoWindow && targetView !== "map") {
-    infoWindow.close();
-  }
-
+  // Navigation und Sheet zuerst sichtbar schalten. So kann ein Fehler beim
+  // Rendern der Heute-Inhalte das Öffnen des Tabs nicht mehr verhindern.
   document.querySelectorAll(".mobile-nav-button").forEach(button => {
     button.classList.toggle("active", button.dataset.view === targetView);
   });
@@ -3416,9 +3847,23 @@ function setMobileView(view) {
     scrim.setAttribute("aria-hidden", showSheet ? "false" : "true");
   }
 
-  if (showSheet) {
-    sidebar.scrollTop = 0;
+  if (infoWindow && targetView !== "map") {
+    infoWindow.close();
   }
+
+  if (targetView === "today") {
+    try {
+      renderTodayView();
+    } catch (error) {
+      console.error("Heute-Ansicht konnte nicht gerendert werden:", error);
+      const container = document.getElementById("todayOverview");
+      if (container) {
+        container.innerHTML = '<div class="today-empty">Die Heute-Ansicht konnte nicht geladen werden.</div>';
+      }
+    }
+  }
+
+  if (showSheet) sidebar.scrollTop = 0;
 
   if (map) {
     window.setTimeout(() => {
@@ -3618,3 +4063,44 @@ function initDesktopSidebarUi() {
 }
 
 document.addEventListener("DOMContentLoaded", initDesktopSidebarUi);
+
+// v1.5.0 – Mobile Plan: "In Budapest probieren" is collapsible and closed by default.
+function initMobileTryToggle() {
+  const section = document.querySelector(".mobile-try-collapsible");
+  const button = document.getElementById("mobileTryToggle");
+  const heading = section?.querySelector(":scope > h2");
+  if (!section || !button || !heading) return;
+
+  const tryList = document.getElementById("tryList");
+
+  const setExpanded = expanded => {
+    section.classList.toggle("mobile-try-collapsed", !expanded);
+    button.setAttribute("aria-expanded", String(expanded));
+    button.setAttribute("aria-label", `In Budapest probieren ${expanded ? "einklappen" : "aufklappen"}`);
+
+    // Mobile uses an explicit inline display state. This avoids the desktop
+    // collapsible rules from overriding the mobile section state.
+    if (window.innerWidth <= 820 && tryList) {
+      if (expanded) {
+        tryList.style.removeProperty("display");
+      } else {
+        tryList.style.setProperty("display", "none", "important");
+      }
+    }
+  };
+  setExpanded(false);
+
+  button.addEventListener("click", event => {
+    event.stopPropagation();
+    setExpanded(section.classList.contains("mobile-try-collapsed"));
+  });
+  heading.addEventListener("click", event => {
+    if (window.innerWidth > 820) return;
+    if (event.target.closest("button") && event.target !== button) return;
+    if (event.target === button || button.contains(event.target)) return;
+    button.click();
+  });
+}
+
+document.addEventListener("DOMContentLoaded", initMobileTryToggle);
+

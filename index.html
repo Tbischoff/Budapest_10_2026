@@ -6,12 +6,12 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://*.googleapis.com https://*.gstatic.com https://*.google.com blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.googleusercontent.com https://*.ggpht.com; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' https://fjlezfzninkltblcctds.supabase.co wss://fjlezfzninkltblcctds.supabase.co https://*.googleapis.com https://*.gstatic.com https://*.google.com data: blob:; frame-src https://*.google.com; worker-src 'self' blob:; manifest-src 'self'; form-action 'self'" />
   <title>Budapest Map 2026</title>
   <link rel="icon" href="assets/icons/favicon.svg" type="image/svg+xml" />
-  <link rel="stylesheet" href="assets/css/style.css" />
+  <link rel="stylesheet" href="assets/css/style.css?v=1.6.0-marker-focus-2" />
 </head>
 <body>
   <div id="authGate" class="auth-gate">
     <form id="loginForm" class="auth-card">
-      <div class="eyebrow">Travel Planner · <span id="loginVersion">v1.4.0</span></div>
+      <div class="eyebrow">Travel Planner · <span id="loginVersion">v1.6.0</span></div>
       <h1>Budapest Map</h1>
       <p>Bitte anmelden, um den gemeinsamen Reisestand zu laden.</p>
       <label class="form-field"><span>E-Mail</span><input id="loginEmail" type="email" autocomplete="username" required></label>
@@ -27,7 +27,7 @@
         <div>
           <div class="eyebrow">Budapest · 03.–07.10.2026</div>
           <h1>Budapest Map</h1>
-        <div class="app-version">v1.4.0</div>
+        <div class="app-version">v1.6.0</div>
         </div>
         <div class="account-actions">
           <button id="logoutButton" class="text-button" type="button">Abmelden</button>
@@ -48,6 +48,9 @@
       <div class="desktop-sidebar-actions desktop-only">
         <button id="desktopAddPlaceBtn" class="desktop-primary-action" type="button">＋ Ort hinzufügen</button>
         <button id="desktopFitBtn" class="desktop-secondary-action" type="button">☷ Alle anzeigen</button>
+        <button id="locateBtn" class="desktop-secondary-action" type="button">📍 Mein Standort</button>
+        <button id="distanceSortBtn" class="desktop-secondary-action" type="button" disabled>↕ Nähe sortieren</button>
+        <div id="locationText" class="desktop-location-status" aria-live="polite">Standort noch nicht freigegeben.</div>
       </div>
 
       <section class="panel search-results-panel desktop-places-panel desktop-collapsible" data-desktop-default-open="false" data-mobile-view="places">
@@ -59,27 +62,16 @@
       </section>
 
 
-
-
-      <section class="panel location-panel desktop-collapsible" data-desktop-section="location" data-mobile-view="places">
-        <div class="panel-title-row">
-          <h2>Standort</h2>
-          <button id="distanceSortBtn" class="text-button distance-sort-button" type="button" disabled>
-            Nähe sortieren
-          </button>
-        </div>
-        <button id="locateBtn" class="location-button" type="button">📍 Mein Standort</button>
-        <div id="locationText" class="location-text">
-          Standort noch nicht freigegeben.
-        </div>
-      </section>
-
       <section class="panel desktop-collapsible" data-desktop-section="categories" data-mobile-view="places">
         <div class="panel-title-row">
           <h2>Kategorien</h2>
           <button id="toggleAllBtn" class="text-button">Alle aus</button>
         </div>
         <div id="categoryFilters" class="filter-list"></div>
+      </section>
+
+      <section id="todayOverviewPanel" class="panel today-overview-panel mobile-only" data-mobile-view="today">
+        <div id="todayOverview" class="today-overview"></div>
       </section>
 
       <section class="panel desktop-collapsible desktop-plan-section" data-desktop-section="plan" data-mobile-view="plan">
@@ -134,8 +126,8 @@
 
 
 
-      <section class="panel desktop-collapsible desktop-secondary-section" data-desktop-section="try" data-mobile-view="places">
-        <h2>In Budapest probieren</h2>
+      <section class="panel desktop-collapsible desktop-secondary-section mobile-try-collapsible mobile-try-collapsed" data-desktop-section="try" data-mobile-view="plan">
+        <h2>In Budapest probieren <button id="mobileTryToggle" class="mobile-try-toggle mobile-only" type="button" aria-expanded="false" aria-label="In Budapest probieren aufklappen"><span aria-hidden="true">⌄</span></button></h2>
         <div id="tryList"></div>
       </section>
 
@@ -182,6 +174,10 @@
     <button id="mobileNavMap" class="mobile-nav-button active" type="button" data-view="map">
       <span class="mobile-nav-icon">🗺️</span>
       <span>Karte</span>
+    </button>
+    <button id="mobileNavToday" class="mobile-nav-button" type="button" data-view="today">
+      <span class="mobile-nav-icon">☀️</span>
+      <span>Heute</span>
     </button>
     <button id="mobileNavPlan" class="mobile-nav-button" type="button" data-view="plan">
       <span class="mobile-nav-icon">📅</span>
@@ -292,6 +288,6 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0"></script>
   <script src="data/places.js"></script>
-  <script src="assets/js/app.js"></script>
+  <script src="assets/js/app.js?v=1.6.0-marker-focus-2"></script>
 </body>
 </html>
