@@ -2068,3 +2068,38 @@ h2 {
   .google-place-selection.is-existing .existing-place-copy > strong { font-size: 17px; }
   .google-place-selection.is-existing .existing-place-hint { font-size: 13px; }
 }
+
+
+/* v1.6.4: mobile distance sorting in Places */
+.places-title-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+@media (max-width: 760px) {
+  .mobile-distance-sort.mobile-only {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 32px;
+    padding: 6px 10px;
+    border: 1px solid #d8d2c8;
+    border-radius: 999px;
+    background: #fff;
+    color: #333;
+    font: inherit;
+    font-size: 0.82rem;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .mobile-distance-sort.mobile-only.active {
+    border-color: #1f6f5f;
+    background: #e9f5f1;
+    color: #155548;
+  }
+  .mobile-distance-sort.mobile-only:disabled {
+    opacity: .45;
+    cursor: not-allowed;
+  }
+}

@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.6.3";
+const APP_VERSION = "v1.6.4";
 
 function syncVersionLabels() {
   document.querySelectorAll(".app-version").forEach(el => { el.textContent = APP_VERSION; });
@@ -2557,15 +2557,19 @@ function formatDistance(distanceKm) {
 }
 
 function updateDistanceControls() {
-  const sortButton = document.getElementById("distanceSortBtn");
-  if (!sortButton) return;
+  const sortButtons = [
+    document.getElementById("distanceSortBtn"),
+    document.getElementById("mobileDistanceSortBtn")
+  ].filter(Boolean);
 
-  sortButton.disabled = !userPosition;
-  sortButton.title = userPosition
-    ? "Orte nach Luftlinienentfernung sortieren"
-    : "Zuerst Standort freigeben";
-
-  sortButton.classList.toggle("active", sortByDistance && Boolean(userPosition));
+  sortButtons.forEach(sortButton => {
+    sortButton.disabled = !userPosition;
+    sortButton.title = userPosition
+      ? "Orte nach Luftlinienentfernung sortieren"
+      : "Zuerst Standort freigeben";
+    sortButton.classList.toggle("active", sortByDistance && Boolean(userPosition));
+    sortButton.setAttribute("aria-pressed", sortByDistance && Boolean(userPosition) ? "true" : "false");
+  });
 }
 
 function toggleDistanceSort() {
@@ -3708,7 +3712,8 @@ function wireControls() {
   document.getElementById("unvisitedOnly").addEventListener("change", applyFilters);
   document.getElementById("fitBtn").addEventListener("click", fitVisibleMarkers);
   document.getElementById("locateBtn").addEventListener("click", requestUserLocation);
-  document.getElementById("distanceSortBtn").addEventListener("click", toggleDistanceSort);
+  document.getElementById("distanceSortBtn")?.addEventListener("click", toggleDistanceSort);
+  document.getElementById("mobileDistanceSortBtn")?.addEventListener("click", toggleDistanceSort);
   document.getElementById("routeToggleBtn").addEventListener("click", toggleDayRoute);
   document.getElementById("routeGoogleBtn").addEventListener("click", () => openDayRouteInGoogleMaps());
   document.getElementById("routeStartMode").addEventListener("change", event => setRouteStartMode(event.target.value));
