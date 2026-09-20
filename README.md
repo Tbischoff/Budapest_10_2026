@@ -1,10 +1,12 @@
-# Budapest Travel Planner v1.8.0
+# Budapest Travel Planner v1.9.0
 
-Ausbau der mobilen „Heute“-Ansicht:
-- Nächster Ort prominenter mit geplantem Zeitfenster
-- Entfernung vom aktuellen Standort, sobald Standort bekannt ist
-- großer „Als besucht markieren“-Button
-- nach Erledigung sofortiger Wechsel auf den nächsten offenen Ort
-- Fortschritt und Timeline aktualisieren sich unmittelbar
+Marker-Clustering auf Basis von v1.8.0:
+- nahe Orte werden beim Herauszoomen zu kompakten Clustern zusammengefasst
+- Cluster zeigen die Anzahl der enthaltenen Orte
+- Klick auf einen Cluster zoomt in den enthaltenen Bereich
+- beim Hineinzoomen erscheinen automatisch wieder die einzelnen Marker
+- Kategorien, Tagesfilter und Suche aktualisieren die Cluster dynamisch
+- aktueller Standort bleibt ein eigener Marker und wird nicht geclustert
+- vorhandene Orte→Marker-, Infofenster-, Routen- und Heute-Logik bleibt erhalten
 
 Keine Datenbankmigration erforderlich.

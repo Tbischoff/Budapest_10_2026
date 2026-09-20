@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.8.0";
+const APP_VERSION = "v1.9.0";
 
 function syncVersionLabels() {
   document.querySelectorAll(".app-version").forEach(el => { el.textContent = APP_VERSION; });
@@ -82,6 +82,7 @@ let geocoder;
 let infoWindow;
 let placesData;
 let markers = new Map();
+let markerClusterer = null;
 let activeCategories = new Set();
 let state = loadState();
 
@@ -3533,13 +3534,60 @@ function scheduleSmartSearch() {
   searchDebounceTimer = window.setTimeout(focusSingleSearchResult, 500);
 }
 
+function createClusterMarker({ count, position }) {
+  const element = document.createElement("div");
+  element.className = "map-marker-cluster";
+  element.textContent = String(count);
+  element.setAttribute("aria-label", `${count} Orte in diesem Bereich`);
+
+  return new AdvancedMarkerElement({
+    position,
+    content: element,
+    zIndex: 1000 + Number(count || 0),
+    title: `${count} Orte`
+  });
+}
+
+function ensureMarkerClusterer() {
+  if (markerClusterer || !map || !window.markerClusterer?.MarkerClusterer) return markerClusterer;
+
+  markerClusterer = new window.markerClusterer.MarkerClusterer({
+    map,
+    markers: [],
+    renderer: { render: createClusterMarker },
+    onClusterClick: (_event, cluster, clusterMap) => {
+      if (!cluster?.bounds) return;
+      clusterMap.fitBounds(cluster.bounds, 72);
+    }
+  });
+  return markerClusterer;
+}
+
+function syncVisibleMarkers(visibleIds) {
+  const visibleMarkers = [];
+  for (const [id, marker] of markers) {
+    // MarkerClusterer controls map assignment for place markers. Keeping this
+    // in one place avoids stale clusters after filters/day changes.
+    marker.map = null;
+    if (visibleIds.has(id)) visibleMarkers.push(marker);
+  }
+
+  const clusterer = ensureMarkerClusterer();
+  if (!clusterer) {
+    visibleMarkers.forEach(marker => { marker.map = map; });
+    return;
+  }
+
+  clusterer.clearMarkers(true);
+  clusterer.addMarkers(visibleMarkers, true);
+  clusterer.render();
+}
+
 function applyFilters() {
   const filtered = getFilteredPlaces();
 
   const visibleIds = new Set(filtered.map(p => p.id));
-  for (const [id, marker] of markers) {
-    marker.map = visibleIds.has(id) ? map : null;
-  }
+  syncVisibleMarkers(visibleIds);
 
   renderPlaceList(filtered);
   renderDayAgenda();
@@ -3548,8 +3596,9 @@ function applyFilters() {
 }
 
 function fitVisibleMarkers() {
+  const visibleIds = new Set(getFilteredPlaces().map(place => place.id));
   const visible = [...markers.entries()]
-    .filter(([, marker]) => marker.map === map)
+    .filter(([id]) => visibleIds.has(id))
     .map(([, marker]) => marker);
 
   if (!visible.length) return;
