@@ -70,6 +70,8 @@ let RouteClass = null;
 let routeLoading = false;
 let activeRouteSummary = null;
 let routeStartMode = "planned";
+let todayRouteClickMode = "planned";
+let todayRouteTargetId = null;
 let currentMobileView = "map";
 let searchDebounceTimer = null;
 
@@ -2654,13 +2656,43 @@ function renderTodayView() {
     });
   });
 
-  document.getElementById("todayRouteButton")?.addEventListener("click", async () => {
-    selectedDayFilter = day.id;
-    routeStartMode = userPosition ? "current" : "planned";
-    const select = document.getElementById("routeStartMode");
-    if (select) select.value = routeStartMode;
-    await showNextPlace();
-  });
+  const todayRouteButton = document.getElementById("todayRouteButton");
+  if (todayRouteButton && nextPlace) {
+    // Für einen neuen nächsten Ort beginnt die Heute-Routenlogik wieder beim
+    // geplanten Startpunkt. Ein zweiter Klick wechselt bewusst auf GPS.
+    if (todayRouteTargetId !== nextPlace.id) {
+      todayRouteTargetId = nextPlace.id;
+      todayRouteClickMode = "planned";
+    }
+
+    const updateTodayRouteButton = () => {
+      todayRouteButton.textContent = todayRouteClickMode === "planned"
+        ? "🧭 Route ab Startpunkt"
+        : "📍 Route ab aktuellem Standort";
+    };
+    updateTodayRouteButton();
+
+    todayRouteButton.addEventListener("click", async () => {
+      selectedDayFilter = day.id;
+
+      const requestedMode = todayRouteClickMode;
+      if (requestedMode === "current" && !userPosition) {
+        setStatus("Aktueller Standort ist noch nicht verfügbar. Bitte zuerst „Mein Standort“ aktualisieren.");
+        return;
+      }
+
+      routeStartMode = requestedMode;
+      const select = document.getElementById("routeStartMode");
+      if (select) select.value = routeStartMode;
+
+      await showNextPlace();
+
+      // Nach erfolgreichem/ausgelöstem ersten Versuch bietet derselbe Button
+      // die Route vom aktuellen Standort an. Danach wird wieder zurückgeschaltet.
+      todayRouteClickMode = requestedMode === "planned" ? "current" : "planned";
+      updateTodayRouteButton();
+    });
+  }
 
   document.getElementById("todayOpenPlanButton")?.addEventListener("click", () => {
     selectedDayFilter = day.id;
