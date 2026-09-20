@@ -3364,11 +3364,12 @@ function initDesktopSidebarUi() {
     const button = document.createElement("button");
     button.type = "button";
     button.className = "desktop-section-toggle desktop-only";
-    button.setAttribute("aria-expanded", "false");
+    const defaultOpen = section.dataset.desktopDefaultOpen === "true";
+    button.setAttribute("aria-expanded", String(defaultOpen));
     button.innerHTML = '<span aria-hidden="true">⌄</span>';
     heading.classList.add("desktop-collapsible-heading");
     heading.appendChild(button);
-    section.classList.add("desktop-collapsed");
+    section.classList.toggle("desktop-collapsed", !defaultOpen);
     button.addEventListener("click", event => {
       event.stopPropagation();
       const collapsed = section.classList.toggle("desktop-collapsed");

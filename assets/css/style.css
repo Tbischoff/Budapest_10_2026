@@ -1911,3 +1911,23 @@ h2 {
   .desktop-only { display: none !important; }
   .desktop-collapsed > * { display: revert; }
 }
+
+/* v1.4.0 – Places section can be collapsed on desktop as well. */
+@media (min-width: 821px) {
+  .desktop-places-panel.desktop-collapsible {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 0;
+    background: var(--surface-soft);
+    overflow: hidden;
+  }
+  .desktop-places-panel.desktop-collapsible > .panel-title-row {
+    min-height: 38px;
+    margin: 0;
+    padding: 9px 10px;
+    background: var(--surface-soft);
+  }
+  .desktop-places-panel.desktop-collapsible:not(.desktop-collapsed) > .place-list {
+    margin: 0 6px 8px 10px;
+  }
+}
