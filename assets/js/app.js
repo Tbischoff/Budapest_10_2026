@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.9.1";
+const APP_VERSION = "v1.9.2";
 
 function syncVersionLabels() {
   document.querySelectorAll(".app-version").forEach(el => { el.textContent = APP_VERSION; });
@@ -3534,18 +3534,32 @@ function scheduleSmartSearch() {
   searchDebounceTimer = window.setTimeout(focusSingleSearchResult, 500);
 }
 
-function createClusterMarker({ count, position }) {
+function createClusterMarker({ count, position }, _stats, clusterMap) {
   const element = document.createElement("div");
   element.className = "map-marker-cluster";
   element.textContent = String(count);
   element.setAttribute("aria-label", `${count} Orte in diesem Bereich`);
 
-  return new AdvancedMarkerElement({
+  const clusterMarker = new AdvancedMarkerElement({
     position,
     content: element,
     zIndex: 1000 + Number(count || 0),
-    title: `${count} Orte`
+    title: `${count} Orte`,
+    gmpClickable: true
   });
+
+  // AdvancedMarkerElement uses DOM-style gmp events. MarkerClusterer's
+  // onClusterClick currently attaches the legacy Maps addListener("click")
+  // handler to the rendered AdvancedMarkerElement, which causes Google's
+  // console warning. Handle the cluster click directly instead.
+  clusterMarker.addEventListener("gmp-click", () => {
+    const target = normalizeLatLng(position);
+    if (!target || !clusterMap) return;
+    clusterMap.setCenter(target);
+    clusterMap.setZoom(Math.min((Number(clusterMap.getZoom()) || 0) + 2, 20));
+  });
+
+  return clusterMarker;
 }
 
 function ensureMarkerClusterer() {
@@ -3554,11 +3568,7 @@ function ensureMarkerClusterer() {
   placeMarkerClusterer = new window.markerClusterer.MarkerClusterer({
     map,
     markers: [],
-    renderer: { render: createClusterMarker },
-    onClusterClick: (_event, cluster, clusterMap) => {
-      if (!cluster?.bounds) return;
-      clusterMap.fitBounds(cluster.bounds, 72);
-    }
+    renderer: { render: createClusterMarker }
   });
   return placeMarkerClusterer;
 }

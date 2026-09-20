@@ -1,4 +1,4 @@
-# Budapest Travel Planner v1.9.1
+# Budapest Travel Planner v1.9.2
 
 Marker-Clustering auf Basis von v1.8.0:
 - nahe Orte werden beim Herauszoomen zu kompakten Clustern zusammengefasst
@@ -10,3 +10,9 @@ Marker-Clustering auf Basis von v1.8.0:
 - vorhandene Orte→Marker-, Infofenster-, Routen- und Heute-Logik bleibt erhalten
 
 Keine Datenbankmigration erforderlich.
+
+
+## v1.9.2
+- Cluster-Klicks verwenden bei AdvancedMarkerElement jetzt direkt `addEventListener("gmp-click", ...)`.
+- Der legacy `addListener("click")`-Pfad des MarkerClusterers wird nicht mehr verwendet; dadurch entfällt die Google-Maps-Konsolenwarnung.
+- Klick auf einen Cluster zentriert weiterhin auf den Cluster und zoomt zwei Stufen hinein.
