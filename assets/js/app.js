@@ -3409,12 +3409,22 @@ function wireControls() {
     applyFilters();
   });
 
-  document.getElementById("mobileClose").addEventListener("click", () => setMobileView("map"));
-  document.getElementById("mobileNavMap").addEventListener("click", () => setMobileView("map"));
-  document.getElementById("mobileNavToday").addEventListener("click", () => setMobileView("today"));
-  document.getElementById("mobileNavPlan").addEventListener("click", () => setMobileView("plan"));
-  document.getElementById("mobileNavPlaces").addEventListener("click", () => setMobileView("places"));
-  document.getElementById("mobileScrim").addEventListener("click", () => setMobileView("map"));
+  const bindMobileViewButton = (id, view) => {
+    const button = document.getElementById(id);
+    if (!button) return;
+    button.addEventListener("click", event => {
+      event.preventDefault();
+      event.stopPropagation();
+      setMobileView(view);
+    });
+  };
+
+  bindMobileViewButton("mobileClose", "map");
+  bindMobileViewButton("mobileNavMap", "map");
+  bindMobileViewButton("mobileNavToday", "today");
+  bindMobileViewButton("mobileNavPlan", "plan");
+  bindMobileViewButton("mobileNavPlaces", "places");
+  bindMobileViewButton("mobileScrim", "map");
   document.getElementById("mobileLocateBtn").addEventListener("click", requestUserLocation);
   document.getElementById("budapestBtn").addEventListener("click", centerMapOnBudapest);
 
@@ -3488,6 +3498,8 @@ function setMobileView(view) {
   const sidebar = document.querySelector(".sidebar");
   const scrim = document.getElementById("mobileScrim");
 
+  if (!sidebar) return;
+
   if (!isMobileLayout()) {
     currentMobileView = "map";
     sidebar.classList.remove("open");
@@ -3505,13 +3517,8 @@ function setMobileView(view) {
 
   currentMobileView = targetView;
 
-  if (targetView === "today") renderTodayView();
-
-  // Beim Wechsel der mobilen Hauptansicht kein altes Marker-Popup stehen lassen.
-  if (infoWindow && targetView !== "map") {
-    infoWindow.close();
-  }
-
+  // Navigation und Sheet zuerst sichtbar schalten. So kann ein Fehler beim
+  // Rendern der Heute-Inhalte das Öffnen des Tabs nicht mehr verhindern.
   document.querySelectorAll(".mobile-nav-button").forEach(button => {
     button.classList.toggle("active", button.dataset.view === targetView);
   });
@@ -3533,9 +3540,23 @@ function setMobileView(view) {
     scrim.setAttribute("aria-hidden", showSheet ? "false" : "true");
   }
 
-  if (showSheet) {
-    sidebar.scrollTop = 0;
+  if (infoWindow && targetView !== "map") {
+    infoWindow.close();
   }
+
+  if (targetView === "today") {
+    try {
+      renderTodayView();
+    } catch (error) {
+      console.error("Heute-Ansicht konnte nicht gerendert werden:", error);
+      const container = document.getElementById("todayOverview");
+      if (container) {
+        container.innerHTML = '<div class="today-empty">Die Heute-Ansicht konnte nicht geladen werden.</div>';
+      }
+    }
+  }
+
+  if (showSheet) sidebar.scrollTop = 0;
 
   if (map) {
     window.setTimeout(() => {
