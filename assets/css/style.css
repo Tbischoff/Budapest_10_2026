@@ -1757,7 +1757,8 @@ h2 {
     display: flex;
     flex-direction: column;
     gap: 0;
-    overflow: hidden;
+    overflow-x: hidden;
+    overflow-y: auto;
     padding: 18px 16px 12px;
     scrollbar-width: thin;
     scrollbar-color: #c9c3ba transparent;
@@ -1849,20 +1850,43 @@ h2 {
   .desktop-collapsible:not(.desktop-collapsed) > :not(.panel-title-row):not(h2) { margin-left: 10px; margin-right: 10px; }
   .desktop-collapsible:not(.desktop-collapsed) > :last-child { margin-bottom: 10px; }
 
-  /* The place list gets the remaining height and is the main scrolling area. */
+
+  /* v1.4.0 test fixes: keep the two day actions together and allow the
+     complete desktop sidebar to scroll down to secondary sections/footer. */
+  .desktop-plan-section > .plan-title-row {
+    align-items: center;
+    flex-wrap: nowrap;
+  }
+  .desktop-plan-section > .plan-title-row > h2 {
+    flex: 0 0 auto;
+    margin-right: auto;
+  }
+  .plan-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 0 0 auto;
+  }
+  .plan-header-actions .mini-action-button {
+    white-space: nowrap;
+    padding-left: 9px;
+    padding-right: 9px;
+  }
+
+  /* The place list stays compact while the complete sidebar remains scrollable. */
   .desktop-places-panel {
     display: flex;
     flex-direction: column;
-    flex: 1 1 260px;
-    min-height: 190px;
-    overflow: hidden;
+    flex: 0 0 auto;
+    min-height: 0;
+    overflow: visible;
     border-top: 1px solid var(--border);
     margin-top: 10px;
     padding-top: 9px;
   }
   .desktop-places-panel .panel-title-row { flex: 0 0 auto; margin-bottom: 7px; }
   .desktop-places-panel .place-list {
-    min-height: 0;
+    max-height: 360px;
     overflow-y: auto;
     padding-right: 4px;
     scrollbar-width: thin;
