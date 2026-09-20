@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.6.1";
+const APP_VERSION = "v1.6.2";
 
 function syncVersionLabels() {
   document.querySelectorAll(".app-version").forEach(el => { el.textContent = APP_VERSION; });
@@ -73,6 +73,7 @@ let routeStartMode = "planned";
 let todayRouteClickMode = "planned";
 let todayRouteTargetId = null;
 let currentMobileView = "map";
+let lastFocusedPlaceId = null;
 let searchDebounceTimer = null;
 
 let map;
@@ -735,11 +736,21 @@ function focusExistingPlaceOnMap(place, { openInfo = true } = {}) {
     return;
   }
 
-  // Wichtig: Bei einem Wechsel aus einem mobilen Sheet/Dialog darf Maps erst
-  // fokussiert werden, wenn der Karten-Viewport wieder seine endgültige Größe
-  // hat. Der alte Code setzte den Mittelpunkt zweimal (vor und nach dem
-  // Übergang). Das konnte als sichtbares Springen enden – besonders bei großen
-  // Distanzen. Jetzt gibt es genau EINEN Fokusvorgang.
+  // Wenn derselbe Ort bereits auf der aktuellen Karte sichtbar ist, darf ein
+  // erneuter Klick in der Orte-Liste die Karte nicht noch einmal zentrieren.
+  // Sonst entsteht ein sichtbares "Springen", obwohl der Nutzer bereits am
+  // richtigen Marker ist. Wurde die Karte zwischenzeitlich wegbewegt, greift
+  // der normale Fokus weiterhin.
+  const placeFocusId = place.id ?? place.supabaseId ?? place.googlePlaceId ?? null;
+  const boundsBeforeViewChange = map.getBounds?.();
+  const samePlaceStillVisible = Boolean(
+    placeFocusId &&
+    lastFocusedPlaceId === placeFocusId &&
+    boundsBeforeViewChange?.contains?.(position)
+  );
+
+  // Bei einem Wechsel aus einem mobilen Sheet/Dialog darf Maps erst fokussiert
+  // werden, wenn der Karten-Viewport wieder seine endgültige Größe hat.
   if (isMobileLayout() && currentMobileView !== "map") {
     setMobileView("map");
   }
@@ -753,12 +764,15 @@ function focusExistingPlaceOnMap(place, { openInfo = true } = {}) {
 
     google.maps.event.trigger(map, "resize");
 
-    // Für große Sprünge (z. B. Deutschland -> Budapest) immer direkt setzen,
-    // nicht animieren. So hängt das Ergebnis nicht vom bisherigen Viewport ab.
-    map.setCenter(position);
-    const currentZoom = Number(map.getZoom()) || 0;
-    if (currentZoom < 16) map.setZoom(16);
+    if (!samePlaceStillVisible) {
+      // Für echte Ortswechsel (z. B. Deutschland -> Budapest) direkt setzen,
+      // nicht animieren. So hängt das Ergebnis nicht vom bisherigen Viewport ab.
+      map.setCenter(position);
+      const currentZoom = Number(map.getZoom()) || 0;
+      if (currentZoom < 16) map.setZoom(16);
+    }
 
+    if (placeFocusId) lastFocusedPlaceId = placeFocusId;
     if (!openInfo) return;
 
     // Das InfoWindow erst öffnen, wenn der neue Mittelpunkt wirklich von Maps
