@@ -724,27 +724,44 @@ function resetGooglePlaceSelection({ recreateAutocomplete = false } = {}) {
 function focusExistingPlaceOnMap(place, { openInfo = true } = {}) {
   if (!place || !map) return;
 
-  // Especially on mobile the user may currently be far away from an already
-  // saved place. Switch back to the map first and then deliberately center the
-  // existing marker instead of only opening its InfoWindow off-screen.
+  // On mobile the add dialog/sheet changes the visible map viewport while it
+  // closes. A panTo() started during that transition can be recalculated by
+  // Google Maps and appear as a vertical jump only. First return to the map,
+  // wait until the layout has settled, notify Maps about the resize and then
+  // set the destination explicitly.
   if (isMobileLayout()) {
-    currentMobileView = "__focus_place__";
-    setMobileView("map");
+    if (currentMobileView !== "map") setMobileView("map");
   }
 
   const marker = markers.get(place.id);
   const position = marker ? getMarkerPosition(marker) : normalizeLatLng({ lat: place.lat, lng: place.lng });
   if (!position) {
+    console.warn("Vorhandener Ort hat keine gültige Kartenposition:", place);
     if (openInfo) openPlace(place);
     return;
   }
 
+  const applyFocus = () => {
+    google.maps.event.trigger(map, "resize");
+    map.setCenter(position);
+    map.setZoom(Math.max(Number(map.getZoom()) || 0, 16));
+  };
+
+  // First frame: map view is selected. Second pass: mobile dialog/sheet CSS
+  // transitions are finished. setCenter (rather than panTo) is intentional for
+  // long-distance jumps such as Koblenz -> Budapest.
   requestAnimationFrame(() => {
-    map.panTo(position);
-    if ((map.getZoom() || 0) < 16) map.setZoom(16);
-    if (openInfo) {
-      google.maps.event.addListenerOnce(map, "idle", () => openPlace(place));
-    }
+    applyFocus();
+    window.setTimeout(() => {
+      applyFocus();
+      if (openInfo) {
+        google.maps.event.addListenerOnce(map, "idle", () => openPlace(place));
+        // If the map was already idle after setCenter, still open reliably.
+        window.setTimeout(() => {
+          if (!infoWindow?.getMap?.()) openPlace(place);
+        }, 250);
+      }
+    }, isMobileLayout() ? 380 : 40);
   });
 }
 
