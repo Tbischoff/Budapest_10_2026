@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.4.0";
+const APP_VERSION = "v1.5.0";
 
 function syncVersionLabels() {
   document.querySelectorAll(".app-version").forEach(el => { el.textContent = APP_VERSION; });
@@ -24,6 +24,8 @@ let suppressSupabaseSync = true;
 let realtimeChannel = null;
 let realtimeRefreshTimer = null;
 let editingPlaceId = null;
+let tryItems = [];
+let editingTryItemId = null;
 
 const CONFIG = {
   // Google Maps JavaScript API key eintragen.
@@ -169,6 +171,9 @@ function subscribeToTripRealtime() {
     .on("postgres_changes", {
       event: "*", schema: "public", table: "places"
     }, queueFullRefresh)
+    .on("postgres_changes", {
+      event: "*", schema: "public", table: "trip_try_items", filter: `trip_id=eq.${currentTripId}`
+    }, () => refreshTryItemsFromSupabase())
     .subscribe(status => {
       if (status === "SUBSCRIBED") setStatus("🟢 Live-Synchronisation aktiv.");
     });
@@ -320,6 +325,166 @@ async function loadSupabaseTripData() {
   return { trip, tripDays, places: convertedPlaces };
 }
 
+async function loadTryItemsFromSupabase() {
+  if (!supabaseClient || !currentTripId) return [];
+  const { data, error } = await supabaseClient
+    .from("trip_try_items")
+    .select("id,trip_id,name,category,note,tried,created_by,created_at,updated_at")
+    .eq("trip_id", currentTripId)
+    .order("created_at", { ascending: true });
+  if (error) throw error;
+  return data || [];
+}
+
+async function seedLegacyTryItemsIfNeeded() {
+  if (tryItems.length || !currentTripId) return;
+  const legacy = window.BUDAPEST_PLACES_DATA?.tryInBudapest || [];
+  if (!legacy.length) return;
+  const rows = legacy.map(item => ({
+    trip_id: currentTripId,
+    name: item.name,
+    category: "food",
+    note: item.notes || null,
+    tried: Boolean(item.done)
+  }));
+  const { data, error } = await supabaseClient.from("trip_try_items").insert(rows).select();
+  if (error) throw error;
+  tryItems = data || [];
+}
+
+async function refreshTryItemsFromSupabase() {
+  try {
+    tryItems = await loadTryItemsFromSupabase();
+    renderTryListFresh();
+  } catch (error) {
+    console.error("Probierliste live aktualisieren:", error);
+  }
+}
+
+function tryCategoryLabel(category) {
+  return category === "drink" ? "🥤 Getränk" : category === "other" ? "✨ Sonstiges" : "🍴 Essen";
+}
+
+function renderTryList() {
+  const container = document.getElementById("tryList");
+  if (!container) return;
+  container.innerHTML = "";
+  const triedCount = tryItems.filter(item => item.tried).length;
+  const summary = document.createElement("div");
+  summary.className = "try-summary";
+  summary.innerHTML = `<div><strong>${triedCount} von ${tryItems.length}</strong> probiert</div><button id="addTryItemBtn" class="secondary-button compact-button" type="button">＋ Hinzufügen</button>`;
+  container.appendChild(summary);
+  const progress = document.createElement("div");
+  progress.className = "try-progress";
+  progress.innerHTML = `<span style="width:${tryItems.length ? Math.round(triedCount / tryItems.length * 100) : 0}%"></span>`;
+  container.appendChild(progress);
+  document.getElementById("addTryItemBtn")?.addEventListener("click", () => openTryItemDialog());
+
+  if (!tryItems.length) {
+    const empty = document.createElement("div");
+    empty.className = "try-empty";
+    empty.textContent = "Noch nichts vorgemerkt.";
+    container.appendChild(empty);
+    return;
+  }
+
+  for (const item of tryItems) {
+    const row = document.createElement("div");
+    row.className = `try-item${item.tried ? " is-tried" : ""}`;
+    const main = document.createElement("label");
+    main.className = "try-item-main";
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.checked = Boolean(item.tried);
+    checkbox.addEventListener("change", () => setTryItemTried(item.id, checkbox.checked));
+    const text = document.createElement("span");
+    text.className = "try-item-text";
+    text.innerHTML = `<strong>${escapeHtml(item.name)}</strong><small>${tryCategoryLabel(item.category)}${item.note ? ` · ${escapeHtml(item.note)}` : ""}</small>`;
+    main.append(checkbox, text);
+    const edit = document.createElement("button");
+    edit.type = "button";
+    edit.className = "try-edit-button";
+    edit.setAttribute("aria-label", `${item.name} bearbeiten`);
+    edit.textContent = "✎";
+    edit.addEventListener("click", () => openTryItemDialog(item));
+    row.append(main, edit);
+    container.appendChild(row);
+  }
+}
+
+function openTryItemDialog(item = null) {
+  editingTryItemId = item?.id || null;
+  document.getElementById("tryDialogTitle").textContent = item ? "Eintrag bearbeiten" : "Zum Probieren hinzufügen";
+  document.getElementById("tryItemName").value = item?.name || "";
+  document.getElementById("tryItemCategory").value = item?.category || "food";
+  document.getElementById("tryItemNote").value = item?.note || "";
+  document.getElementById("tryItemTried").checked = Boolean(item?.tried);
+  document.getElementById("deleteTryItemBtn").hidden = !item;
+  document.getElementById("tryFormMessage").textContent = "";
+  const dialog = document.getElementById("tryItemDialog");
+  if (typeof dialog.showModal === "function") dialog.showModal(); else dialog.setAttribute("open", "");
+  window.setTimeout(() => document.getElementById("tryItemName")?.focus(), 30);
+}
+
+function closeTryItemDialog() {
+  const dialog = document.getElementById("tryItemDialog");
+  if (typeof dialog.close === "function") dialog.close(); else dialog.removeAttribute("open");
+  editingTryItemId = null;
+}
+
+async function handleTryItemSubmit(event) {
+  event.preventDefault();
+  const name = document.getElementById("tryItemName").value.trim();
+  if (!name) return;
+  const payload = {
+    trip_id: currentTripId,
+    name,
+    category: document.getElementById("tryItemCategory").value,
+    note: document.getElementById("tryItemNote").value.trim() || null,
+    tried: document.getElementById("tryItemTried").checked,
+    updated_at: new Date().toISOString()
+  };
+  const button = document.getElementById("saveTryItemBtn");
+  button.disabled = true;
+  try {
+    const result = editingTryItemId
+      ? await supabaseClient.from("trip_try_items").update(payload).eq("id", editingTryItemId).eq("trip_id", currentTripId)
+      : await supabaseClient.from("trip_try_items").insert(payload);
+    if (result.error) throw result.error;
+    closeTryItemDialog();
+    await refreshTryItemsFromSupabase();
+    setStatus(`✓ „${name}“ gespeichert.`);
+  } catch (error) {
+    document.getElementById("tryFormMessage").textContent = `Speichern fehlgeschlagen: ${error.message}`;
+  } finally { button.disabled = false; }
+}
+
+async function setTryItemTried(id, tried) {
+  const old = tryItems.find(item => item.id === id);
+  if (old) old.tried = tried;
+  renderTryListFresh();
+  const { error } = await supabaseClient.from("trip_try_items").update({ tried, updated_at: new Date().toISOString() }).eq("id", id).eq("trip_id", currentTripId);
+  if (error) {
+    if (old) old.tried = !tried;
+    renderTryListFresh();
+    setStatus(`⚠️ Status konnte nicht gespeichert werden: ${error.message}`);
+  }
+}
+
+async function deleteTryItem() {
+  if (!editingTryItemId) return;
+  const item = tryItems.find(row => row.id === editingTryItemId);
+  if (!window.confirm(`„${item?.name || "Eintrag"}“ wirklich löschen?`)) return;
+  const { error } = await supabaseClient.from("trip_try_items").delete().eq("id", editingTryItemId).eq("trip_id", currentTripId);
+  if (error) {
+    document.getElementById("tryFormMessage").textContent = `Löschen fehlgeschlagen: ${error.message}`;
+    return;
+  }
+  closeTryItemDialog();
+  await refreshTryItemsFromSupabase();
+  setStatus("🗑️ Eintrag gelöscht.");
+}
+
 async function bootstrap() {
   try {
     if (!window.BUDAPEST_PLACES_DATA) {
@@ -327,6 +492,8 @@ async function bootstrap() {
     }
 
     const remote = await loadSupabaseTripData();
+    tryItems = await loadTryItemsFromSupabase();
+    await seedLegacyTryItemsIfNeeded();
     placesData = {
       meta: JSON.parse(JSON.stringify(window.BUDAPEST_PLACES_DATA.meta)),
       tryInBudapest: JSON.parse(JSON.stringify(window.BUDAPEST_PLACES_DATA.tryInBudapest || [])),
@@ -1967,29 +2134,6 @@ function renderCategoryFilters() {
   });
 }
 
-function renderTryList() {
-  const container = document.getElementById("tryList");
-
-  for (const item of placesData.tryInBudapest || []) {
-    const row = document.createElement("label");
-    row.className = "try-row";
-
-    const checked = Boolean(state.try[item.id]);
-    row.innerHTML = `
-      <input type="checkbox" ${checked ? "checked" : ""} />
-      <span>${escapeHtml(item.name)}</span>
-    `;
-
-    row.querySelector("input").addEventListener("change", e => {
-      state.try[item.id] = e.target.checked;
-      saveState();
-    });
-
-    container.appendChild(row);
-  }
-}
-
-
 function requestUserLocation() {
   const button = document.getElementById("locateBtn");
   const locationText = document.getElementById("locationText");
@@ -2787,15 +2931,17 @@ async function buildBackupPayload() {
     throw new Error("Für ein Datenbank-Backup musst du angemeldet sein und eine Reise geladen haben.");
   }
 
-  const [tripResult, daysResult, relationsResult] = await Promise.all([
+  const [tripResult, daysResult, relationsResult, tryItemsResult] = await Promise.all([
     supabaseClient.from("trips").select("*").eq("id", currentTripId).single(),
     supabaseClient.from("trip_days").select("*").eq("trip_id", currentTripId).order("day_date"),
-    supabaseClient.from("trip_places").select("*").eq("trip_id", currentTripId)
+    supabaseClient.from("trip_places").select("*").eq("trip_id", currentTripId),
+    supabaseClient.from("trip_try_items").select("*").eq("trip_id", currentTripId).order("created_at")
   ]);
 
   if (tripResult.error) throw tripResult.error;
   if (daysResult.error) throw daysResult.error;
   if (relationsResult.error) throw relationsResult.error;
+  if (tryItemsResult.error) throw tryItemsResult.error;
 
   const placeIds = [...new Set((relationsResult.data || []).map(row => row.place_id).filter(Boolean))];
   let dbPlaces = [];
@@ -2815,7 +2961,8 @@ async function buildBackupPayload() {
       trip: tripResult.data,
       tripDays: daysResult.data || [],
       tripPlaces: relationsResult.data || [],
-      places: dbPlaces
+      places: dbPlaces,
+      tryItems: tryItemsResult.data || []
     }
   };
 }
@@ -2875,7 +3022,7 @@ function validateBackupPayload(payload) {
   }
 
   const db = payload.supabase;
-  if (!db || !db.trip || !Array.isArray(db.tripDays) || !Array.isArray(db.tripPlaces) || !Array.isArray(db.places)) {
+  if (!db || !db.trip || !Array.isArray(db.tripDays) || !Array.isArray(db.tripPlaces) || !Array.isArray(db.places) || (db.tryItems != null && !Array.isArray(db.tryItems))) {
     throw new Error("Im Datenbank-Backup fehlen erforderliche Tabellen oder Reisedaten.");
   }
   if (!db.trip.id || !db.trip.name) throw new Error("Die Reise im Backup ist unvollständig.");
@@ -2961,6 +3108,14 @@ async function restoreSupabaseBackup(payload) {
     if (relationsError) throw relationsError;
   }
 
+  const { error: clearTryItemsError } = await supabaseClient.from("trip_try_items").delete().eq("trip_id", targetTripId);
+  if (clearTryItemsError) throw clearTryItemsError;
+  if ((db.tryItems || []).length) {
+    const tryRows = db.tryItems.map(row => ({ ...cleanBackupRow(row), trip_id: targetTripId }));
+    const { error: tryItemsError } = await supabaseClient.from("trip_try_items").upsert(tryRows, { onConflict: "id" });
+    if (tryItemsError) throw tryItemsError;
+  }
+
   console.info(`Supabase-Backup wiederhergestellt: ${db.places.length} Orte, ${db.tripPlaces.length} Zuordnungen; Quelle ${sourceTripId}, Ziel ${targetTripId}.`);
 }
 
@@ -3005,6 +3160,7 @@ async function importBackupFile(file) {
       `Orte: ${db.places.length}`,
       `Reisetage: ${db.tripDays.length}`,
       `Planungs-Zuordnungen: ${db.tripPlaces.length}`,
+      `Probierliste: ${(db.tryItems || []).length}`,
       "",
       "Die aktuelle Reiseplanung in Supabase wird durch den Stand aus dem Backup ersetzt. Globale Orte anderer Reisen werden nicht gelöscht."
     ].join("\n");
@@ -3104,6 +3260,12 @@ function wireControls() {
   document.getElementById("cancelPlaceBtn").addEventListener("click", closeAddPlaceDialog);
   document.getElementById("cancelPlaceBtnBottom").addEventListener("click", closeAddPlaceDialog);
   document.getElementById("addPlaceForm").addEventListener("submit", handleAddPlace);
+  document.getElementById("tryItemForm").addEventListener("submit", handleTryItemSubmit);
+  document.getElementById("cancelTryItemBtn").addEventListener("click", closeTryItemDialog);
+  document.getElementById("cancelTryItemBtnBottom").addEventListener("click", closeTryItemDialog);
+  document.getElementById("deleteTryItemBtn").addEventListener("click", deleteTryItem);
+  const tryItemDialog = document.getElementById("tryItemDialog");
+  tryItemDialog.addEventListener("click", event => { if (event.target === tryItemDialog) closeTryItemDialog(); });
 
   const addPlaceDialog = document.getElementById("addPlaceDialog");
   addPlaceDialog.addEventListener("click", event => {
@@ -3126,8 +3288,8 @@ function wireControls() {
   });
 
   document.getElementById("resetStateBtn").addEventListener("click", () => {
-    if (!confirm("Tagesplanung, Besucht-Markierungen und Probier-Checkliste zurücksetzen?")) return;
-    state = { places: {}, try: {} };
+    if (!confirm("Tagesplanung und Besucht-Markierungen zurücksetzen?")) return;
+    state = { places: {}, try: state.try || {} };
     saveState();
     renderTryListFresh();
     applyFilters();

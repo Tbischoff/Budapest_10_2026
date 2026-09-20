@@ -1931,3 +1931,22 @@ h2 {
     margin: 0 6px 8px 10px;
   }
 }
+
+
+/* v1.5.0 – trip-specific "In Budapest probieren" */
+.try-summary { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:8px; font-size:12px; }
+.compact-button { width:auto; padding:7px 9px; white-space:nowrap; }
+.try-progress { height:6px; overflow:hidden; border-radius:999px; background:var(--surface-soft); margin-bottom:8px; }
+.try-progress span { display:block; height:100%; background:var(--accent); border-radius:inherit; transition:width .2s ease; }
+.try-item { display:flex; align-items:center; gap:8px; border-top:1px solid var(--border); padding:8px 0; }
+.try-item-main { display:flex; align-items:flex-start; gap:8px; flex:1; min-width:0; cursor:pointer; }
+.try-item-main input { margin-top:3px; accent-color:var(--accent); }
+.try-item-text { min-width:0; display:grid; gap:2px; font-size:13px; }
+.try-item-text small { color:var(--muted); font-size:11px; line-height:1.3; }
+.try-item.is-tried .try-item-text strong { text-decoration:line-through; opacity:.65; }
+.try-edit-button { flex:0 0 auto; border:0; background:transparent; color:var(--muted); cursor:pointer; font-size:17px; padding:4px 6px; border-radius:8px; }
+.try-edit-button:hover { background:var(--surface-soft); color:var(--text); }
+.try-empty { color:var(--muted); font-size:12px; padding:8px 0 2px; }
+.try-dialog-actions .secondary-button { width:auto; }
+.dialog-spacer { flex:1; }
+.danger-button { border:1px solid #c95d55; background:#fff; color:#a43d35; border-radius:10px; padding:9px 12px; cursor:pointer; }

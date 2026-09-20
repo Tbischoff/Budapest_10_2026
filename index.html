@@ -274,6 +274,22 @@
     </form>
   </dialog>
 
+
+  <dialog id="tryItemDialog" class="place-dialog try-dialog">
+    <form id="tryItemForm" class="place-form" method="dialog">
+      <div class="dialog-head">
+        <div><div class="eyebrow">In Budapest probieren</div><h2 id="tryDialogTitle">Zum Probieren hinzufügen</h2></div>
+        <button id="cancelTryItemBtn" class="icon-button" type="button" aria-label="Schließen">✕</button>
+      </div>
+      <label class="form-field"><span>Name *</span><input id="tryItemName" type="text" required maxlength="120" placeholder="z. B. Gulaschsuppe" /></label>
+      <label class="form-field"><span>Kategorie</span><select id="tryItemCategory"><option value="food">🍴 Essen</option><option value="drink">🥤 Getränk</option><option value="other">✨ Sonstiges</option></select></label>
+      <label class="form-field"><span>Notiz</span><textarea id="tryItemNote" rows="3" maxlength="500" placeholder="Optional"></textarea></label>
+      <label class="filter-row form-check"><input id="tryItemTried" type="checkbox" /><span>✓ Schon probiert</span></label>
+      <div id="tryFormMessage" class="form-message" aria-live="polite"></div>
+      <div class="dialog-actions try-dialog-actions"><button id="deleteTryItemBtn" class="danger-button" type="button" hidden>Löschen</button><span class="dialog-spacer"></span><button id="cancelTryItemBtnBottom" class="secondary-button" type="button">Abbrechen</button><button id="saveTryItemBtn" class="primary-button" type="submit">Speichern</button></div>
+    </form>
+  </dialog>
+
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0"></script>
   <script src="data/places.js"></script>
   <script src="assets/js/app.js"></script>
