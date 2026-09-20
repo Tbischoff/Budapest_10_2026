@@ -1,4 +1,4 @@
-# Budapest Travel Planner v1.9.0
+# Budapest Travel Planner v1.9.1
 
 Marker-Clustering auf Basis von v1.8.0:
 - nahe Orte werden beim Herauszoomen zu kompakten Clustern zusammengefasst

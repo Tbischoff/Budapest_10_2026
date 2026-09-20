@@ -2291,7 +2291,7 @@ body.agenda-dragging {
 }
 
 
-/* v1.9.0: kompakte Cluster für nahe beieinanderliegende Orte. */
+/* v1.9.1: kompakte Cluster für nahe beieinanderliegende Orte. */
 .map-marker-cluster {
   min-width: 38px;
   height: 38px;

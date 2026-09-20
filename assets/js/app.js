@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.9.0";
+const APP_VERSION = "v1.9.1";
 
 function syncVersionLabels() {
   document.querySelectorAll(".app-version").forEach(el => { el.textContent = APP_VERSION; });
@@ -82,7 +82,7 @@ let geocoder;
 let infoWindow;
 let placesData;
 let markers = new Map();
-let markerClusterer = null;
+let placeMarkerClusterer = null;
 let activeCategories = new Set();
 let state = loadState();
 
@@ -3549,9 +3549,9 @@ function createClusterMarker({ count, position }) {
 }
 
 function ensureMarkerClusterer() {
-  if (markerClusterer || !map || !window.markerClusterer?.MarkerClusterer) return markerClusterer;
+  if (placeMarkerClusterer || !map || !window.markerClusterer?.MarkerClusterer) return placeMarkerClusterer;
 
-  markerClusterer = new window.markerClusterer.MarkerClusterer({
+  placeMarkerClusterer = new window.markerClusterer.MarkerClusterer({
     map,
     markers: [],
     renderer: { render: createClusterMarker },
@@ -3560,7 +3560,7 @@ function ensureMarkerClusterer() {
       clusterMap.fitBounds(cluster.bounds, 72);
     }
   });
-  return markerClusterer;
+  return placeMarkerClusterer;
 }
 
 function syncVisibleMarkers(visibleIds) {
