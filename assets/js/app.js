@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.7.3";
+const APP_VERSION = "v1.8.0";
 
 function syncVersionLabels() {
   document.querySelectorAll(".app-version").forEach(el => { el.textContent = APP_VERSION; });
@@ -2888,18 +2888,26 @@ function renderTodayView() {
       </div>`;
   }).join("");
 
+  const nextDistance = nextPlace && userPosition ? distanceToPlace(nextPlace) : null;
+  const nextSaved = nextPlace ? (state.places[nextPlace.id] || {}) : {};
+  const nextTime = nextPlace ? formatPlannedTime(nextSaved) : "";
   const nextCard = nextPlace ? `
     <div class="today-next-card">
-      <div class="today-card-label">Nächster Ort</div>
+      <div class="today-next-head">
+        <div class="today-card-label">Nächster Ort</div>
+        ${nextTime ? `<span class="today-next-time">🕒 ${escapeHtml(nextTime)}</span>` : ""}
+      </div>
       <button class="today-next-main" type="button" data-today-show-place="${escapeHtml(nextPlace.id)}">
         <span class="today-next-icon">${CATEGORY_ICONS[nextPlace.category] || "📍"}</span>
-        <span><strong>${escapeHtml(nextPlace.name)}</strong><small>${escapeHtml(categoryLabel(nextPlace.category))}${formatPlannedTime(state.places[nextPlace.id] || {}) ? ` · ${escapeHtml(formatPlannedTime(state.places[nextPlace.id] || {}))}` : ""}</small></span>
+        <span><strong>${escapeHtml(nextPlace.name)}</strong><small>${escapeHtml(categoryLabel(nextPlace.category))}${nextDistance != null ? ` · 📍 ${escapeHtml(formatDistance(nextDistance))} entfernt` : ""}</small></span>
         <span class="today-chevron">›</span>
       </button>
+      <button class="today-done-button" type="button" data-today-complete="${escapeHtml(nextPlace.id)}">✓ Als besucht markieren</button>
       <div class="today-next-actions">
         <button id="todayRouteButton" class="primary-button today-action-button" type="button">🧭 Route anzeigen</button>
         <button id="todayMapButton" class="secondary-button today-action-button" type="button" data-today-show-place="${escapeHtml(nextPlace.id)}">🗺️ Auf Karte</button>
       </div>
+      ${userPosition ? "" : '<div class="today-location-hint">📍 Standort aktivieren, um die Entfernung zum nächsten Ort zu sehen.</div>'}
     </div>` : `
     <div class="today-complete-card">✓ ${dayPlaces.length ? "Tagesplan abgeschlossen – alle Orte besucht." : "Für diesen Tag sind noch keine Orte geplant."}</div>`;
 
@@ -2929,14 +2937,27 @@ function renderTodayView() {
     });
   });
 
+  const setTodayVisited = (placeId, visited) => {
+    const item = ensurePlaceState(placeId);
+    item.visited = visited;
+    saveState();
+    applyFilters();
+    // Die Heute-Ansicht sofort neu aufbauen: Fortschritt, Timeline und vor allem
+    // „Nächster Ort“ wechseln ohne zusätzlichen Klick auf den nächsten Eintrag.
+    renderTodayView();
+  };
+
   container.querySelectorAll("[data-today-toggle]").forEach(button => {
     button.addEventListener("click", event => {
       event.stopPropagation();
       const item = ensurePlaceState(button.dataset.todayToggle);
-      item.visited = !item.visited;
-      saveState();
-      applyFilters();
+      setTodayVisited(button.dataset.todayToggle, !item.visited);
     });
+  });
+
+  container.querySelector("[data-today-complete]")?.addEventListener("click", event => {
+    event.stopPropagation();
+    setTodayVisited(event.currentTarget.dataset.todayComplete, true);
   });
 
   const todayRouteButton = document.getElementById("todayRouteButton");

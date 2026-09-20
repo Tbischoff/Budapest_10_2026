@@ -1993,6 +1993,11 @@ h2 {
   .today-next-main strong { display: block; font-size: 16px; }
   .today-next-main small { display: block; margin-top: 3px; color: #68716f; font-size: 12px; }
   .today-chevron { font-size: 26px; color: #64706e; }
+  .today-next-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .today-next-time { flex: 0 0 auto; padding: 5px 9px; border-radius: 999px; background: #edf5f3; color: #2f625d; font-size: 12px; font-weight: 800; }
+  .today-done-button { width: 100%; min-height: 46px; margin: 2px 0 10px; border: 0; border-radius: 12px; background: #2f625d; color: #fff; font: inherit; font-size: 14px; font-weight: 800; cursor: pointer; }
+  .today-done-button:active { transform: translateY(1px); }
+  .today-location-hint { margin-top: 9px; color: #68716f; font-size: 11px; line-height: 1.35; }
   .today-next-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
   .today-action-button { margin: 0; min-height: 44px; padding: 9px 8px; font-size: 13px; }
   .today-plan-head { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
