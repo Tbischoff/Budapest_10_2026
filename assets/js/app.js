@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.9.2";
+const APP_VERSION = "v1.9.3";
 
 function syncVersionLabels() {
   document.querySelectorAll(".app-version").forEach(el => { el.textContent = APP_VERSION; });
@@ -3568,7 +3568,12 @@ function ensureMarkerClusterer() {
   placeMarkerClusterer = new window.markerClusterer.MarkerClusterer({
     map,
     markers: [],
-    renderer: { render: createClusterMarker }
+    renderer: { render: createClusterMarker },
+    // Disable MarkerClusterer's built-in click handler. With an
+    // AdvancedMarkerElement it registers the legacy Maps "click" event via
+    // addListener(), which triggers Google's console warning. Our renderer
+    // handles cluster interaction with the native "gmp-click" event above.
+    onClusterClick: null
   });
   return placeMarkerClusterer;
 }
