@@ -724,45 +724,73 @@ function resetGooglePlaceSelection({ recreateAutocomplete = false } = {}) {
 function focusExistingPlaceOnMap(place, { openInfo = true } = {}) {
   if (!place || !map) return;
 
-  // On mobile the add dialog/sheet changes the visible map viewport while it
-  // closes. A panTo() started during that transition can be recalculated by
-  // Google Maps and appear as a vertical jump only. First return to the map,
-  // wait until the layout has settled, notify Maps about the resize and then
-  // set the destination explicitly.
-  if (isMobileLayout()) {
-    if (currentMobileView !== "map") setMobileView("map");
-  }
-
   const marker = markers.get(place.id);
-  const position = marker ? getMarkerPosition(marker) : normalizeLatLng({ lat: place.lat, lng: place.lng });
+  const position = marker
+    ? getMarkerPosition(marker)
+    : normalizeLatLng({ lat: place.lat, lng: place.lng });
+
   if (!position) {
     console.warn("Vorhandener Ort hat keine gültige Kartenposition:", place);
     if (openInfo) openPlace(place);
     return;
   }
 
-  const applyFocus = () => {
+  // Wichtig: Bei einem Wechsel aus einem mobilen Sheet/Dialog darf Maps erst
+  // fokussiert werden, wenn der Karten-Viewport wieder seine endgültige Größe
+  // hat. Der alte Code setzte den Mittelpunkt zweimal (vor und nach dem
+  // Übergang). Das konnte als sichtbares Springen enden – besonders bei großen
+  // Distanzen. Jetzt gibt es genau EINEN Fokusvorgang.
+  if (isMobileLayout() && currentMobileView !== "map") {
+    setMobileView("map");
+  }
+
+  const sidebar = document.querySelector(".sidebar");
+  let focusStarted = false;
+
+  const doFocus = () => {
+    if (focusStarted) return;
+    focusStarted = true;
+
     google.maps.event.trigger(map, "resize");
+
+    // Für große Sprünge (z. B. Deutschland -> Budapest) immer direkt setzen,
+    // nicht animieren. So hängt das Ergebnis nicht vom bisherigen Viewport ab.
     map.setCenter(position);
-    map.setZoom(Math.max(Number(map.getZoom()) || 0, 16));
+    const currentZoom = Number(map.getZoom()) || 0;
+    if (currentZoom < 16) map.setZoom(16);
+
+    if (!openInfo) return;
+
+    // Das InfoWindow erst öffnen, wenn der neue Mittelpunkt wirklich von Maps
+    // übernommen wurde. Dessen eigene Korrektur bewegt die Karte anschließend
+    // höchstens einmal minimal, falls das komplette Fenster am Rand läge.
+    let opened = false;
+    const openOnce = () => {
+      if (opened) return;
+      opened = true;
+      openPlace(place);
+    };
+    google.maps.event.addListenerOnce(map, "idle", openOnce);
+    window.setTimeout(openOnce, 450);
   };
 
-  // First frame: map view is selected. Second pass: mobile dialog/sheet CSS
-  // transitions are finished. setCenter (rather than panTo) is intentional for
-  // long-distance jumps such as Koblenz -> Budapest.
-  requestAnimationFrame(() => {
-    applyFocus();
+  // Ist auf Mobil gerade ein Bottom-Sheet am Schließen, auf dessen echtes
+  // transitionend warten statt mit mehreren setCenter-Aufrufen zu arbeiten.
+  if (isMobileLayout() && sidebar?.classList.contains("open")) {
+    const onTransitionEnd = event => {
+      if (event.target !== sidebar || event.propertyName !== "transform") return;
+      sidebar.removeEventListener("transitionend", onTransitionEnd);
+      requestAnimationFrame(doFocus);
+    };
+    sidebar.addEventListener("transitionend", onTransitionEnd);
+    // Fallback für Browser/Layouts ohne transitionend.
     window.setTimeout(() => {
-      applyFocus();
-      if (openInfo) {
-        google.maps.event.addListenerOnce(map, "idle", () => openPlace(place));
-        // If the map was already idle after setCenter, still open reliably.
-        window.setTimeout(() => {
-          if (!infoWindow?.getMap?.()) openPlace(place);
-        }, 250);
-      }
-    }, isMobileLayout() ? 380 : 40);
-  });
+      sidebar.removeEventListener("transitionend", onTransitionEnd);
+      requestAnimationFrame(doFocus);
+    }, 350);
+  } else {
+    requestAnimationFrame(() => requestAnimationFrame(doFocus));
+  }
 }
 
 function googleOpeningHoursText(place) {
