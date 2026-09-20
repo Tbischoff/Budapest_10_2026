@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.6.0";
+const APP_VERSION = "v1.6.1";
 
 function syncVersionLabels() {
   document.querySelectorAll(".app-version").forEach(el => { el.textContent = APP_VERSION; });
@@ -3154,12 +3154,13 @@ function renderPlaceList(filteredPlaces) {
 
     card.addEventListener("click", event => {
       if (event.target.closest("[data-action], [data-stop-place-click]")) return;
-      const marker = markers.get(place.id);
-      if (marker) {
-        openPlace(place);
-        map.setZoom(Math.max(map.getZoom(), 15));
-      }
-      closeMobileSidebar();
+
+      // Ein Klick auf einen Ort aus der Orte-Liste soll immer den Ort selbst
+      // fokussieren – unabhängig davon, wo die Karte vorher stand (z. B. am
+      // aktuellen Standort in Deutschland). focusExistingPlaceOnMap wartet
+      // mobil erst auf das geschlossene Bottom-Sheet und setzt anschließend
+      // den Kartenmittelpunkt direkt auf die Koordinaten des Ortes.
+      focusExistingPlaceOnMap(place);
     });
 
     container.appendChild(card);
