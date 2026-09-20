@@ -721,6 +721,33 @@ function resetGooglePlaceSelection({ recreateAutocomplete = false } = {}) {
   }
 }
 
+function focusExistingPlaceOnMap(place, { openInfo = true } = {}) {
+  if (!place || !map) return;
+
+  // Especially on mobile the user may currently be far away from an already
+  // saved place. Switch back to the map first and then deliberately center the
+  // existing marker instead of only opening its InfoWindow off-screen.
+  if (isMobileLayout()) {
+    currentMobileView = "__focus_place__";
+    setMobileView("map");
+  }
+
+  const marker = markers.get(place.id);
+  const position = marker ? getMarkerPosition(marker) : normalizeLatLng({ lat: place.lat, lng: place.lng });
+  if (!position) {
+    if (openInfo) openPlace(place);
+    return;
+  }
+
+  requestAnimationFrame(() => {
+    map.panTo(position);
+    if ((map.getZoom() || 0) < 16) map.setZoom(16);
+    if (openInfo) {
+      google.maps.event.addListenerOnce(map, "idle", () => openPlace(place));
+    }
+  });
+}
+
 function googleOpeningHoursText(place) {
   const rows = place?.regularOpeningHours?.weekdayDescriptions;
   return Array.isArray(rows) ? rows.join(" · ") : "";
@@ -1371,7 +1398,7 @@ async function handleAddPlace(event) {
       if (duplicate) {
         message.textContent = `„${duplicate.name}“ ist bereits in dieser Reise gespeichert.`;
         closeAddPlaceDialog();
-        openPlace(duplicate);
+        focusExistingPlaceOnMap(duplicate);
         setStatus(`ℹ️ „${duplicate.name}“ ist bereits in dieser Reise vorhanden.`);
         return;
       }
@@ -1413,7 +1440,7 @@ async function handleAddPlace(event) {
           await refreshTripPlacesFromSupabase();
           closeAddPlaceDialog();
           const linkedPlace = placesData.places.find(place => place.supabaseId === existingDbPlace.id);
-          if (linkedPlace) openPlace(linkedPlace);
+          if (linkedPlace) focusExistingPlaceOnMap(linkedPlace);
           setStatus(`☁️ „${existingDbPlace.name}“ war bereits gespeichert und wurde dieser Reise hinzugefügt.`);
           return;
         }
@@ -1423,7 +1450,7 @@ async function handleAddPlace(event) {
         await refreshTripPlacesFromSupabase();
         closeAddPlaceDialog();
         const linkedPlace = placesData.places.find(place => place.supabaseId === existingDbPlace.id);
-        if (linkedPlace) openPlace(linkedPlace);
+        if (linkedPlace) focusExistingPlaceOnMap(linkedPlace);
         setStatus(`ℹ️ „${existingDbPlace.name}“ ist bereits in dieser Reise vorhanden.`);
         return;
       }
@@ -1513,7 +1540,7 @@ async function handleAddPlace(event) {
         const recoveredId = recovered?.place_id;
         closeAddPlaceDialog();
         const linkedPlace = placesData.places.find(place => place.supabaseId === recoveredId);
-        if (linkedPlace) openPlace(linkedPlace);
+        if (linkedPlace) focusExistingPlaceOnMap(linkedPlace);
         setStatus(`☁️ „${recovered?.place_name || name}“ war bereits gespeichert und wurde dieser Reise hinzugefügt.`);
       }
     } else {
