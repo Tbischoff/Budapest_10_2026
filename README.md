@@ -598,3 +598,14 @@ Die Content Security Policy (CSP) ist Bestandteil des produktiven v1.2.0-Stands.
 - Besuchte Orte werden weiterhin abgehakt und optisch zurückgenommen.
 - Laufweg zwischen den Stationen bleibt als kompakte Schätzung sichtbar; die exakte Fußroute wird weiterhin bewusst über Google Routes berechnet.
 - Die bestehende geplante Reihenfolge bleibt maßgeblich, damit Timeline und Routenplanung konsistent bleiben.
+
+
+## v1.4.0 – Desktop UI Redesign
+
+- kompakter Desktop-Kopfbereich und Schnellaktionen
+- Desktop-Sidebar in aufklappbare Bereiche gegliedert
+- Tagesplanung, Kategorien, Filter und Standort bei Bedarf aufklappbar
+- Ortsliste nutzt den verbleibenden Platz und scrollt unabhängig
+- schmalere, dezentere Desktop-Scrollbar
+- kompaktere Ortskarten
+- Mobile Ansicht und bestehende Funktionen bleiben unverändert

@@ -11,7 +11,7 @@
 <body>
   <div id="authGate" class="auth-gate">
     <form id="loginForm" class="auth-card">
-      <div class="eyebrow">Travel Planner · <span id="loginVersion">v1.3.0</span></div>
+      <div class="eyebrow">Travel Planner · <span id="loginVersion">v1.4.0</span></div>
       <h1>Budapest Map</h1>
       <p>Bitte anmelden, um den gemeinsamen Reisestand zu laden.</p>
       <label class="form-field"><span>E-Mail</span><input id="loginEmail" type="email" autocomplete="username" required></label>
@@ -27,7 +27,7 @@
         <div>
           <div class="eyebrow">Budapest · 03.–07.10.2026</div>
           <h1>Budapest Map</h1>
-        <div class="app-version">v1.3.0</div>
+        <div class="app-version">v1.4.0</div>
         </div>
         <div class="account-actions">
           <button id="logoutButton" class="text-button" type="button">Abmelden</button>
@@ -35,7 +35,7 @@
         <button id="mobileClose" class="icon-button mobile-only" aria-label="Menü schließen">✕</button>
       </div>
 
-      <p class="intro" data-mobile-view="places">
+      <p class="intro desktop-intro" data-mobile-view="places">
         Persönliche Karte mit Restaurants, Bars, Sehenswürdigkeiten,
         Thermen und Local-Tipps.
       </p>
@@ -45,7 +45,12 @@
         <div id="searchSuggestions" class="search-suggestions" role="listbox" aria-label="Suchvorschläge"></div>
       </div>
 
-      <section class="panel search-results-panel" data-mobile-view="places">
+      <div class="desktop-sidebar-actions desktop-only">
+        <button id="desktopAddPlaceBtn" class="desktop-primary-action" type="button">＋ Ort hinzufügen</button>
+        <button id="desktopFitBtn" class="desktop-secondary-action" type="button">☷ Alle anzeigen</button>
+      </div>
+
+      <section class="panel search-results-panel desktop-places-panel" data-mobile-view="places">
         <div class="panel-title-row">
           <h2>Orte</h2>
           <span id="visibleCount" class="count-badge">0</span>
@@ -56,7 +61,7 @@
 
 
 
-      <section class="panel location-panel" data-mobile-view="places">
+      <section class="panel location-panel desktop-collapsible" data-desktop-section="location" data-mobile-view="places">
         <div class="panel-title-row">
           <h2>Standort</h2>
           <button id="distanceSortBtn" class="text-button distance-sort-button" type="button" disabled>
@@ -69,7 +74,7 @@
         </div>
       </section>
 
-      <section class="panel" data-mobile-view="places">
+      <section class="panel desktop-collapsible" data-desktop-section="categories" data-mobile-view="places">
         <div class="panel-title-row">
           <h2>Kategorien</h2>
           <button id="toggleAllBtn" class="text-button">Alle aus</button>
@@ -77,7 +82,7 @@
         <div id="categoryFilters" class="filter-list"></div>
       </section>
 
-      <section class="panel" data-mobile-view="plan">
+      <section class="panel desktop-collapsible desktop-plan-section" data-desktop-section="plan" data-mobile-view="plan">
         <div class="panel-title-row">
           <div class="panel-title-row">
           <h2>Tagesplanung</h2>
@@ -115,7 +120,7 @@
         </div>
       </section>
 
-      <section class="panel" data-mobile-view="places">
+      <section class="panel desktop-collapsible" data-desktop-section="filters" data-mobile-view="places">
         <h2>Zusätzliche Filter</h2>
         <label class="filter-row">
           <input id="localOnly" type="checkbox" />
@@ -129,12 +134,12 @@
 
 
 
-      <section class="panel" data-mobile-view="places">
+      <section class="panel desktop-collapsible desktop-secondary-section" data-desktop-section="try" data-mobile-view="places">
         <h2>In Budapest probieren</h2>
         <div id="tryList"></div>
       </section>
 
-      <div class="sidebar-footer" data-mobile-view="places">
+      <div class="sidebar-footer desktop-secondary-section" data-mobile-view="places">
               <div class="backup-section">
         <h3>Datensicherung</h3>
         <p class="form-hint">Sichert deine lokale Planung, eigene Orte und Statusdaten als JSON-Datei.</p>

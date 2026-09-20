@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.3.0";
+const APP_VERSION = "v1.4.0";
 
 function syncVersionLabels() {
   document.querySelectorAll(".app-version").forEach(el => { el.textContent = APP_VERSION; });
@@ -3349,3 +3349,36 @@ if (document.readyState === "loading") {
 } else {
   syncVersionLabels();
 }
+
+
+// v1.4.0 – Desktop UI: compact sidebar sections and quick actions.
+function initDesktopSidebarUi() {
+  const addQuick = document.getElementById("desktopAddPlaceBtn");
+  const fitQuick = document.getElementById("desktopFitBtn");
+  if (addQuick) addQuick.addEventListener("click", () => document.getElementById("addPlaceBtn")?.click());
+  if (fitQuick) fitQuick.addEventListener("click", () => document.getElementById("fitBtn")?.click());
+
+  document.querySelectorAll(".desktop-collapsible").forEach(section => {
+    const heading = section.querySelector(":scope > .panel-title-row") || section.querySelector(":scope > h2");
+    if (!heading) return;
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "desktop-section-toggle desktop-only";
+    button.setAttribute("aria-expanded", "false");
+    button.innerHTML = '<span aria-hidden="true">⌄</span>';
+    heading.classList.add("desktop-collapsible-heading");
+    heading.appendChild(button);
+    section.classList.add("desktop-collapsed");
+    button.addEventListener("click", event => {
+      event.stopPropagation();
+      const collapsed = section.classList.toggle("desktop-collapsed");
+      button.setAttribute("aria-expanded", String(!collapsed));
+    });
+    heading.addEventListener("click", event => {
+      if (event.target.closest("button") && event.target !== button) return;
+      button.click();
+    });
+  });
+}
+
+document.addEventListener("DOMContentLoaded", initDesktopSidebarUi);
