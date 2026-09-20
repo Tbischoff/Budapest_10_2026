@@ -74,7 +74,6 @@ let searchDebounceTimer = null;
 let map;
 let geocoder;
 let infoWindow;
-let pendingInfoWindowPan = false;
 let placesData;
 let markers = new Map();
 let activeCategories = new Set();
@@ -506,50 +505,6 @@ function initMap() {
 
   geocoder = new google.maps.Geocoder();
   infoWindow = new google.maps.InfoWindow({ disableAutoPan: true });
-
-  // Google-Auto-Pan bleibt deaktiviert. Stattdessen verschieben wir die Karte
-  // nach dem Rendern nur um die Pixel, die wirklich nötig sind, damit das
-  // Infofenster vollständig im sichtbaren Kartenbereich liegt.
-  infoWindow.addListener("domready", () => {
-    if (!pendingInfoWindowPan) return;
-    pendingInfoWindowPan = false;
-
-    requestAnimationFrame(() => requestAnimationFrame(() => {
-      const mapElement = document.getElementById("map");
-      const contentElement = document.querySelector(".info-window");
-      if (!mapElement || !contentElement || !map) return;
-
-      const mapRect = mapElement.getBoundingClientRect();
-      const infoRect = contentElement.getBoundingClientRect();
-      const padding = 24;
-
-      let panX = 0;
-      let panY = 0;
-
-      const leftLimit = mapRect.left + padding;
-      const rightLimit = mapRect.right - padding;
-      const topLimit = mapRect.top + padding;
-      const bottomLimit = mapRect.bottom - padding;
-
-      if (infoRect.left < leftLimit) {
-        panX = infoRect.left - leftLimit;
-      } else if (infoRect.right > rightLimit) {
-        panX = infoRect.right - rightLimit;
-      }
-
-      if (infoRect.top < topLimit) {
-        panY = infoRect.top - topLimit;
-      } else if (infoRect.bottom > bottomLimit) {
-        panY = infoRect.bottom - bottomLimit;
-      }
-
-      // Kleine Rundungsabweichungen ignorieren. Wenn alles sichtbar ist,
-      // bleibt die Karte exakt an ihrer bisherigen Position.
-      if (Math.abs(panX) > 1 || Math.abs(panY) > 1) {
-        map.panBy(panX, panY);
-      }
-    }));
-  });
 
   // Marker-Infofenster auch durch Tippen/Klicken auf die Karte schließen.
   map.addListener("click", () => {
@@ -1018,10 +973,57 @@ function openPlace(place) {
   infoWindow.close();
   infoWindow.setContent(html);
 
-  // Google darf nicht selbst pannen. Nach dem Rendern prüfen wir einmal, ob
-  // das Infofenster am Rand abgeschnitten wäre, und korrigieren dann minimal.
+  // Marker-Klicks dürfen die Karte nicht verschieben. disableAutoPan wird
+  // bereits beim Erzeugen des InfoWindow gesetzt und hier vorsichtshalber erneut
+  // beibehalten. Auch auf Mobilgeräten erfolgt kein eigenes panTo/panBy.
   infoWindow.setOptions({ disableAutoPan: true });
-  pendingInfoWindowPan = true;
+
+  // Google Maps rendert um unseren eigenen Inhalt noch einen separaten
+  // InfoWindow-Container (.gm-style-iw-c). Erst dieser komplette Container
+  // zeigt zuverlässig, ob das Fenster auf kleinen Displays abgeschnitten wird.
+  google.maps.event.addListenerOnce(infoWindow, "domready", () => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const content = document.querySelector(".info-window");
+        const infoContainer = content?.closest(".gm-style-iw-c");
+        const mapElement = document.getElementById("map");
+        if (!infoContainer || !mapElement) return;
+
+        const infoRect = infoContainer.getBoundingClientRect();
+        const mapRect = mapElement.getBoundingClientRect();
+        const padding = 12;
+
+        const safeLeft = mapRect.left + padding;
+        const safeRight = mapRect.right - padding;
+        const safeTop = mapRect.top + padding;
+        const safeBottom = mapRect.bottom - padding;
+
+        // screenShift beschreibt, wohin das InfoWindow auf dem Bildschirm müsste.
+        // panBy benötigt für diese visuelle Verschiebung jeweils das Gegenzeichen.
+        let screenShiftX = 0;
+        let screenShiftY = 0;
+
+        if (infoRect.left < safeLeft) {
+          screenShiftX = safeLeft - infoRect.left;
+        } else if (infoRect.right > safeRight) {
+          screenShiftX = safeRight - infoRect.right;
+        }
+
+        if (infoRect.top < safeTop) {
+          screenShiftY = safeTop - infoRect.top;
+        } else if (infoRect.bottom > safeBottom) {
+          screenShiftY = safeBottom - infoRect.bottom;
+        }
+
+        // Kleine Rundungs-/Rendering-Abweichungen ignorieren. Dadurch bleibt die
+        // Karte bei vollständig sichtbaren Markern wirklich exakt stehen.
+        if (Math.abs(screenShiftX) > 2 || Math.abs(screenShiftY) > 2) {
+          map.panBy(-screenShiftX, -screenShiftY);
+        }
+      });
+    });
+  });
+
   infoWindow.open({ map, anchor: marker });
 }
 
