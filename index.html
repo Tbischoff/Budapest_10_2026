@@ -6,12 +6,12 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://*.googleapis.com https://*.gstatic.com https://*.google.com blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.googleusercontent.com https://*.ggpht.com; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' https://cdn.jsdelivr.net https://fjlezfzninkltblcctds.supabase.co wss://fjlezfzninkltblcctds.supabase.co https://*.googleapis.com https://*.gstatic.com https://*.google.com data: blob:; frame-src https://*.google.com; worker-src 'self' blob:; manifest-src 'self'; form-action 'self'" />
   <title>Budapest Map 2026</title>
   <link rel="icon" href="assets/icons/favicon.svg" type="image/svg+xml" />
-  <link rel="stylesheet" href="assets/css/style.css?v=1.11.2" />
+  <link rel="stylesheet" href="assets/css/style.css?v=1.11.3" />
 </head>
 <body>
   <div id="authGate" class="auth-gate">
     <form id="loginForm" class="auth-card">
-      <div class="eyebrow">Travel Planner · <span id="loginVersion">v1.11.2</span></div>
+      <div class="eyebrow">Travel Planner · <span id="loginVersion">v1.11.3</span></div>
       <h1>Budapest Map</h1>
       <p>Bitte anmelden, um den gemeinsamen Reisestand zu laden.</p>
       <label class="form-field"><span>E-Mail</span><input id="loginEmail" type="email" autocomplete="username" required></label>
@@ -27,7 +27,7 @@
         <div>
           <div class="eyebrow">Budapest · 03.–07.10.2026</div>
           <h1>Budapest Map</h1>
-        <div class="app-version">v1.11.2</div>
+        <div class="app-version">v1.11.3</div>
         </div>
         <div class="account-actions">
           <button id="logoutButton" class="text-button" type="button">Abmelden</button>
@@ -192,7 +192,11 @@
             <div id="navigationMeta" class="navigation-meta"></div>
             <div id="navigationProgress" class="navigation-progress"></div>
           </div>
-          <button id="navigationRecenterBtn" class="navigation-recenter-button" type="button" hidden>◎ Position</button>
+          <div class="navigation-map-controls">
+            <span id="navigationGpsQuality" class="navigation-gps-quality" data-level="unknown">GPS …</span>
+            <button id="navigationHeadingBtn" class="navigation-heading-button" type="button">🧭 Richtung</button>
+            <button id="navigationRecenterBtn" class="navigation-recenter-button" type="button" hidden>◎ Position</button>
+          </div>
         </div>
       </section>
 
@@ -334,6 +338,6 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0"></script>
   <script src="data/places.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@googlemaps/markerclusterer@2.6.2/dist/index.min.js"></script>
-  <script src="assets/js/app.js?v=1.11.2"></script>
+  <script src="assets/js/app.js?v=1.11.3"></script>
 </body>
 </html>

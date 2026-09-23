@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.11.2";
+const APP_VERSION = "v1.11.3";
 
 function syncVersionLabels() {
   document.querySelectorAll(".app-version").forEach(el => { el.textContent = APP_VERSION; });
@@ -95,6 +95,8 @@ let navigationRerouteInProgress = false;
 let navigationArrived = false;
 let navigationOrientationHandler = null;
 let navigationLastPosition = null;
+let navigationHeadingUp = true;
+let navigationLastDynamicZoom = null;
 const NAV_OFF_ROUTE_METERS = 45;
 const NAV_OFF_ROUTE_SAMPLES = 3;
 const NAV_REROUTE_COOLDOWN_MS = 15000;
@@ -2416,13 +2418,17 @@ function distanceBetweenMeters(a, b) {
 
 function maneuverIcon(maneuver = "") {
   const value = String(maneuver).toUpperCase();
-  if (value.includes("UTURN")) return "↩️";
-  if (value.includes("LEFT")) return "↰";
-  if (value.includes("RIGHT")) return "↱";
-  if (value.includes("ROUNDABOUT")) return "🔄";
-  if (value.includes("FERRY")) return "⛴️";
-  if (value.includes("STRAIGHT") || value.includes("DEPART")) return "⬆️";
-  return "🚶";
+  if (value.includes("ROUNDABOUT")) return "○";
+  if (value.includes("UTURN")) return "⤴";
+  if (value.includes("SLIGHT_LEFT")) return "↖";
+  if (value.includes("SLIGHT_RIGHT")) return "↗";
+  if (value.includes("SHARP_LEFT")) return "↰";
+  if (value.includes("SHARP_RIGHT")) return "↱";
+  if (value.includes("LEFT")) return "←";
+  if (value.includes("RIGHT")) return "→";
+  if (value.includes("FERRY")) return "⛴";
+  if (value.includes("STRAIGHT") || value.includes("DEPART")) return "↑";
+  return "↑";
 }
 
 function navigationPanel() {
@@ -2511,8 +2517,11 @@ function setNavigationHeading(value) {
   const heading = Number(value);
   if (!Number.isFinite(heading)) return;
   navigationHeading = ((heading % 360) + 360) % 360;
+  if (navigationActive && navigationFollowMode && navigationHeadingUp && map?.setHeading) {
+    map.setHeading(navigationHeading);
+  }
   const arrow = userLocationMarker?.querySelector?.(".navigation-position-arrow");
-  if (arrow) arrow.style.setProperty("--nav-heading", `${navigationHeading}deg`);
+  if (arrow) arrow.style.setProperty("--nav-heading", `${navigationHeadingUp ? 0 : navigationHeading}deg`);
 }
 
 function enableNavigationArrow() {
@@ -2569,6 +2578,9 @@ function stopNavigation(message = "Navigation beendet.") {
   navigationRerouteInProgress = false;
   navigationArrived = false;
   navigationLastPosition = null;
+  navigationLastDynamicZoom = null;
+  navigationHeadingUp = true;
+  if (map?.setHeading) map.setHeading(0);
   stopOrientationTracking();
   clearNavigationPolylines();
   setNavigationPanelVisible(false);
@@ -2613,6 +2625,45 @@ function setNavigationFollowMode(enabled) {
   }
 }
 
+function setNavigationHeadingMode(headingUp) {
+  navigationHeadingUp = Boolean(headingUp);
+  const button = document.getElementById("navigationHeadingBtn");
+  if (button) button.textContent = navigationHeadingUp ? "🧭 Richtung" : "N Norden";
+  if (map?.setHeading) map.setHeading(navigationHeadingUp && Number.isFinite(navigationHeading) ? navigationHeading : 0);
+  const arrow = userLocationMarker?.querySelector?.(".navigation-position-arrow");
+  if (arrow && Number.isFinite(navigationHeading)) arrow.style.setProperty("--nav-heading", `${navigationHeadingUp ? 0 : navigationHeading}deg`);
+}
+
+function navigationGpsQuality(accuracy) {
+  const value = Number(accuracy);
+  if (!Number.isFinite(value) || value <= 0) return { label: "GPS …", level: "unknown" };
+  if (value <= 10) return { label: `GPS ±${Math.round(value)} m`, level: "good" };
+  if (value <= 25) return { label: `GPS ±${Math.round(value)} m`, level: "medium" };
+  return { label: `GPS ±${Math.round(value)} m`, level: "poor" };
+}
+
+function updateNavigationGpsQuality(accuracy) {
+  const badge = document.getElementById("navigationGpsQuality");
+  if (!badge) return;
+  const quality = navigationGpsQuality(accuracy);
+  badge.textContent = quality.label;
+  badge.dataset.level = quality.level;
+}
+
+function updateNavigationDynamicZoom(metersToManeuver) {
+  if (!navigationFollowMode) return;
+  const meters = Number(metersToManeuver);
+  if (!Number.isFinite(meters)) return;
+  let targetZoom = 17;
+  if (meters <= 45) targetZoom = 19;
+  else if (meters <= 120) targetZoom = 18;
+  else if (meters >= 500) targetZoom = 16;
+  if (navigationLastDynamicZoom !== targetZoom) {
+    navigationLastDynamicZoom = targetZoom;
+    map.setZoom(targetZoom);
+  }
+}
+
 function updateNavigationUi(position = userPosition) {
   if (!navigationActive || !navigationRoute) return;
   const instructionEl = document.getElementById("navigationInstruction");
@@ -2652,6 +2703,7 @@ function updateNavigationUi(position = userPosition) {
   const currentStep = currentEntry?.step;
   const currentEnd = navLocationToLatLng(currentStep?.endLocation);
   const metersToManeuver = distanceBetweenMeters(position, currentEnd);
+  updateNavigationDynamicZoom(metersToManeuver);
   const currentProgress = routeProgress || navigationRouteProgress(position);
   const remainingMeters = Number.isFinite(currentProgress?.progress) && navigationPathMetrics
     ? Math.max(0, navigationPathMetrics.total - currentProgress.progress)
@@ -2750,6 +2802,7 @@ function processNavigationPosition(position) {
   const coords = position.coords;
   const next = { lat: coords.latitude, lng: coords.longitude };
   userPosition = next;
+  updateNavigationGpsQuality(coords.accuracy);
   if (Number.isFinite(coords.heading) && (coords.speed == null || coords.speed > 0.3)) setNavigationHeading(coords.heading);
   if (navigationLastPosition && !Number.isFinite(coords.heading)) {
     const moved = distanceBetweenMeters(navigationLastPosition, next);
@@ -2764,7 +2817,7 @@ function processNavigationPosition(position) {
   updateUserLocationMarker();
   if (navigationFollowMode) {
     map.panTo(next);
-    if ((Number(map.getZoom()) || 0) < 17) map.setZoom(17);
+    if (navigationHeadingUp && Number.isFinite(navigationHeading) && map?.setHeading) map.setHeading(navigationHeading);
   }
   updateNavigationUi(next);
   if (navigationArrived || navigationRerouteInProgress) return;
@@ -2786,6 +2839,8 @@ async function computeNavigationRoute(stops, { testMode = false } = {}) {
   applyNavigationRoute(route, stops, { testMode, fit: true });
   navigationActive = true;
   navigationFollowMode = true;
+  navigationHeadingUp = true;
+  navigationLastDynamicZoom = null;
   navigationLastRerouteAt = 0;
   navigationLastPosition = origin;
   setNavigationPanelVisible(true);
@@ -2793,6 +2848,8 @@ async function computeNavigationRoute(stops, { testMode = false } = {}) {
   enableNavigationArrow();
   startOrientationTracking();
   setNavigationFollowMode(true);
+  setNavigationHeadingMode(true);
+  updateNavigationGpsQuality(null);
   updateNavigationUi(origin);
 
   if (navigationWatchId != null) navigator.geolocation.clearWatch(navigationWatchId);
@@ -4723,6 +4780,7 @@ function wireControls() {
   document.getElementById("navigationTestBtn")?.addEventListener("click", chooseNavigationTestTarget);
   document.getElementById("navigationStopBtn")?.addEventListener("click", () => stopNavigation());
   document.getElementById("navigationRecenterBtn")?.addEventListener("click", () => setNavigationFollowMode(true));
+  document.getElementById("navigationHeadingBtn")?.addEventListener("click", () => setNavigationHeadingMode(!navigationHeadingUp));
   map?.addListener("dragstart", () => {
     if (navigationActive) setNavigationFollowMode(false);
   });

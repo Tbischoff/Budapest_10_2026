@@ -1,4 +1,4 @@
-# Budapest Map v1.11.2
+# Budapest Map v1.11.3
 
 - Tagesfilter zählen Orte und Aktivitäten gemeinsam.
 - Aktivitätsmarker folgen dem ausgewählten Reisetag.
@@ -61,3 +61,14 @@ Für v1.11.1 ist keine Datenbankmigration erforderlich.
 - Nach automatischer Neuberechnung startet die Fortschrittsanzeige auf der neuen Route neu.
 
 Für v1.11.2 ist keine Datenbankmigration erforderlich.
+
+
+## v1.11.3 – Orientierung in der Navigation
+
+- Karte folgt im Navigationsmodus standardmäßig der Bewegungsrichtung; Umschalter zwischen **Richtung** und **N Norden**.
+- Dynamischer Zoom: vor nahen Manövern näher heran, auf längeren geraden Abschnitten weiter heraus.
+- Klarere Manöver-Symbole für geradeaus, links/rechts, leichte Abbiegungen, Wenden und Kreisverkehr.
+- Sichtbare GPS-Qualität mit Genauigkeit in Metern; die bestehende Rerouting-Logik berücksichtigt weiterhin die GPS-Genauigkeit.
+- Bereits zurückgelegte Strecke, automatische Neuberechnung und Testnavigation aus v1.11.2 bleiben erhalten.
+
+Für v1.11.3 ist keine Datenbankmigration erforderlich.
