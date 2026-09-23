@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.10.9";
+const APP_VERSION = "v1.10.10";
 
 function syncVersionLabels() {
   document.querySelectorAll(".app-version").forEach(el => { el.textContent = APP_VERSION; });
@@ -2125,22 +2125,32 @@ async function showDayRoute(dayId = selectedDayFilter) {
     return;
   }
 
+  // A single planned item is a map target, not a route. Never insert the
+  // current GPS position implicitly just to manufacture a route.
+  if (routeStops.length === 1) {
+    clearDayRoute();
+    const stop = routeStops[0];
+    if (stop.type === "activity" && stop.activity) {
+      focusActivityOnMap(stop.activity);
+    } else if (stop.type === "place" && stop.place) {
+      focusExistingPlaceOnMap(stop.place);
+    } else {
+      if (isMobileLayout()) setMobileView("map");
+      map.setCenter(stop.position);
+      if ((Number(map.getZoom()) || 0) < 16) map.setZoom(16);
+    }
+    setStatus(`„${stop.name}“ wird auf der Karte angezeigt. Für eine Fußroute sind mindestens 2 Stopps erforderlich.`);
+    updateRouteControls();
+    return;
+  }
+
   routeLoading = true;
   updateRouteControls();
   setStatus(`Fußroute für ${day.label} wird berechnet …`);
 
   try {
     const Route = await ensureRoutesLibrary();
-    let routePoints;
-    if (routeStops.length === 1) {
-      // With one program point there is no planned origin. Use the current
-      // position (request it on demand) so the route is still useful.
-      const origin = await ensureRouteOriginForSingleStop();
-      routePoints = { origin, destination: routeStops[0].position, intermediates: [] };
-    } else {
-      routePoints = buildRouteRequestPoints(routeStops);
-    }
-    const { origin, destination, intermediates } = routePoints;
+    const { origin, destination, intermediates } = buildRouteRequestPoints(routeStops);
 
     const request = {
       origin,
@@ -2298,14 +2308,18 @@ function updateRouteControls() {
   // still counted visit places only and therefore disabled the buttons for
   // e.g. 1 place + 1 activity.
   const routeStops = getRouteStopsForDay(day.id);
-  const enoughStops = routeStops.length >= 1;
+  const hasStop = routeStops.length >= 1;
+  const hasRoute = routeStops.length >= 2;
   const placeCount = routeStops.filter(stop => stop.type === "place").length;
   const activityCount = routeStops.filter(stop => stop.type === "activity").length;
-  routeButton.disabled = !enoughStops || routeLoading;
-  googleButton.disabled = !enoughStops || routeLoading;
+  routeButton.disabled = !hasStop || routeLoading;
+  // Google Maps is a route action as well: only enable it once there is an
+  // actual planned route between at least two stops.
+  googleButton.disabled = !hasRoute || routeLoading;
 
   const routeIsActive = activeRouteDay === day.id && dayRoutePolylines.length > 0;
   if (routeLoading) routeButton.textContent = "⏳ Route wird berechnet …";
+  else if (routeStops.length === 1) routeButton.textContent = "📍 Stopp anzeigen";
   else routeButton.textContent = routeIsActive ? "🚶 Route ausblenden" : "🚶 Fußroute anzeigen";
 
   const startMode = getRouteStartMode();
@@ -2319,10 +2333,10 @@ function updateRouteControls() {
     activityCount ? `${activityCount} ${activityCount === 1 ? "Aktivität" : "Aktivitäten"}` : ""
   ].filter(Boolean).join(" · ");
 
-  if (!enoughStops) {
+  if (!hasStop) {
     info.textContent = `${day.short}: noch kein Routenstopp geplant (Ort oder Aktivität).`;
   } else if (routeStops.length === 1) {
-    info.textContent = `${day.short}: ${stopSummary} · Route zum einzigen Stopp ab aktuellem Standort.`;
+    info.textContent = `${day.short}: ${stopSummary} · auf der Karte anzeigen. Für eine Fußroute sind mindestens 2 Stopps erforderlich.`;
   } else if (routeIsActive && activeRouteSummary) {
     info.textContent =
       `${day.short}: ${stopSummary} · ${startLabel} · 🚶 ${formatRouteDistance(activeRouteSummary.distanceMeters)} · ca. ${formatRouteDuration(activeRouteSummary.durationMillis)}`;
