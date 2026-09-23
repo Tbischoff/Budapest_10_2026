@@ -1,4 +1,4 @@
-Budapest Map 2026 – v1.10.3
+Budapest Map 2026 – v1.10.4
 
 Fix:
 - Mobile Aktivitätsdialog: Google-Places-Treffpunktfeld strikt auf die verfügbare Formularbreite begrenzt.
