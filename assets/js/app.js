@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.9.3";
+const APP_VERSION = "v1.10.0";
 
 function syncVersionLabels() {
   document.querySelectorAll(".app-version").forEach(el => { el.textContent = APP_VERSION; });
@@ -26,6 +26,11 @@ let realtimeRefreshTimer = null;
 let editingPlaceId = null;
 let tryItems = [];
 let editingTryItemId = null;
+let activities = [];
+let activityMarkers = new Map();
+let editingActivityId = null;
+let activityPlaceAutocompleteElement = null;
+let selectedActivityGooglePlace = null;
 
 const CONFIG = {
   // Google Maps JavaScript API key eintragen.
@@ -179,6 +184,9 @@ function subscribeToTripRealtime() {
     .on("postgres_changes", {
       event: "*", schema: "public", table: "trip_try_items", filter: `trip_id=eq.${currentTripId}`
     }, () => refreshTryItemsFromSupabase())
+    .on("postgres_changes", {
+      event: "*", schema: "public", table: "trip_activities", filter: `trip_id=eq.${currentTripId}`
+    }, () => refreshActivitiesFromSupabase())
     .subscribe(status => {
       if (status === "SUBSCRIBED") setStatus("🟢 Live-Synchronisation aktiv.");
     });
@@ -192,6 +200,7 @@ async function refreshTripPlacesFromSupabase() {
     markers.clear();
     placesData.places = remote.places;
     await createMarkers();
+    createActivityMarkers();
     applyFilters();
     updateDistanceControls();
     updateRouteControls();
@@ -360,6 +369,7 @@ async function seedLegacyTryItemsIfNeeded() {
 async function refreshTryItemsFromSupabase() {
   try {
     tryItems = await loadTryItemsFromSupabase();
+    activities = await loadActivitiesFromSupabase();
     renderTryListFresh();
   } catch (error) {
     console.error("Probierliste live aktualisieren:", error);
@@ -498,6 +508,7 @@ async function bootstrap() {
 
     const remote = await loadSupabaseTripData();
     tryItems = await loadTryItemsFromSupabase();
+    activities = await loadActivitiesFromSupabase();
     await seedLegacyTryItemsIfNeeded();
     placesData = {
       meta: JSON.parse(JSON.stringify(window.BUDAPEST_PLACES_DATA.meta)),
@@ -848,6 +859,7 @@ function initMap() {
   // Start möglichst am aktuellen Standort; Budapest bleibt Fallback.
   centerMapOnCurrentLocation({ silent: true });
   initGooglePlaceAutocomplete();
+  initActivityPlaceAutocomplete();
 }
 
 
@@ -1415,6 +1427,7 @@ function closeAddPlaceDialog() {
   resetGooglePlaceSelection({ recreateAutocomplete: true });
   // Prepare a fresh Google search element for the next opening.
   initGooglePlaceAutocomplete();
+  initActivityPlaceAutocomplete();
 }
 
 async function handleAddPlace(event) {
@@ -3090,7 +3103,7 @@ function wireAgendaDragAndDrop(container, dayId) {
     removeGhost();
 
     const orderedWrappers = wrappers();
-    const newIds = orderedWrappers.map(el => el.dataset.agendaPlaceId).filter(Boolean);
+    const newIds = orderedWrappers.map(el => el.dataset.agendaKey).filter(Boolean);
     const changed = !cancelled && newIds.length === originalIds.length && newIds.some((id, index) => id !== originalIds[index]);
 
     drag = null;
@@ -3105,11 +3118,13 @@ function wireAgendaDragAndDrop(container, dayId) {
       return;
     }
 
-    newIds.forEach((id, index) => {
-      ensurePlaceState(id).plannedOrder = index + 1;
+    newIds.forEach((key, index) => {
+      const [type, id] = key.split(":");
+      if (type === "place") ensurePlaceState(id).plannedOrder = index + 1;
+      if (type === "activity") { const activity = activities.find(item => item.id === id); if (activity) activity.planned_order = index + 1; }
     });
-
     saveState();
+    persistMixedAgendaOrder(newIds);
     applyFilters();
     if (activeRouteDay === dayId) showDayRoute(dayId);
     else updateRouteControls();
@@ -3183,7 +3198,7 @@ function wireAgendaDragAndDrop(container, dayId) {
         ghost,
         pointerId: event.pointerId,
         startY: event.clientY,
-        originalIds: wrappers().map(el => el.dataset.agendaPlaceId)
+        originalIds: wrappers().map(el => el.dataset.agendaKey)
       };
       try { handle.setPointerCapture(event.pointerId); } catch {}
       document.body.classList.add("agenda-dragging");
@@ -3191,138 +3206,229 @@ function wireAgendaDragAndDrop(container, dayId) {
     });
   });
 }
+
+
+async function persistMixedAgendaOrder(keys) {
+  try {
+    const placeUpdates=[]; const activityUpdates=[];
+    keys.forEach((key,index)=>{ const [type,id]=key.split(":"); if(type==="place"){const place=placesData.places.find(p=>p.id===id); if(place?.supabaseId) placeUpdates.push({id:place.supabaseId,order:index+1});} else if(type==="activity") activityUpdates.push({id,order:index+1}); });
+    await Promise.all([
+      ...placeUpdates.map(row=>supabaseClient.from("trip_places").update({planned_order:row.order,updated_at:new Date().toISOString()}).eq("trip_id",currentTripId).eq("place_id",row.id)),
+      ...activityUpdates.map(row=>supabaseClient.from("trip_activities").update({planned_order:row.order,updated_at:new Date().toISOString()}).eq("trip_id",currentTripId).eq("id",row.id))
+    ]);
+  } catch(error){ console.error("Gemischte Tagesreihenfolge speichern:",error); setStatus(`⚠️ Reihenfolge konnte nicht vollständig gespeichert werden: ${error.message}`); }
+}
+
+function activityDayDate(activity) {
+  const day = currentTripDays.find(item => item.id === activity.trip_day_id);
+  return day?.day_date || null;
+}
+
+async function loadActivitiesFromSupabase() {
+  if (!supabaseClient || !currentTripId) return [];
+  const { data, error } = await supabaseClient
+    .from("trip_activities")
+    .select("*")
+    .eq("trip_id", currentTripId)
+    .order("planned_order", { ascending: true });
+  if (error) throw error;
+  return data || [];
+}
+
+async function refreshActivitiesFromSupabase() {
+  try {
+    activities = await loadActivitiesFromSupabase();
+    createActivityMarkers();
+    renderDayAgenda();
+    renderTodayView();
+  } catch (error) {
+    console.error("Aktivitäten live aktualisieren:", error);
+  }
+}
+
+function createActivityMarkers() {
+  if (!map || !AdvancedMarkerElement || !PinElement) return;
+  for (const marker of activityMarkers.values()) marker.map = null;
+  activityMarkers.clear();
+  for (const activity of activities) {
+    const position = normalizeLatLng({ lat: activity.latitude, lng: activity.longitude });
+    if (!position) continue;
+    const pin = new PinElement({ glyphText: "🎟", glyphColor: "#ffffff", background: "#7c3aed", borderColor: "#ffffff", scale: 1.05 });
+    const marker = new AdvancedMarkerElement({ map, position, title: activity.name, gmpClickable: true, zIndex: 700 });
+    marker.append(pin);
+    marker.addEventListener("gmp-click", () => openActivityInfo(activity));
+    activityMarkers.set(activity.id, marker);
+  }
+}
+
+function openActivityInfo(activity) {
+  const marker = activityMarkers.get(activity.id);
+  if (!marker) return;
+  const time = [activity.start_time?.slice(0,5), activity.end_time?.slice(0,5)].filter(Boolean).join("–");
+  infoWindow.setContent(`<div class="info-window activity-info-window"><div class="info-title">🎟️ ${escapeHtml(activity.name)}</div><div class="info-meta">${time ? `🕐 ${escapeHtml(time)}<br>` : ""}📍 ${escapeHtml(activity.meeting_place_name || activity.address || "Treffpunkt")}<br>${activity.address ? escapeHtml(activity.address) : ""}</div>${activity.note ? `<div class="info-note">${escapeHtml(activity.note)}</div>` : ""}</div>`);
+  activeInfoPlaceId = `activity:${activity.id}`;
+  infoWindow.open({ map, anchor: marker, shouldFocus: false });
+}
+
+function focusActivityOnMap(activity) {
+  const marker = activityMarkers.get(activity.id);
+  const position = marker ? getMarkerPosition(marker) : normalizeLatLng({lat: activity.latitude, lng: activity.longitude});
+  if (!position) return;
+  if (isMobileLayout()) setMobileView("map");
+  requestAnimationFrame(() => {
+    google.maps.event.trigger(map, "resize");
+    map.setCenter(position);
+    if ((Number(map.getZoom()) || 0) < 16) map.setZoom(16);
+    openActivityInfo(activity);
+  });
+}
+
+async function initActivityPlaceAutocomplete() {
+  const host = document.getElementById("activityPlaceAutocomplete");
+  if (!host || activityPlaceAutocompleteElement || !google?.maps) return;
+  const { PlaceAutocompleteElement } = await google.maps.importLibrary("places");
+  activityPlaceAutocompleteElement = new PlaceAutocompleteElement({ includedRegionCodes: ["hu"], locationBias: { center: CONFIG.initialCenter, radius: 50000 } });
+  activityPlaceAutocompleteElement.placeholder = "Treffpunkt oder Adresse suchen …";
+  host.appendChild(activityPlaceAutocompleteElement);
+  activityPlaceAutocompleteElement.addEventListener("gmp-select", async event => {
+    const prediction = event.placePrediction;
+    if (!prediction) return;
+    const place = prediction.toPlace();
+    await place.fetchFields({ fields: ["id","displayName","formattedAddress","location"] });
+    selectedActivityGooglePlace = place;
+    const selection = document.getElementById("activityPlaceSelection");
+    selection.hidden = false;
+    selection.innerHTML = `<strong>📍 ${escapeHtml(place.displayName || "Treffpunkt")}</strong><span>${escapeHtml(place.formattedAddress || "")}</span>`;
+  });
+}
+
+function populateActivityDayOptions() {
+  const select = document.getElementById("activityDay");
+  if (!select) return;
+  select.innerHTML = currentTripDays.map(day => {
+    const label = TRIP_DAYS.find(item => item.id === day.day_date)?.label || day.day_date;
+    return `<option value="${escapeHtml(day.id)}">${escapeHtml(label)}</option>`;
+  }).join("");
+  const selected = currentTripDays.find(day => day.day_date === selectedDayFilter);
+  if (selected) select.value = selected.id;
+}
+
+function resetActivityForm() {
+  editingActivityId = null;
+  selectedActivityGooglePlace = null;
+  document.getElementById("activityForm")?.reset();
+  document.getElementById("activityDialogTitle").textContent = "Aktivität hinzufügen";
+  document.getElementById("deleteActivityBtn").hidden = true;
+  document.getElementById("activityPlaceSelection").hidden = true;
+  document.getElementById("activityFormMessage").textContent = "";
+  if (activityPlaceAutocompleteElement) { activityPlaceAutocompleteElement.remove(); activityPlaceAutocompleteElement = null; }
+  const host = document.getElementById("activityPlaceAutocomplete"); if (host) host.innerHTML = "";
+  initActivityPlaceAutocomplete();
+  populateActivityDayOptions();
+}
+
+function openActivityDialog(activityId = null) {
+  resetActivityForm();
+  const dialog = document.getElementById("activityDialog");
+  if (activityId) {
+    const activity = activities.find(item => item.id === activityId);
+    if (!activity) return;
+    editingActivityId = activity.id;
+    document.getElementById("activityDialogTitle").textContent = "Aktivität bearbeiten";
+    document.getElementById("activityName").value = activity.name || "";
+    document.getElementById("activityDay").value = activity.trip_day_id || "";
+    document.getElementById("activityStartTime").value = activity.start_time?.slice(0,5) || "";
+    document.getElementById("activityEndTime").value = activity.end_time?.slice(0,5) || "";
+    document.getElementById("activityStatus").value = activity.status || "planned";
+    document.getElementById("activityNote").value = activity.note || "";
+    document.getElementById("activityBookingUrl").value = activity.booking_url || "";
+    document.getElementById("deleteActivityBtn").hidden = false;
+    const selection = document.getElementById("activityPlaceSelection"); selection.hidden = false;
+    selection.innerHTML = `<strong>📍 ${escapeHtml(activity.meeting_place_name || "Treffpunkt")}</strong><span>${escapeHtml(activity.address || "")}</span><span>Für einen anderen Treffpunkt oben neu suchen.</span>`;
+  }
+  dialog.showModal();
+}
+
+function closeActivityDialog() { document.getElementById("activityDialog")?.close(); resetActivityForm(); }
+
+async function handleActivitySubmit(event) {
+  event.preventDefault();
+  const message = document.getElementById("activityFormMessage");
+  const existing = editingActivityId ? activities.find(item => item.id === editingActivityId) : null;
+  const location = selectedActivityGooglePlace?.location;
+  const lat = location ? (typeof location.lat === "function" ? location.lat() : location.lat) : existing?.latitude;
+  const lng = location ? (typeof location.lng === "function" ? location.lng() : location.lng) : existing?.longitude;
+  if (!Number.isFinite(Number(lat)) || !Number.isFinite(Number(lng))) { message.textContent = "Bitte einen Treffpunkt über die Google-Suche auswählen."; return; }
+  const tripDayId = document.getElementById("activityDay").value;
+  const sameDay = activities.filter(item => item.trip_day_id === tripDayId && item.id !== editingActivityId);
+  const placeDayDate = currentTripDays.find(day => day.id === tripDayId)?.day_date;
+  const placeOrders = placesData.places.filter(place => (state.places[place.id] || {}).plannedDay === placeDayDate).map(place => Number((state.places[place.id] || {}).plannedOrder) || 0);
+  const nextOrder = existing?.planned_order || Math.max(0, ...sameDay.map(a => Number(a.planned_order)||0), ...placeOrders) + 1;
+  const row = {
+    trip_id: currentTripId, trip_day_id: tripDayId,
+    name: document.getElementById("activityName").value.trim(),
+    start_time: document.getElementById("activityStartTime").value || null,
+    end_time: document.getElementById("activityEndTime").value || null,
+    status: document.getElementById("activityStatus").value,
+    note: document.getElementById("activityNote").value.trim() || null,
+    booking_url: document.getElementById("activityBookingUrl").value.trim() || null,
+    meeting_place_name: selectedActivityGooglePlace?.displayName || existing?.meeting_place_name,
+    address: selectedActivityGooglePlace?.formattedAddress || existing?.address,
+    google_place_id: selectedActivityGooglePlace?.id || existing?.google_place_id,
+    latitude: Number(lat), longitude: Number(lng), planned_order: nextOrder,
+    updated_at: new Date().toISOString()
+  };
+  const result = editingActivityId
+    ? await supabaseClient.from("trip_activities").update(row).eq("id", editingActivityId).eq("trip_id", currentTripId).select().single()
+    : await supabaseClient.from("trip_activities").insert(row).select().single();
+  if (result.error) { message.textContent = `Speichern fehlgeschlagen: ${result.error.message}`; return; }
+  closeActivityDialog();
+  await refreshActivitiesFromSupabase();
+  setStatus(`🎟️ Aktivität „${row.name}“ gespeichert.`);
+}
+
+async function deleteActivity() {
+  if (!editingActivityId) return;
+  const activity = activities.find(item => item.id === editingActivityId);
+  if (!confirm(`„${activity?.name || "Aktivität"}“ wirklich löschen?`)) return;
+  const { error } = await supabaseClient.from("trip_activities").delete().eq("id", editingActivityId).eq("trip_id", currentTripId);
+  if (error) { document.getElementById("activityFormMessage").textContent = error.message; return; }
+  closeActivityDialog(); await refreshActivitiesFromSupabase(); setStatus("🗑️ Aktivität gelöscht.");
+}
+
+function getActivitiesForDay(dayDate) {
+  const day = currentTripDays.find(item => item.day_date === dayDate);
+  if (!day) return [];
+  return activities.filter(item => item.trip_day_id === day.id).sort((a,b) => (Number(a.planned_order)||9999)-(Number(b.planned_order)||9999));
+}
+
 function renderDayAgenda() {
   renderTodayView();
   const container = document.getElementById("dayAgenda");
   if (!container) return;
-
   const selectedDay = TRIP_DAYS.find(day => day.id === selectedDayFilter);
-
-  if (!selectedDay) {
-    container.innerHTML = `
-      <div class="agenda-empty">
-        Wähle einen Reisetag aus, um die Tagesagenda zu sehen.
-      </div>
-    `;
-    return;
-  }
-
+  if (!selectedDay) { container.innerHTML = `<div class="agenda-empty">Wähle einen Reisetag aus, um die Tagesagenda zu sehen.</div>`; return; }
   const dayPlaces = getPlacesForDay(selectedDay.id);
-
-  if (!dayPlaces.length) {
-    container.innerHTML = `
-      <div class="agenda-day-header">
-        <div>
-          <div class="agenda-day-kicker">Tagesplan</div>
-          <div class="agenda-day-title">${escapeHtml(selectedDay.label)}</div>
-        </div>
-        <div class="agenda-progress-badge">0 Orte</div>
-      </div>
-      <div class="agenda-empty">
-        Für ${escapeHtml(selectedDay.label)} sind noch keine Orte geplant.
-      </div>
-    `;
-    return;
-  }
-
-  const visitedCount = dayPlaces.filter(place => Boolean((state.places[place.id] || {}).visited)).length;
-  const openCount = dayPlaces.length - visitedCount;
-  const timedCount = dayPlaces.filter(place => Boolean(formatPlannedTime(state.places[place.id] || {}))).length;
-  const progressPercent = Math.round((visitedCount / dayPlaces.length) * 100);
-  const { legs, totalDistance, totalMinutes } = getAgendaLegs(dayPlaces);
-
-  const agendaHtml = dayPlaces.map((place, index) => {
-    const saved = state.places[place.id] || {};
-    const time = formatPlannedTime(saved);
-    const distance = userPosition ? distanceToPlace(place) : null;
-    const leg = legs[index];
-    const category = categoryLabel(place.category);
-
-    return `
-      <div class="agenda-place-wrap" data-agenda-place-id="${escapeHtml(place.id)}">
-        <div class="agenda-timeline-row">
-          <div class="agenda-time-column">
-            <div class="agenda-time ${time ? "" : "agenda-time-open"}">${time ? escapeHtml(time) : "offen"}</div>
-            <div class="agenda-timeline-dot ${saved.visited ? "visited" : ""}">${saved.visited ? "✓" : index + 1}</div>
-            ${index < dayPlaces.length - 1 ? '<div class="agenda-timeline-line"></div>' : ""}
-          </div>
-          <div class="agenda-content-column">
-            <div class="agenda-item ${saved.visited ? "agenda-item-visited" : ""}" data-place-id="${place.id}">
-              <button type="button" class="agenda-drag-handle" data-drag-place-id="${escapeHtml(place.id)}" aria-label="${escapeHtml(place.name)} verschieben" title="Ziehen, um Reihenfolge zu ändern">⋮⋮</button>
-              <div class="agenda-main">
-                <div class="agenda-title">${CATEGORY_ICONS[place.category] || "•"} ${escapeHtml(place.name)}</div>
-                <div class="agenda-meta">
-                  ${escapeHtml(category)}
-                  ${distance != null ? ` · 📍 ${escapeHtml(formatDistance(distance))} entfernt` : ""}
-                  ${saved.visited ? " · ✓ besucht" : ""}
-                </div>
-              </div>
-              <button
-                type="button"
-                class="agenda-visited-button ${saved.visited ? "visited" : ""}"
-                title="${saved.visited ? "Als nicht besucht markieren" : "Als besucht markieren"}"
-                data-action="toggle-visited" data-place-id="${place.id}"
-              >${saved.visited ? "✓" : "○"}</button>
-            </div>
-            ${leg ? `
-              <div class="agenda-leg">
-                <span>↓</span>
-                <span>ca. 🚶 ${escapeHtml(formatDistance(leg.distanceMeters))} · ${leg.minutes} Min.</span>
-              </div>
-            ` : ""}
-          </div>
-        </div>
-      </div>
-    `;
-  }).join("");
-
-  container.innerHTML = `
-    <div class="agenda-day-header">
-      <div>
-        <div class="agenda-day-kicker">Tagesplan</div>
-        <div class="agenda-day-title">${escapeHtml(selectedDay.label)}</div>
-        <div class="agenda-day-stats">${dayPlaces.length} ${dayPlaces.length === 1 ? "Ort" : "Orte"} · ${visitedCount} besucht · ${openCount} offen${timedCount < dayPlaces.length ? ` · ${dayPlaces.length - timedCount} ohne Uhrzeit` : ""}</div>
-      </div>
-      <div class="agenda-progress-badge">${progressPercent}%</div>
-    </div>
-    <div class="agenda-progress-track" aria-label="${visitedCount} von ${dayPlaces.length} Orten besucht">
-      <div class="agenda-progress-fill" style="width:${progressPercent}%"></div>
-    </div>
-    <div class="agenda-timeline">
-      ${agendaHtml}
-    </div>
-    <div class="agenda-summary">
-      <strong>${dayPlaces.length} ${dayPlaces.length === 1 ? "Ort" : "Orte"}</strong>
-      ${dayPlaces.length > 1
-        ? `<span>ca. 🚶 ${escapeHtml(formatDistance(totalDistance))} · ${formatRouteDuration(totalMinutes * 60 * 1000)}</span>`
-        : `<span>Noch keine Wegstrecke</span>`}
-    </div>
-    <div class="agenda-estimate-note">
-      Wege in der Timeline sind Luftlinien-Schätzungen. Die genaue Fußroute wird über „Fußroute anzeigen“ berechnet.
-    </div>
-  `;
-
+  const dayActivities = getActivitiesForDay(selectedDay.id);
+  const entries = [
+    ...dayPlaces.map(place => ({ type:"place", id:place.id, order:Number((state.places[place.id]||{}).plannedOrder)||9999, place })),
+    ...dayActivities.map(activity => ({ type:"activity", id:activity.id, order:Number(activity.planned_order)||9999, activity }))
+  ].sort((a,b) => a.order-b.order);
+  const header = `<div class="agenda-day-header"><div><div class="agenda-day-kicker">Tagesplan</div><div class="agenda-day-title">${escapeHtml(selectedDay.label)}</div><div class="agenda-day-stats">${dayPlaces.length} Orte · ${dayActivities.length} Aktivitäten</div></div><button id="addActivityAgendaBtn" class="mini-action-button activity-add-button" type="button">＋ Aktivität</button></div>`;
+  if (!entries.length) { container.innerHTML = `${header}<div class="agenda-empty">Für ${escapeHtml(selectedDay.label)} ist noch nichts geplant.</div>`; document.getElementById("addActivityAgendaBtn")?.addEventListener("click",()=>openActivityDialog()); return; }
+  const agendaHtml = entries.map((entry,index) => {
+    if (entry.type === "activity") {
+      const a=entry.activity; const time=[a.start_time?.slice(0,5),a.end_time?.slice(0,5)].filter(Boolean).join("–");
+      return `<div class="agenda-place-wrap agenda-activity-wrap" data-agenda-key="activity:${a.id}"><div class="agenda-timeline-row"><div class="agenda-time-column"><div class="agenda-time">${escapeHtml(time||"Termin")}</div><div class="agenda-timeline-dot activity">🎟</div>${index<entries.length-1?'<div class="agenda-timeline-line"></div>':""}</div><div class="agenda-content-column"><div class="agenda-item agenda-activity-item" data-activity-id="${a.id}"><button type="button" class="agenda-drag-handle" aria-label="Aktivität verschieben">⋮⋮</button><div class="agenda-main"><div class="agenda-title">🎟️ ${escapeHtml(a.name)}</div><div class="agenda-meta"><span class="activity-status ${a.status}">${a.status==='booked'?'Gebucht':'Geplant'}</span> · 📍 ${escapeHtml(a.meeting_place_name||a.address||'Treffpunkt')}</div>${a.note?`<div class="agenda-activity-note">${escapeHtml(a.note)}</div>`:""}</div><button type="button" class="agenda-activity-menu" data-action="edit-activity" data-activity-id="${a.id}" title="Aktivität bearbeiten">✎</button></div></div></div></div>`;
+    }
+    const place=entry.place, saved=state.places[place.id]||{}, time=formatPlannedTime(saved), distance=userPosition?distanceToPlace(place):null;
+    return `<div class="agenda-place-wrap" data-agenda-key="place:${escapeHtml(place.id)}"><div class="agenda-timeline-row"><div class="agenda-time-column"><div class="agenda-time ${time?'':'agenda-time-open'}">${time?escapeHtml(time):'offen'}</div><div class="agenda-timeline-dot ${saved.visited?'visited':''}">${saved.visited?'✓':index+1}</div>${index<entries.length-1?'<div class="agenda-timeline-line"></div>':""}</div><div class="agenda-content-column"><div class="agenda-item ${saved.visited?'agenda-item-visited':''}" data-place-id="${place.id}"><button type="button" class="agenda-drag-handle" aria-label="${escapeHtml(place.name)} verschieben">⋮⋮</button><div class="agenda-main"><div class="agenda-title">${CATEGORY_ICONS[place.category]||'•'} ${escapeHtml(place.name)}</div><div class="agenda-meta">${escapeHtml(categoryLabel(place.category))}${distance!=null?` · 📍 ${escapeHtml(formatDistance(distance))} entfernt`:''}${saved.visited?' · ✓ besucht':''}</div></div><button type="button" class="agenda-visited-button ${saved.visited?'visited':''}" data-action="toggle-visited" data-place-id="${place.id}">${saved.visited?'✓':'○'}</button></div></div></div></div>`;
+  }).join('');
+  container.innerHTML = `${header}<div class="agenda-timeline">${agendaHtml}</div><div class="agenda-estimate-note">🎟️ Aktivitäten sind Treffpunkte/Termine und bleiben getrennt von deiner Orte-Liste.</div>`;
+  document.getElementById("addActivityAgendaBtn")?.addEventListener("click",()=>openActivityDialog());
   wireAgendaDragAndDrop(container, selectedDay.id);
-
-  container.querySelectorAll(".agenda-item").forEach(item => {
-    item.addEventListener("click", event => {
-      if (event.target.closest("[data-action]")) return;
-      const place = placesData.places.find(p => p.id === item.dataset.placeId);
-      if (!place) return;
-
-      const marker = markers.get(place.id);
-      if (marker) {
-        openPlace(place);
-        const pos = getMarkerPosition(marker);
-        if (pos) {
-          map.panTo(pos);
-          map.setZoom(16);
-        }
-      }
-
-      if (isMobileLayout()) setMobileView("map");
-    });
-  });
+  container.querySelectorAll(".agenda-item[data-place-id]").forEach(item=>item.addEventListener("click",event=>{if(event.target.closest("[data-action],.agenda-drag-handle"))return;const place=placesData.places.find(p=>p.id===item.dataset.placeId);if(place)focusExistingPlaceOnMap(place);}));
+  container.querySelectorAll(".agenda-activity-item").forEach(item=>item.addEventListener("click",event=>{if(event.target.closest("button"))return;const a=activities.find(x=>x.id===item.dataset.activityId);if(a)focusActivityOnMap(a);}));
 }
 
 function renderPlaceList(filteredPlaces) {
@@ -3632,17 +3738,19 @@ async function buildBackupPayload() {
     throw new Error("Für ein Datenbank-Backup musst du angemeldet sein und eine Reise geladen haben.");
   }
 
-  const [tripResult, daysResult, relationsResult, tryItemsResult] = await Promise.all([
+  const [tripResult, daysResult, relationsResult, tryItemsResult, activitiesResult] = await Promise.all([
     supabaseClient.from("trips").select("*").eq("id", currentTripId).single(),
     supabaseClient.from("trip_days").select("*").eq("trip_id", currentTripId).order("day_date"),
     supabaseClient.from("trip_places").select("*").eq("trip_id", currentTripId),
-    supabaseClient.from("trip_try_items").select("*").eq("trip_id", currentTripId).order("created_at")
+    supabaseClient.from("trip_try_items").select("*").eq("trip_id", currentTripId).order("created_at"),
+    supabaseClient.from("trip_activities").select("*").eq("trip_id", currentTripId).order("planned_order")
   ]);
 
   if (tripResult.error) throw tripResult.error;
   if (daysResult.error) throw daysResult.error;
   if (relationsResult.error) throw relationsResult.error;
   if (tryItemsResult.error) throw tryItemsResult.error;
+  if (activitiesResult.error) throw activitiesResult.error;
 
   const placeIds = [...new Set((relationsResult.data || []).map(row => row.place_id).filter(Boolean))];
   let dbPlaces = [];
@@ -3663,7 +3771,8 @@ async function buildBackupPayload() {
       tripDays: daysResult.data || [],
       tripPlaces: relationsResult.data || [],
       places: dbPlaces,
-      tryItems: tryItemsResult.data || []
+      tryItems: tryItemsResult.data || [],
+      activities: activitiesResult.data || []
     }
   };
 }
@@ -3723,7 +3832,7 @@ function validateBackupPayload(payload) {
   }
 
   const db = payload.supabase;
-  if (!db || !db.trip || !Array.isArray(db.tripDays) || !Array.isArray(db.tripPlaces) || !Array.isArray(db.places) || (db.tryItems != null && !Array.isArray(db.tryItems))) {
+  if (!db || !db.trip || !Array.isArray(db.tripDays) || !Array.isArray(db.tripPlaces) || !Array.isArray(db.places) || (db.tryItems != null && !Array.isArray(db.tryItems)) || (db.activities != null && !Array.isArray(db.activities))) {
     throw new Error("Im Datenbank-Backup fehlen erforderliche Tabellen oder Reisedaten.");
   }
   if (!db.trip.id || !db.trip.name) throw new Error("Die Reise im Backup ist unvollständig.");
@@ -3817,6 +3926,14 @@ async function restoreSupabaseBackup(payload) {
     if (tryItemsError) throw tryItemsError;
   }
 
+  const { error: clearActivitiesError } = await supabaseClient.from("trip_activities").delete().eq("trip_id", targetTripId);
+  if (clearActivitiesError) throw clearActivitiesError;
+  if ((db.activities || []).length) {
+    const activityRows = db.activities.map(row => ({ ...cleanBackupRow(row), trip_id: targetTripId }));
+    const { error: activitiesError } = await supabaseClient.from("trip_activities").upsert(activityRows, { onConflict: "id" });
+    if (activitiesError) throw activitiesError;
+  }
+
   console.info(`Supabase-Backup wiederhergestellt: ${db.places.length} Orte, ${db.tripPlaces.length} Zuordnungen; Quelle ${sourceTripId}, Ziel ${targetTripId}.`);
 }
 
@@ -3862,6 +3979,7 @@ async function importBackupFile(file) {
       `Reisetage: ${db.tripDays.length}`,
       `Planungs-Zuordnungen: ${db.tripPlaces.length}`,
       `Probierliste: ${(db.tryItems || []).length}`,
+      `Aktivitäten: ${(db.activities || []).length}`,
       "",
       "Die aktuelle Reiseplanung in Supabase wird durch den Stand aus dem Backup ersetzt. Globale Orte anderer Reisen werden nicht gelöscht."
     ].join("\n");
@@ -3896,8 +4014,10 @@ function wireControls() {
     const actionElement = event.target.closest("[data-action]");
     if (!actionElement) return;
 
-    const { action, placeId } = actionElement.dataset;
-    if (!action || !placeId) return;
+    const { action, placeId, activityId } = actionElement.dataset;
+    if (!action) return;
+    if (action === "edit-activity" && activityId) { event.stopPropagation(); openActivityDialog(activityId); return; }
+    if (!placeId) return;
 
     if (["toggle-visited", "move-place"].includes(action)) event.stopPropagation();
 
@@ -3963,6 +4083,11 @@ function wireControls() {
   document.getElementById("cancelPlaceBtnBottom").addEventListener("click", closeAddPlaceDialog);
   document.getElementById("addPlaceForm").addEventListener("submit", handleAddPlace);
   document.getElementById("tryItemForm").addEventListener("submit", handleTryItemSubmit);
+  document.getElementById("activityForm")?.addEventListener("submit", handleActivitySubmit);
+  document.getElementById("cancelActivityBtn")?.addEventListener("click", closeActivityDialog);
+  document.getElementById("cancelActivityBtnBottom")?.addEventListener("click", closeActivityDialog);
+  document.getElementById("deleteActivityBtn")?.addEventListener("click", deleteActivity);
+  document.getElementById("activityDialog")?.addEventListener("click", event => { if (event.target.id === "activityDialog") closeActivityDialog(); });
   document.getElementById("cancelTryItemBtn").addEventListener("click", closeTryItemDialog);
   document.getElementById("cancelTryItemBtnBottom").addEventListener("click", closeTryItemDialog);
   document.getElementById("deleteTryItemBtn").addEventListener("click", deleteTryItem);

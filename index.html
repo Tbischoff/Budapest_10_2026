@@ -6,7 +6,7 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://*.googleapis.com https://*.gstatic.com https://*.google.com blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.googleusercontent.com https://*.ggpht.com; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' https://cdn.jsdelivr.net https://fjlezfzninkltblcctds.supabase.co wss://fjlezfzninkltblcctds.supabase.co https://*.googleapis.com https://*.gstatic.com https://*.google.com data: blob:; frame-src https://*.google.com; worker-src 'self' blob:; manifest-src 'self'; form-action 'self'" />
   <title>Budapest Map 2026</title>
   <link rel="icon" href="assets/icons/favicon.svg" type="image/svg+xml" />
-  <link rel="stylesheet" href="assets/css/style.css?v=1.9.3" />
+  <link rel="stylesheet" href="assets/css/style.css?v=1.10.0" />
 </head>
 <body>
   <div id="authGate" class="auth-gate">
@@ -273,6 +273,19 @@
     </form>
   </dialog>
 
+  <dialog id="activityDialog" class="place-dialog activity-dialog">
+    <form id="activityForm" class="place-form">
+      <div class="dialog-head"><div><div class="eyebrow">Tagesplan · Termin</div><h2 id="activityDialogTitle">Aktivität hinzufügen</h2></div><button id="cancelActivityBtn" class="icon-button" type="button" aria-label="Schließen">✕</button></div>
+      <label class="form-field"><span>Aktivität *</span><input id="activityName" type="text" required maxlength="140" placeholder="z. B. Stadtführung oder Bootsfahrt" /></label>
+      <label class="form-field"><span>Treffpunkt *</span><div id="activityPlaceAutocomplete" class="google-place-autocomplete"></div><div id="activityPlaceSelection" class="google-place-selection activity-place-selection" hidden></div><small>Der Treffpunkt wird über Google Places gewählt und erscheint als eigener 🎟️-Marker – nicht in der Orte-Liste.</small></label>
+      <div class="form-grid"><label class="form-field"><span>Tag *</span><select id="activityDay" required></select></label><label class="form-field"><span>Status</span><select id="activityStatus"><option value="planned">Geplant</option><option value="booked">Gebucht</option></select></label></div>
+      <div class="form-grid"><label class="form-field"><span>Beginn *</span><input id="activityStartTime" type="time" required /></label><label class="form-field"><span>Ende</span><input id="activityEndTime" type="time" /></label></div>
+      <label class="form-field"><span>Notizen</span><textarea id="activityNote" rows="3" maxlength="800" placeholder="z. B. 15 Minuten vorher da sein, Ticket auf dem Handy …"></textarea></label>
+      <label class="form-field"><span>Buchungs-/Ticket-Link</span><input id="activityBookingUrl" type="url" maxlength="1000" placeholder="https://…" /></label>
+      <div id="activityFormMessage" class="form-message" aria-live="polite"></div>
+      <div class="dialog-actions"><button id="deleteActivityBtn" class="danger-button" type="button" hidden>Löschen</button><span class="dialog-spacer"></span><button id="cancelActivityBtnBottom" class="secondary-button" type="button">Abbrechen</button><button class="primary-button" type="submit">Aktivität speichern</button></div>
+    </form>
+  </dialog>
 
   <dialog id="tryItemDialog" class="place-dialog try-dialog">
     <form id="tryItemForm" class="place-form" method="dialog">
@@ -292,6 +305,6 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0"></script>
   <script src="data/places.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@googlemaps/markerclusterer@2.6.2/dist/index.min.js"></script>
-  <script src="assets/js/app.js?v=1.9.3"></script>
+  <script src="assets/js/app.js?v=1.10.0"></script>
 </body>
 </html>
