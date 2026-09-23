@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.10.10";
+const APP_VERSION = "v1.10.11";
 
 function syncVersionLabels() {
   document.querySelectorAll(".app-version").forEach(el => { el.textContent = APP_VERSION; });
@@ -2125,9 +2125,10 @@ async function showDayRoute(dayId = selectedDayFilter) {
     return;
   }
 
-  // A single planned item is a map target, not a route. Never insert the
-  // current GPS position implicitly just to manufacture a route.
-  if (routeStops.length === 1) {
+  // With one planned stop the selected start mode decides the behavior:
+  // - planned: there is no route between planned stops, so only focus it.
+  // - current: current position + the planned stop form a valid walking route.
+  if (routeStops.length === 1 && getRouteStartMode() !== "current") {
     clearDayRoute();
     const stop = routeStops[0];
     if (stop.type === "activity" && stop.activity) {
@@ -2139,9 +2140,20 @@ async function showDayRoute(dayId = selectedDayFilter) {
       map.setCenter(stop.position);
       if ((Number(map.getZoom()) || 0) < 16) map.setZoom(16);
     }
-    setStatus(`„${stop.name}“ wird auf der Karte angezeigt. Für eine Fußroute sind mindestens 2 Stopps erforderlich.`);
+    setStatus(`„${stop.name}“ wird auf der Karte angezeigt. Wähle „Mein aktueller Standort“, um die Fußroute dorthin zu berechnen.`);
     updateRouteControls();
     return;
+  }
+
+  if (routeStops.length === 1 && getRouteStartMode() === "current" && !userPosition) {
+    try {
+      await ensureRouteOriginForSingleStop();
+    } catch (error) {
+      console.error("Standort für Einzelstopp-Route:", error);
+      setStatus("Aktueller Standort konnte nicht ermittelt werden. Bitte Standortfreigabe prüfen oder „📍 Mein Standort“ verwenden.");
+      updateRouteControls();
+      return;
+    }
   }
 
   routeLoading = true;
@@ -2238,17 +2250,27 @@ function openDayRouteInGoogleMaps(dayId = selectedDayFilter) {
     return;
   }
 
-  // A destination-only Google Maps URL lets Google Maps use the device's
-  // current/start location itself. This keeps a one-stop day navigable.
+  // A single planned stop is only a route when the user explicitly chose
+  // the current position as start. In planned mode it remains a map target.
   if (routeStops.length === 1) {
+    if (getRouteStartMode() !== "current") {
+      setStatus("Bei einem geplanten Stopp gibt es noch keine Tagesroute. Wähle „Mein aktueller Standort“, um dorthin zu navigieren.");
+      return;
+    }
+    if (!userPosition) {
+      setStatus("Bitte zuerst „📍 Mein Standort“ aktivieren.");
+      return;
+    }
+
     const destinationPosition = routeStops[0].position;
     const params = new URLSearchParams({
       api: "1",
+      origin: `${userPosition.lat},${userPosition.lng}`,
       destination: `${destinationPosition.lat},${destinationPosition.lng}`,
       travelmode: "walking"
     });
     window.open(`https://www.google.com/maps/dir/?${params.toString()}`, "_blank", "noopener");
-    setStatus(`Route zu „${routeStops[0].name}“ wird in Google Maps geöffnet.`);
+    setStatus(`Route von deinem aktuellen Standort zu „${routeStops[0].name}“ wird in Google Maps geöffnet.`);
     return;
   }
 
@@ -2308,21 +2330,22 @@ function updateRouteControls() {
   // still counted visit places only and therefore disabled the buttons for
   // e.g. 1 place + 1 activity.
   const routeStops = getRouteStopsForDay(day.id);
+  const startMode = getRouteStartMode();
   const hasStop = routeStops.length >= 1;
-  const hasRoute = routeStops.length >= 2;
+  const hasRoute = routeStops.length >= 2 || (routeStops.length === 1 && startMode === "current");
   const placeCount = routeStops.filter(stop => stop.type === "place").length;
   const activityCount = routeStops.filter(stop => stop.type === "activity").length;
   routeButton.disabled = !hasStop || routeLoading;
-  // Google Maps is a route action as well: only enable it once there is an
-  // actual planned route between at least two stops.
+  // A single stop becomes a real route only with the explicitly selected
+  // current location as origin.
   googleButton.disabled = !hasRoute || routeLoading;
 
   const routeIsActive = activeRouteDay === day.id && dayRoutePolylines.length > 0;
   if (routeLoading) routeButton.textContent = "⏳ Route wird berechnet …";
-  else if (routeStops.length === 1) routeButton.textContent = "📍 Stopp anzeigen";
-  else routeButton.textContent = routeIsActive ? "🚶 Route ausblenden" : "🚶 Fußroute anzeigen";
+  else if (routeIsActive) routeButton.textContent = "🚶 Route ausblenden";
+  else if (routeStops.length === 1 && startMode !== "current") routeButton.textContent = "📍 Stopp anzeigen";
+  else routeButton.textContent = "🚶 Fußroute anzeigen";
 
-  const startMode = getRouteStartMode();
   const startLabel =
     startMode === "current"
       ? (userPosition ? "Start: aktueller Standort" : "Start: aktueller Standort (noch nicht aktiv)")
@@ -2335,8 +2358,8 @@ function updateRouteControls() {
 
   if (!hasStop) {
     info.textContent = `${day.short}: noch kein Routenstopp geplant (Ort oder Aktivität).`;
-  } else if (routeStops.length === 1) {
-    info.textContent = `${day.short}: ${stopSummary} · auf der Karte anzeigen. Für eine Fußroute sind mindestens 2 Stopps erforderlich.`;
+  } else if (routeStops.length === 1 && startMode !== "current") {
+    info.textContent = `${day.short}: ${stopSummary} · auf der Karte anzeigen. Mit „Mein aktueller Standort“ kann die Fußroute zu diesem Stopp berechnet werden.`;
   } else if (routeIsActive && activeRouteSummary) {
     info.textContent =
       `${day.short}: ${stopSummary} · ${startLabel} · 🚶 ${formatRouteDistance(activeRouteSummary.distanceMeters)} · ca. ${formatRouteDuration(activeRouteSummary.durationMillis)}`;
