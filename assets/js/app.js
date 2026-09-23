@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.11.7";
+const APP_VERSION = "v1.11.8";
 
 function syncVersionLabels() {
   document.querySelectorAll(".app-version").forEach(el => { el.textContent = APP_VERSION; });
@@ -890,6 +890,11 @@ function initMap() {
     renderingType: google.maps.RenderingType.VECTOR,
     headingInteractionEnabled: true,
     tiltInteractionEnabled: false,
+    // Auf mobilen Browsern verwendet Google Maps sonst teilweise den
+    // kooperativen Gestenmodus (Karte erst mit zwei Fingern verschiebbar).
+    // Für die In-App-Navigation soll ein Finger die Karte direkt bewegen.
+    gestureHandling: "greedy",
+    draggable: true,
     heading: 0,
     tilt: 0,
     mapTypeControl: false,
@@ -4992,9 +4997,13 @@ function wireControls() {
   document.getElementById("navigationHeadingBtn")?.addEventListener("click", () => setNavigationHeadingMode(!navigationHeadingUp));
   document.getElementById("navigationMarkVisitedBtn")?.addEventListener("click", markNavigationArrivalVisited);
   document.getElementById("navigationContinueBtn")?.addEventListener("click", continueDayNavigation);
-  map?.addListener("dragstart", () => {
-    if (navigationActive) setNavigationFollowMode(false);
-  });
+  const releaseNavigationFollowForMapGesture = () => {
+    if (navigationActive && navigationFollowMode) setNavigationFollowMode(false);
+  };
+  // dragstart greift bei normalem Panning. drag ist ein zusätzlicher Fallback
+  // für mobile Google-Maps-Renderer, die dragstart nicht immer früh melden.
+  map?.addListener("dragstart", releaseNavigationFollowForMapGesture);
+  map?.addListener("drag", releaseNavigationFollowForMapGesture);
   map?.addListener("zoom_changed", () => {
     // Pinch-/Mausrad-Zoom während der Navigation soll die Karte freigeben.
     // Automatische Zoomänderungen der Navigation lösen den Follow-Modus nicht.

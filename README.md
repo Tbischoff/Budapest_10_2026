@@ -1,4 +1,4 @@
-# Budapest Map v1.11.7
+# Budapest Map v1.11.8
 
 - Tagesfilter zählen Orte und Aktivitäten gemeinsam.
 - Aktivitätsmarker folgen dem ausgewählten Reisetag.
@@ -103,3 +103,12 @@ Die Navigation arbeitet die kombinierte Tagesreihenfolge aus Orten und Aktivitä
 - Die Karte kann während aktiver Navigation frei verschoben und gezoomt werden. Eine manuelle Kartenbewegung pausiert den Follow-Modus, ohne GPS, Rerouting oder Zielerkennung zu stoppen.
 - Über **◎ Position** wird der Follow-Modus wieder aktiviert und die Karte folgt erneut dem Standort.
 - Automatische Zoomänderungen der Navigation werden von manuellen Zoomgesten unterschieden.
+
+
+## v1.11.8 – Map Interaction Fix
+
+- Google Maps verwendet auf Mobilgeräten explizit `gestureHandling: "greedy"`: Die Karte lässt sich während der Navigation mit einem Finger verschieben.
+- `draggable` ist explizit aktiviert.
+- Manuelles Verschieben beendet nur den Follow-Modus; GPS, Navigation, Zielerkennung und Rerouting laufen weiter.
+- `drag` dient zusätzlich zu `dragstart` als mobiler Fallback zur Erkennung manueller Kartenbewegungen.
+- `◎ Position` aktiviert den Follow-Modus anschließend wieder.
