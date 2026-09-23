@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.10.8";
+const APP_VERSION = "v1.10.9";
 
 function syncVersionLabels() {
   document.querySelectorAll(".app-version").forEach(el => { el.textContent = APP_VERSION; });
@@ -71,7 +71,7 @@ let PinElement = null;
 let sortByDistance = false;
 let dayRoutePolylines = [];
 let activeRouteDay = null;
-let DirectionsServiceInstance = null;
+let RouteClass = null;
 let routeLoading = false;
 let activeRouteSummary = null;
 let routeStartMode = "planned";
@@ -546,9 +546,16 @@ function loadGoogleMaps() {
 
     window.__initBudapestMap = async () => {
       try {
-        const markerLibrary = await google.maps.importLibrary("marker");
+        // Load the browser-side libraries through Maps JavaScript API.
+        // Keeping Route on the JS library path avoids the legacy DirectionsService.
+        const [markerLibrary, routesLibrary] = await Promise.all([
+          google.maps.importLibrary("marker"),
+          google.maps.importLibrary("routes")
+        ]);
         AdvancedMarkerElement = markerLibrary.AdvancedMarkerElement;
         PinElement = markerLibrary.PinElement;
+        RouteClass = routesLibrary.Route;
+        if (!RouteClass) throw new Error("Google Routes Library konnte nicht geladen werden.");
         resolve();
       } catch (error) {
         reject(new Error(`Advanced Marker konnten nicht geladen werden: ${error.message}`));
@@ -1934,47 +1941,17 @@ function plannedTimeEditorHtml(place, saved) {
 }
 
 
-async function ensureDirectionsService() {
-  if (DirectionsServiceInstance) return DirectionsServiceInstance;
+async function ensureRoutesLibrary() {
+  if (RouteClass) return RouteClass;
 
   const routesLibrary = await google.maps.importLibrary("routes");
-  const DirectionsService = routesLibrary.DirectionsService;
+  RouteClass = routesLibrary.Route;
 
-  if (!DirectionsService) {
-    throw new Error("Google Directions Service konnte nicht geladen werden.");
+  if (!RouteClass) {
+    throw new Error("Google Routes Library konnte nicht geladen werden.");
   }
 
-  DirectionsServiceInstance = new DirectionsService();
-  return DirectionsServiceInstance;
-}
-
-function directionsRouteMetrics(result) {
-  const route = result?.routes?.[0];
-  if (!route) return null;
-  const legs = route.legs || [];
-  return {
-    route,
-    distanceMeters: legs.reduce((sum, leg) => sum + (Number(leg.distance?.value) || 0), 0),
-    durationMillis: legs.reduce((sum, leg) => sum + (Number(leg.duration?.value) || 0) * 1000, 0),
-    path: route.overview_path || []
-  };
-}
-
-async function computeWalkingDirections(origin, destination, intermediates = []) {
-  const directionsService = await ensureDirectionsService();
-  const result = await directionsService.route({
-    origin,
-    destination,
-    travelMode: google.maps.TravelMode.WALKING,
-    waypoints: intermediates.map(item => ({
-      location: item?.location || item,
-      stopover: true
-    })),
-    optimizeWaypoints: false
-  });
-  const metrics = directionsRouteMetrics(result);
-  if (!metrics) throw new Error("Keine Route gefunden.");
-  return metrics;
+  return RouteClass;
 }
 
 function clearRenderedRoute() {
@@ -2153,6 +2130,7 @@ async function showDayRoute(dayId = selectedDayFilter) {
   setStatus(`Fußroute für ${day.label} wird berechnet …`);
 
   try {
+    const Route = await ensureRoutesLibrary();
     let routePoints;
     if (routeStops.length === 1) {
       // With one program point there is no planned origin. Use the current
@@ -2164,34 +2142,45 @@ async function showDayRoute(dayId = selectedDayFilter) {
     }
     const { origin, destination, intermediates } = routePoints;
 
-    const computed = await computeWalkingDirections(origin, destination, intermediates);
+    const request = {
+      origin,
+      destination,
+      travelMode: "WALKING",
+      intermediates,
+      fields: ["path", "distanceMeters", "durationMillis"]
+    };
+
+    const { routes } = await Route.computeRoutes(request);
+    if (!routes?.length) throw new Error("Keine Route gefunden.");
+
+    const route = routes[0];
     clearRenderedRoute();
 
-    const polyline = new google.maps.Polyline({
-      path: computed.path,
-      strokeColor: "#2f625d",
-      strokeOpacity: 0.95,
-      strokeWeight: 6,
-      zIndex: 10,
-      map
+    dayRoutePolylines = route.createPolylines({
+      polylineOptions: {
+        strokeColor: "#2f625d",
+        strokeOpacity: 0.95,
+        strokeWeight: 6,
+        zIndex: 10
+      }
     });
-    dayRoutePolylines = [polyline];
+    dayRoutePolylines.forEach(polyline => polyline.setMap(map));
 
     activeRouteDay = dayId;
     activeRouteSummary = {
-      distanceMeters: computed.distanceMeters,
-      durationMillis: computed.durationMillis,
+      distanceMeters: route.distanceMeters,
+      durationMillis: route.durationMillis,
       placeCount: routeStops.length
     };
 
-    if (computed.path?.length) {
+    if (route.path?.length) {
       const bounds = new google.maps.LatLngBounds();
-      computed.path.forEach(point => bounds.extend(point));
+      route.path.forEach(point => bounds.extend(point));
       map.fitBounds(bounds, 70);
     }
 
-    const distanceText = formatRouteDistance(computed.distanceMeters);
-    const durationText = formatRouteDuration(computed.durationMillis);
+    const distanceText = formatRouteDistance(route.distanceMeters);
+    const durationText = formatRouteDuration(route.durationMillis);
     setStatus(`Fußroute für ${day.label}: ${distanceText || "Distanz unbekannt"} · ${durationText || "Dauer unbekannt"}.`);
   } catch (error) {
     console.error("Routes API:", error);
@@ -2399,17 +2388,27 @@ function updateDayCounts() {
   const counts = Object.fromEntries(TRIP_DAYS.map(day => [day.id, 0]));
   let unplanned = 0;
 
+  // Visit places count towards their planned day.
   for (const place of placesData.places) {
     const plannedDay = (state.places[place.id] || {}).plannedDay || "";
     if (plannedDay && counts[plannedDay] !== undefined) counts[plannedDay]++;
     else unplanned++;
   }
 
+  // Activities are appointments, not visit places, but they are part of a day's
+  // programme. Resolve the Supabase trip_day UUID back to the frontend ISO date.
+  for (const activity of activities) {
+    const dayDate = activityDayDate(activity);
+    if (dayDate && counts[dayDate] !== undefined) counts[dayDate]++;
+  }
+
   document.querySelectorAll(".day-filter-button").forEach(button => {
     const id = button.dataset.day;
     if (id === "all") {
-      button.textContent = `Alle (${placesData.places.length})`;
+      button.textContent = `Alle (${placesData.places.length + activities.length})`;
     } else if (id === "unplanned") {
+      // Activities always belong to a trip day and deliberately do not belong
+      // to the visit-place state "Noch offen".
       button.textContent = `Noch offen (${unplanned})`;
     } else {
       const day = TRIP_DAYS.find(d => d.id === id);
@@ -2866,6 +2865,7 @@ async function showNextPlace() {
   setStatus(`Restliche Tagesroute ab „${nextPlace.name}“ wird berechnet …`);
 
   try {
+    const Route = await ensureRoutesLibrary();
     const plannedRoutePoints = destinations.map(item => item.position);
 
     // Build 15: "Nächster Ort" respects the route-start option selected by
@@ -2888,7 +2888,18 @@ async function showNextPlace() {
     // Segmentweise rechnen, damit die geplante Reihenfolge garantiert
     // erhalten bleibt. Nur der Startpunkt hängt von der gewählten Option ab.
     for (let i = 0; i < routePoints.length - 1; i += 1) {
-      const segment = await computeWalkingDirections(routePoints[i], routePoints[i + 1]);
+      const { routes: segmentRoutes } = await Route.computeRoutes({
+        origin: routePoints[i],
+        destination: routePoints[i + 1],
+        travelMode: "WALKING",
+        fields: ["path", "distanceMeters", "durationMillis"]
+      });
+
+      if (!segmentRoutes?.length) {
+        throw new Error("Für einen Abschnitt wurde keine Fußroute gefunden.");
+      }
+
+      const segment = segmentRoutes[0];
       routes.push(segment);
       totalDistanceMeters += segment.distanceMeters || 0;
       totalDurationMillis += segment.durationMillis || 0;
@@ -2900,15 +2911,18 @@ async function showNextPlace() {
     dayRoutePolylines = [];
 
     routes.forEach(route => {
-      const polyline = new google.maps.Polyline({
-        path: route.path,
-        strokeColor: "#2f625d",
-        strokeOpacity: 0.95,
-        strokeWeight: 6,
-        zIndex: 10,
-        map
+      const polylines = route.createPolylines({
+        polylineOptions: {
+          strokeColor: "#2f625d",
+          strokeOpacity: 0.95,
+          strokeWeight: 6,
+          zIndex: 10
+        }
       });
-      dayRoutePolylines.push(polyline);
+      polylines.forEach(polyline => {
+        polyline.setMap(map);
+        dayRoutePolylines.push(polyline);
+      });
       route.path?.forEach(point => bounds.extend(point));
     });
 
@@ -3348,6 +3362,7 @@ function createActivityMarkers() {
     marker.addEventListener("gmp-click", () => openActivityInfo(activity));
     activityMarkers.set(activity.id, marker);
   }
+  syncActivityMarkerVisibility();
 }
 
 function openActivityInfo(activity) {
@@ -3793,11 +3808,26 @@ function syncVisibleMarkers(visibleIds) {
   clusterer.render();
 }
 
+function syncActivityMarkerVisibility() {
+  for (const activity of activities) {
+    const marker = activityMarkers.get(activity.id);
+    if (!marker) continue;
+    const activityDate = activityDayDate(activity);
+    const visible = selectedDayFilter === "all"
+      ? true
+      : selectedDayFilter === "unplanned"
+        ? false
+        : activityDate === selectedDayFilter;
+    marker.map = visible ? map : null;
+  }
+}
+
 function applyFilters() {
   const filtered = getFilteredPlaces();
 
   const visibleIds = new Set(filtered.map(p => p.id));
   syncVisibleMarkers(visibleIds);
+  syncActivityMarkerVisibility();
 
   renderPlaceList(filtered);
   renderDayAgenda();
