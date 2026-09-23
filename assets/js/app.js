@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.11.9";
+const APP_VERSION = "v1.12.0";
 
 function syncVersionLabels() {
   document.querySelectorAll(".app-version").forEach(el => { el.textContent = APP_VERSION; });
@@ -106,6 +106,7 @@ let navigationMaxProgress = 0;
 let navigationLastOffRouteDistance = null;
 let navigationMovingAwaySamples = 0;
 let navigationProgrammaticZoom = false;
+let navigationExpanded = false;
 const NAV_OFF_ROUTE_METERS = 45;
 const NAV_OFF_ROUTE_SAMPLES = 3;
 const NAV_REROUTE_COOLDOWN_MS = 15000;
@@ -2463,6 +2464,18 @@ function maneuverIcon(maneuver = "") {
   return "↑";
 }
 
+function setNavigationExpanded(expanded) {
+  navigationExpanded = Boolean(expanded);
+  const panel = navigationPanel();
+  const button = document.getElementById("navigationExpandBtn");
+  if (panel) panel.classList.toggle("expanded", navigationExpanded);
+  if (button) {
+    button.textContent = navigationExpanded ? "⌃" : "⌄";
+    button.setAttribute("aria-expanded", String(navigationExpanded));
+    button.setAttribute("aria-label", navigationExpanded ? "Navigationsdetails ausblenden" : "Navigationsdetails anzeigen");
+  }
+}
+
 function navigationPanel() {
   return document.getElementById("navigationPanel");
 }
@@ -2652,6 +2665,7 @@ function stopNavigation(message = "Navigation beendet.") {
   navigationLastOffRouteDistance = null;
   navigationMovingAwaySamples = 0;
   navigationHeadingUp = true;
+  setNavigationExpanded(false);
   applyNavigationMapHeading(0);
   stopOrientationTracking();
   clearNavigationPolylines();
@@ -2851,6 +2865,7 @@ function updateNavigationUi(position = userPosition) {
   const distanceEl = document.getElementById("navigationManeuverDistance");
   const metaEl = document.getElementById("navigationMeta");
   const progressEl = document.getElementById("navigationProgress");
+  const etaEl = document.getElementById("navigationEta");
   const titleEl = document.getElementById("navigationTitle");
   const activeLegIndex = Number(navigationSteps[navigationStepIndex]?.legIndex) || 0;
   const activeStop = navigationTestMode ? navigationStops.at(-1) : navigationStops[Math.min(activeLegIndex, navigationStops.length - 1)];
@@ -2900,7 +2915,13 @@ function updateNavigationUi(position = userPosition) {
   if (distanceEl) distanceEl.textContent = formatRouteDistance(metersToManeuver);
   if (instructionEl) instructionEl.textContent = currentStep?.instructions || "Route folgen";
   if (metaEl) metaEl.textContent = `${formatRouteDistance(remainingMeters)} verbleibend`;
-  if (progressEl) progressEl.textContent = navigationTestMode ? "🧪 Testnavigation" : `Stopp ${Math.min(navigationCompletedStops + legIndex + 1, navigationTotalStops)} von ${navigationTotalStops}`;
+  const totalRouteMeters = Number(navigationPathMetrics?.total) || Number(navigationRoute?.distanceMeters) || 0;
+  const totalDurationMillis = Number(navigationRoute?.durationMillis) || 0;
+  const remainingDurationMillis = totalRouteMeters > 0 && totalDurationMillis > 0
+    ? totalDurationMillis * Math.max(0, Math.min(1, remainingMeters / totalRouteMeters))
+    : 0;
+  if (etaEl) etaEl.textContent = remainingDurationMillis > 0 ? `ca. ${formatRouteDuration(remainingDurationMillis)}` : "";
+  if (progressEl) progressEl.textContent = navigationTestMode ? "🧪 Test" : `Stopp ${Math.min(navigationCompletedStops + legIndex + 1, navigationTotalStops)}/${navigationTotalStops}`;
 }
 
 async function getFreshCurrentPosition() {
@@ -3055,6 +3076,7 @@ async function computeNavigationRoute(stops, { testMode = false } = {}) {
   navigationMovingAwaySamples = 0;
   window.__navigationLastAccuracy = 0;
   setNavigationPanelVisible(true);
+  setNavigationExpanded(false);
   if (isMobileLayout()) setMobileView("map");
   enableNavigationArrow();
   startOrientationTracking();
@@ -4993,6 +5015,7 @@ function wireControls() {
   });
   document.getElementById("navigationTestBtn")?.addEventListener("click", chooseNavigationTestTarget);
   document.getElementById("navigationStopBtn")?.addEventListener("click", () => stopNavigation());
+document.getElementById("navigationExpandBtn")?.addEventListener("click", () => setNavigationExpanded(!navigationExpanded));
   document.getElementById("navigationRecenterBtn")?.addEventListener("click", () => setNavigationFollowMode(true));
   document.getElementById("navigationHeadingBtn")?.addEventListener("click", () => setNavigationHeadingMode(!navigationHeadingUp));
   document.getElementById("navigationMarkVisitedBtn")?.addEventListener("click", markNavigationArrivalVisited);

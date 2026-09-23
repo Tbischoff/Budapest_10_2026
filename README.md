@@ -1,4 +1,4 @@
-# Budapest Map v1.11.9
+# Budapest Map v1.12.0
 
 - Tagesfilter zählen Orte und Aktivitäten gemeinsam.
 - Aktivitätsmarker folgen dem ausgewählten Reisetag.
@@ -119,3 +119,14 @@ Die Navigation arbeitet die kombinierte Tagesreihenfolge aus Orten und Aktivitä
 - GPS-Updates ziehen die Karte nach einer manuellen Interaktion nicht zurück; `◎ Position` aktiviert Follow wieder.
 - Explizite Pointer-Events-Regeln verhindern, dass inaktive App-Overlays die Karte abfangen.
 - CSS und JavaScript werden in `index.html` mit `?v=1.11.9` geladen, damit neue Releases auf Mobilgeräten nicht mit alten Cache-Dateien gemischt werden.
+
+
+## v1.12.0 – Kompakte Navigation UI
+
+- Navigationskarte deutlich kompakter, damit mehr Kartenfläche sichtbar bleibt.
+- Nächste Anweisung auf maximal zwei Zeilen begrenzt.
+- Reststrecke, geschätzte Restzeit und Stopp-Fortschritt in einer kompakten Statuszeile.
+- GPS-Qualität und Richtungssteuerung platzsparender dargestellt.
+- Neuer ⌄/⌃-Schalter zum Ein- und Ausklappen zusätzlicher Navigationsdetails.
+- Kompakte Ansicht ist beim Start einer Navigation der Standard.
+- Bestehende Tagesnavigation, Rerouting, Kartenrotation, Karteninteraktion und Zielerkennung bleiben erhalten.
