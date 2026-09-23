@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.11.1";
+const APP_VERSION = "v1.11.2";
 
 function syncVersionLabels() {
   document.querySelectorAll(".app-version").forEach(el => { el.textContent = APP_VERSION; });
@@ -85,6 +85,8 @@ let navigationTestMode = false;
 let navigationTestTarget = null;
 let navigationPickListener = null;
 let navigationPolylines = [];
+let navigationTravelledPolyline = null;
+let navigationPathMetrics = null;
 let navigationHeading = null;
 let navigationFollowMode = true;
 let navigationOffRouteSamples = 0;
@@ -97,6 +99,7 @@ const NAV_OFF_ROUTE_METERS = 45;
 const NAV_OFF_ROUTE_SAMPLES = 3;
 const NAV_REROUTE_COOLDOWN_MS = 15000;
 const NAV_TARGET_REACHED_METERS = 30;
+const NAV_STEP_PASS_TOLERANCE_METERS = 8;
 let routeStartMode = "planned";
 let todayRouteClickMode = "planned";
 let todayRouteTargetId = null;
@@ -2435,6 +2438,66 @@ function setNavigationPanelVisible(visible) {
 function clearNavigationPolylines() {
   navigationPolylines.forEach(polyline => polyline.setMap(null));
   navigationPolylines = [];
+  if (navigationTravelledPolyline) navigationTravelledPolyline.setMap(null);
+  navigationTravelledPolyline = null;
+  navigationPathMetrics = null;
+}
+
+function buildNavigationPathMetrics() {
+  const path = navigationRoutePath();
+  const cumulative = [0];
+  for (let i = 1; i < path.length; i++) cumulative.push(cumulative[i - 1] + distanceBetweenMeters(path[i - 1], path[i]));
+  const stepEnds = navigationSteps.map(item => {
+    const end = navLocationToLatLng(item.step?.endLocation);
+    if (!end || path.length < 2) return Infinity;
+    let best = { distance: Infinity, progress: Infinity };
+    for (let i = 1; i < path.length; i++) {
+      const projection = projectPointToRouteSegment(end, path[i - 1], path[i]);
+      if (projection.distance < best.distance) best = { distance: projection.distance, progress: cumulative[i - 1] + projection.segmentMeters * projection.t };
+    }
+    return best.progress;
+  });
+  navigationPathMetrics = { path, cumulative, total: cumulative.at(-1) || 0, stepEnds };
+}
+
+function projectPointToRouteSegment(point, a, b) {
+  const p = normalizeLatLng(point), p1 = normalizeLatLng(a), p2 = normalizeLatLng(b);
+  if (!p || !p1 || !p2) return { distance: Infinity, t: 0, point: p1, segmentMeters: 0 };
+  const lat0 = p.lat * Math.PI / 180;
+  const mx = 111320 * Math.cos(lat0), my = 110540;
+  const px = p.lng * mx, py = p.lat * my;
+  const ax = p1.lng * mx, ay = p1.lat * my, bx = p2.lng * mx, by = p2.lat * my;
+  const dx = bx - ax, dy = by - ay, len2 = dx * dx + dy * dy;
+  const t = len2 ? Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / len2)) : 0;
+  const qx = ax + t * dx, qy = ay + t * dy;
+  return { distance: Math.hypot(px - qx, py - qy), t, point: { lat: qy / my, lng: qx / mx }, segmentMeters: Math.sqrt(len2) };
+}
+
+function navigationRouteProgress(position) {
+  const metrics = navigationPathMetrics;
+  if (!metrics?.path?.length || metrics.path.length < 2) return null;
+  let best = null;
+  for (let i = 1; i < metrics.path.length; i++) {
+    const projection = projectPointToRouteSegment(position, metrics.path[i - 1], metrics.path[i]);
+    const progress = metrics.cumulative[i - 1] + projection.segmentMeters * projection.t;
+    if (!best || projection.distance < best.distance) best = { ...projection, progress, segmentIndex: i };
+  }
+  return best;
+}
+
+function updateTravelledRoute(position) {
+  const metrics = navigationPathMetrics;
+  const progress = navigationRouteProgress(position);
+  if (!metrics || !progress) return progress;
+  const travelledPath = metrics.path.slice(0, progress.segmentIndex);
+  travelledPath.push(progress.point);
+  if (!navigationTravelledPolyline) {
+    navigationTravelledPolyline = new google.maps.Polyline({
+      map, strokeColor: "#9aa0a6", strokeOpacity: 1, strokeWeight: 8, zIndex: 21, clickable: false
+    });
+  }
+  navigationTravelledPolyline.setPath(travelledPath);
+  return progress;
 }
 
 function navigationArrowElement() {
@@ -2519,16 +2582,7 @@ function navigationRoutePath() {
 }
 
 function distancePointToSegmentMeters(point, a, b) {
-  const p = normalizeLatLng(point), p1 = normalizeLatLng(a), p2 = normalizeLatLng(b);
-  if (!p || !p1 || !p2) return Infinity;
-  const lat0 = p.lat * Math.PI / 180;
-  const mx = 111320 * Math.cos(lat0), my = 110540;
-  const px = p.lng * mx, py = p.lat * my;
-  const ax = p1.lng * mx, ay = p1.lat * my, bx = p2.lng * mx, by = p2.lat * my;
-  const dx = bx - ax, dy = by - ay;
-  const len2 = dx * dx + dy * dy;
-  const t = len2 ? Math.max(0, Math.min(1, ((px-ax)*dx + (py-ay)*dy) / len2)) : 0;
-  return Math.hypot(px - (ax + t*dx), py - (ay + t*dy));
+  return projectPointToRouteSegment(point, a, b).distance;
 }
 
 function distanceToNavigationRoute(position) {
@@ -2585,7 +2639,11 @@ function updateNavigationUi(position = userPosition) {
   if (!step) return;
   const stepEnd = navLocationToLatLng(step.endLocation);
   const stepDistance = distanceBetweenMeters(position, stepEnd);
-  if (stepDistance <= 24 && navigationStepIndex < navigationSteps.length - 1) {
+  const routeProgress = updateTravelledRoute(position);
+  const stepEndProgress = navigationPathMetrics?.stepEnds?.[navigationStepIndex];
+  const hasPassedManeuver = Number.isFinite(routeProgress?.progress) && Number.isFinite(stepEndProgress)
+    && routeProgress.progress >= stepEndProgress - NAV_STEP_PASS_TOLERANCE_METERS;
+  if ((stepDistance <= 18 || hasPassedManeuver) && navigationStepIndex < navigationSteps.length - 1) {
     navigationStepIndex += 1;
     return updateNavigationUi(position);
   }
@@ -2594,8 +2652,10 @@ function updateNavigationUi(position = userPosition) {
   const currentStep = currentEntry?.step;
   const currentEnd = navLocationToLatLng(currentStep?.endLocation);
   const metersToManeuver = distanceBetweenMeters(position, currentEnd);
-  const remainingStepMeters = navigationSteps.slice(navigationStepIndex + 1).reduce((sum, item) => sum + (Number(item.step?.distanceMeters) || 0), 0);
-  const remainingMeters = (Number.isFinite(metersToManeuver) ? metersToManeuver : 0) + remainingStepMeters;
+  const currentProgress = routeProgress || navigationRouteProgress(position);
+  const remainingMeters = Number.isFinite(currentProgress?.progress) && navigationPathMetrics
+    ? Math.max(0, navigationPathMetrics.total - currentProgress.progress)
+    : (Number.isFinite(metersToManeuver) ? metersToManeuver : 0) + navigationSteps.slice(navigationStepIndex + 1).reduce((sum, item) => sum + (Number(item.step?.distanceMeters) || 0), 0);
   const legIndex = Number(currentEntry?.legIndex) || 0;
   const targetName = navigationTestMode ? "Testziel" : (navigationStops[Math.min(legIndex, navigationStops.length - 1)]?.name || "Nächster Stopp");
 
@@ -2656,6 +2716,8 @@ function applyNavigationRoute(route, stops, { testMode = navigationTestMode, fit
   navigationTestMode = testMode;
   navigationArrived = false;
   navigationOffRouteSamples = 0;
+  buildNavigationPathMetrics();
+  if (userPosition) updateTravelledRoute(userPosition);
   if (fit && route.viewport) map.fitBounds(route.viewport, 55);
 }
 

@@ -1,4 +1,4 @@
-# Budapest Map v1.11.1
+# Budapest Map v1.11.2
 
 - Tagesfilter zählen Orte und Aktivitäten gemeinsam.
 - Aktivitätsmarker folgen dem ausgewählten Reisetag.
@@ -51,3 +51,13 @@ Keine Supabase-/SQL-Anpassung erforderlich.
 - Testnavigation bleibt vollständig lokal und wird nicht in Supabase gespeichert
 
 Für v1.11.1 ist keine Datenbankmigration erforderlich.
+
+
+## v1.11.2 – Navigationsfortschritt
+
+- Navigationsschritte schalten anhand der tatsächlichen Position auf dem Routenverlauf früher weiter.
+- Bereits zurückgelegte Streckenabschnitte werden während der Navigation grau überzeichnet.
+- Die verbleibende Strecke wird aus der aktuellen Position entlang der Route berechnet.
+- Nach automatischer Neuberechnung startet die Fortschrittsanzeige auf der neuen Route neu.
+
+Für v1.11.2 ist keine Datenbankmigration erforderlich.
