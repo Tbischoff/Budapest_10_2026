@@ -1,4 +1,4 @@
-# Budapest Map v1.11.5
+# Budapest Map v1.11.6
 
 - Tagesfilter zählen Orte und Aktivitäten gemeinsam.
 - Aktivitätsmarker folgen dem ausgewählten Reisetag.
@@ -87,3 +87,12 @@ Für v1.11.3 ist keine Datenbankmigration erforderlich.
 ## v1.11.5 – Tagesnavigation
 
 Die Navigation arbeitet die kombinierte Tagesreihenfolge aus Orten und Aktivitäten Stopp für Stopp ab. Beim Erreichen eines Zwischenstopps pausiert die Führung, zeigt den nächsten Stopp an und bietet „Weiter navigieren“ an. Normale Orte können direkt als besucht markiert werden; Aktivitäten bleiben von der Besucht-Logik getrennt. Die bestehende Testnavigation, Kartenrotation, Fortschrittsanzeige und automatische Neuberechnung bleiben erhalten.
+
+
+## v1.11.6 – Navigation stabilisieren
+
+- Zielerkennung benötigt nun zwei bestätigte GPS-Messungen und berücksichtigt die gemeldete GPS-Genauigkeit.
+- Automatisches Rerouting wird bei ungenauem GPS unterdrückt und nur ausgelöst, wenn mehrere Messungen die Abweichung bestätigen und die Entfernung zur Route nicht wieder sinkt.
+- Der zurückgelegte Routenfortschritt läuft bei kleinen GPS-Rücksprüngen nicht mehr sichtbar rückwärts.
+- Fortschritts-, Ziel- und Rerouting-Zustände werden nach jeder neuen Route sauber zurückgesetzt.
+- Keine Datenbank-/SQL-Änderung erforderlich.

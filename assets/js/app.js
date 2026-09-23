@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.11.5";
+const APP_VERSION = "v1.11.6";
 
 function syncVersionLabels() {
   document.querySelectorAll(".app-version").forEach(el => { el.textContent = APP_VERSION; });
@@ -101,10 +101,17 @@ let navigationTotalStops = 0;
 let navigationCompletedStops = 0;
 let navigationArrivalStop = null;
 let navigationPausedAtStop = false;
+let navigationArrivalSamples = 0;
+let navigationMaxProgress = 0;
+let navigationLastOffRouteDistance = null;
+let navigationMovingAwaySamples = 0;
 const NAV_OFF_ROUTE_METERS = 45;
 const NAV_OFF_ROUTE_SAMPLES = 3;
 const NAV_REROUTE_COOLDOWN_MS = 15000;
 const NAV_TARGET_REACHED_METERS = 30;
+const NAV_TARGET_REACHED_SAMPLES = 2;
+const NAV_MAX_ARRIVAL_ACCURACY = 35;
+const NAV_MAX_REROUTE_ACCURACY = 40;
 const NAV_STEP_PASS_TOLERANCE_METERS = 8;
 let routeStartMode = "planned";
 let todayRouteClickMode = "planned";
@@ -2512,8 +2519,28 @@ function navigationRouteProgress(position) {
 
 function updateTravelledRoute(position) {
   const metrics = navigationPathMetrics;
-  const progress = navigationRouteProgress(position);
-  if (!metrics || !progress) return progress;
+  const rawProgress = navigationRouteProgress(position);
+  if (!metrics || !rawProgress) return rawProgress;
+  // GPS kann einige Meter zurückspringen. Der sichtbare Navigationsfortschritt
+  // darf deshalb während derselben Route nicht rückwärts laufen.
+  navigationMaxProgress = Math.max(navigationMaxProgress || 0, rawProgress.progress || 0);
+  let progress = rawProgress;
+  if (navigationMaxProgress > rawProgress.progress + 3) {
+    let best = rawProgress;
+    for (let i = 1; i < metrics.path.length; i++) {
+      const start = metrics.cumulative[i - 1];
+      const end = metrics.cumulative[i];
+      if (navigationMaxProgress >= start && navigationMaxProgress <= end) {
+        const segmentMeters = Math.max(0.001, end - start);
+        const t = Math.max(0, Math.min(1, (navigationMaxProgress - start) / segmentMeters));
+        const a = metrics.path[i - 1], b = metrics.path[i];
+        best = { ...rawProgress, progress: navigationMaxProgress, segmentIndex: i,
+          point: { lat: a.lat + (b.lat - a.lat) * t, lng: a.lng + (b.lng - a.lng) * t } };
+        break;
+      }
+    }
+    progress = best;
+  }
   const travelledPath = metrics.path.slice(0, progress.segmentIndex);
   travelledPath.push(progress.point);
   if (!navigationTravelledPolyline) {
@@ -2613,6 +2640,10 @@ function stopNavigation(message = "Navigation beendet.") {
   navigationCompletedStops = 0;
   navigationArrivalStop = null;
   navigationPausedAtStop = false;
+  navigationArrivalSamples = 0;
+  navigationMaxProgress = 0;
+  navigationLastOffRouteDistance = null;
+  navigationMovingAwaySamples = 0;
   navigationHeadingUp = true;
   applyNavigationMapHeading(0);
   stopOrientationTracking();
@@ -2796,10 +2827,18 @@ function updateNavigationUi(position = userPosition) {
   const activeLegIndex = Number(navigationSteps[navigationStepIndex]?.legIndex) || 0;
   const activeStop = navigationTestMode ? navigationStops.at(-1) : navigationStops[Math.min(activeLegIndex, navigationStops.length - 1)];
   const activeStopDistance = distanceBetweenMeters(position, activeStop?.position);
+  const currentAccuracy = Number(window.__navigationLastAccuracy) || 0;
+  const arrivalRadius = Math.max(NAV_TARGET_REACHED_METERS, Math.min(NAV_MAX_ARRIVAL_ACCURACY, currentAccuracy || NAV_TARGET_REACHED_METERS));
 
-  if (activeStop && activeStopDistance <= NAV_TARGET_REACHED_METERS) {
-    arriveAtNavigationStop(activeStop);
-    return;
+  if (activeStop && activeStopDistance <= arrivalRadius && (!currentAccuracy || currentAccuracy <= NAV_MAX_ARRIVAL_ACCURACY)) {
+    navigationArrivalSamples += 1;
+    if (navigationArrivalSamples >= NAV_TARGET_REACHED_SAMPLES) {
+      navigationArrivalSamples = 0;
+      arriveAtNavigationStop(activeStop);
+      return;
+    }
+  } else {
+    navigationArrivalSamples = 0;
   }
 
   const stepEntry = navigationSteps[navigationStepIndex];
@@ -2885,6 +2924,10 @@ function applyNavigationRoute(route, stops, { testMode = navigationTestMode, fit
   navigationTestMode = testMode;
   navigationArrived = false;
   navigationOffRouteSamples = 0;
+  navigationArrivalSamples = 0;
+  navigationMaxProgress = 0;
+  navigationLastOffRouteDistance = null;
+  navigationMovingAwaySamples = 0;
   buildNavigationPathMetrics();
   if (userPosition) updateTravelledRoute(userPosition);
   if (fit && route.viewport) map.fitBounds(route.viewport, 55);
@@ -2919,6 +2962,7 @@ function processNavigationPosition(position) {
   const coords = position.coords;
   const next = { lat: coords.latitude, lng: coords.longitude };
   userPosition = next;
+  window.__navigationLastAccuracy = Number(coords.accuracy) || 0;
   updateNavigationGpsQuality(coords.accuracy);
   if (Number.isFinite(coords.heading) && (coords.speed == null || coords.speed > 0.3)) setNavigationHeading(coords.heading);
   if (navigationLastPosition && !Number.isFinite(coords.heading)) {
@@ -2941,10 +2985,21 @@ function processNavigationPosition(position) {
   const accuracy = Number(coords.accuracy) || 0;
   const offRouteDistance = distanceToNavigationRoute(next);
   const threshold = Math.max(NAV_OFF_ROUTE_METERS, accuracy * 1.5);
-  if (offRouteDistance > threshold) navigationOffRouteSamples += 1;
-  else navigationOffRouteSamples = 0;
-  if (navigationOffRouteSamples >= NAV_OFF_ROUTE_SAMPLES) {
+  const gpsGoodEnough = !accuracy || accuracy <= NAV_MAX_REROUTE_ACCURACY;
+  const movingAway = navigationLastOffRouteDistance == null || offRouteDistance >= navigationLastOffRouteDistance - 2;
+  if (offRouteDistance > threshold && gpsGoodEnough) {
+    navigationOffRouteSamples += 1;
+    navigationMovingAwaySamples = movingAway ? navigationMovingAwaySamples + 1 : 0;
+  } else {
     navigationOffRouteSamples = 0;
+    navigationMovingAwaySamples = 0;
+  }
+  navigationLastOffRouteDistance = offRouteDistance;
+  // Nur neu routen, wenn mehrere brauchbare GPS-Messungen die Abweichung
+  // bestätigen und wir uns nicht gerade wieder auf die Route zubewegen.
+  if (navigationOffRouteSamples >= NAV_OFF_ROUTE_SAMPLES && navigationMovingAwaySamples >= 2) {
+    navigationOffRouteSamples = 0;
+    navigationMovingAwaySamples = 0;
     rerouteNavigation();
   }
 }
@@ -2965,6 +3020,11 @@ async function computeNavigationRoute(stops, { testMode = false } = {}) {
   navigationLastDynamicZoom = null;
   navigationLastRerouteAt = 0;
   navigationLastPosition = origin;
+  navigationArrivalSamples = 0;
+  navigationMaxProgress = 0;
+  navigationLastOffRouteDistance = null;
+  navigationMovingAwaySamples = 0;
+  window.__navigationLastAccuracy = 0;
   setNavigationPanelVisible(true);
   if (isMobileLayout()) setMobileView("map");
   enableNavigationArrow();
