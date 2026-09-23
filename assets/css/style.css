@@ -2533,6 +2533,7 @@ body.agenda-dragging {
 /* v1.11.0 – In-App-Fußnavigation und lokaler Testmodus */
 .navigation-actions { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:10px; }
 .navigation-start-button { font-weight:700; }
+.navigation-start-button.navigation-stop-active { border-color:#b3261e; background:#fff4f3; color:#b3261e; }
 #navigationTestBtn.active { outline:3px solid rgba(47,98,93,.2); }
 .navigation-panel[hidden] { display:none !important; }
 .navigation-panel {

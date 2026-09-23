@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.11.6";
+const APP_VERSION = "v1.11.7";
 
 function syncVersionLabels() {
   document.querySelectorAll(".app-version").forEach(el => { el.textContent = APP_VERSION; });
@@ -105,6 +105,7 @@ let navigationArrivalSamples = 0;
 let navigationMaxProgress = 0;
 let navigationLastOffRouteDistance = null;
 let navigationMovingAwaySamples = 0;
+let navigationProgrammaticZoom = false;
 const NAV_OFF_ROUTE_METERS = 45;
 const NAV_OFF_ROUTE_SAMPLES = 3;
 const NAV_REROUTE_COOLDOWN_MS = 15000;
@@ -2624,6 +2625,7 @@ function stopNavigation(message = "Navigation beendet.") {
   if (navigationWatchId != null && navigator.geolocation) navigator.geolocation.clearWatch(navigationWatchId);
   navigationWatchId = null;
   navigationActive = false;
+  updateNavigationStartButton();
   navigationRoute = null;
   navigationSteps = [];
   navigationStepIndex = 0;
@@ -2680,13 +2682,34 @@ function remainingNavigationStops() {
   return navigationStops.slice(Math.min(leg, navigationStops.length - 1));
 }
 
+function updateNavigationStartButton() {
+  const button = document.getElementById("navigationStartBtn");
+  if (!button) return;
+  if (navigationActive) {
+    button.textContent = "✕ Navigation beenden";
+    button.classList.add("navigation-stop-active");
+    button.setAttribute("aria-pressed", "true");
+  } else {
+    button.textContent = "🧭 Navigation starten";
+    button.classList.remove("navigation-stop-active");
+    button.setAttribute("aria-pressed", "false");
+  }
+}
+
+function setNavigationZoom(zoom) {
+  if (!map || !Number.isFinite(Number(zoom))) return;
+  navigationProgrammaticZoom = true;
+  map.setZoom(Number(zoom));
+  window.setTimeout(() => { navigationProgrammaticZoom = false; }, 120);
+}
+
 function setNavigationFollowMode(enabled) {
   navigationFollowMode = Boolean(enabled);
   const button = document.getElementById("navigationRecenterBtn");
   if (button) button.hidden = navigationFollowMode;
   if (navigationFollowMode && userPosition) {
     map.panTo(userPosition);
-    if ((Number(map.getZoom()) || 0) < 17) map.setZoom(17);
+    if ((Number(map.getZoom()) || 0) < 17) setNavigationZoom(17);
   }
 }
 
@@ -2725,7 +2748,7 @@ function updateNavigationDynamicZoom(metersToManeuver) {
   else if (meters >= 500) targetZoom = 16;
   if (navigationLastDynamicZoom !== targetZoom) {
     navigationLastDynamicZoom = targetZoom;
-    map.setZoom(targetZoom);
+    setNavigationZoom(targetZoom);
   }
 }
 
@@ -3015,6 +3038,7 @@ async function computeNavigationRoute(stops, { testMode = false } = {}) {
   const route = await requestNavigationRoute(stops, origin);
   applyNavigationRoute(route, stops, { testMode, fit: true });
   navigationActive = true;
+  updateNavigationStartButton();
   navigationFollowMode = true;
   navigationHeadingUp = true;
   navigationLastDynamicZoom = null;
@@ -4958,7 +4982,10 @@ function wireControls() {
   document.getElementById("routeToggleBtn").addEventListener("click", toggleDayRoute);
   document.getElementById("routeGoogleBtn").addEventListener("click", () => openDayRouteInGoogleMaps());
   document.getElementById("routeStartMode").addEventListener("change", event => setRouteStartMode(event.target.value));
-  document.getElementById("navigationStartBtn")?.addEventListener("click", startDayNavigation);
+  document.getElementById("navigationStartBtn")?.addEventListener("click", () => {
+    if (navigationActive) stopNavigation();
+    else startDayNavigation();
+  });
   document.getElementById("navigationTestBtn")?.addEventListener("click", chooseNavigationTestTarget);
   document.getElementById("navigationStopBtn")?.addEventListener("click", () => stopNavigation());
   document.getElementById("navigationRecenterBtn")?.addEventListener("click", () => setNavigationFollowMode(true));
@@ -4967,6 +4994,13 @@ function wireControls() {
   document.getElementById("navigationContinueBtn")?.addEventListener("click", continueDayNavigation);
   map?.addListener("dragstart", () => {
     if (navigationActive) setNavigationFollowMode(false);
+  });
+  map?.addListener("zoom_changed", () => {
+    // Pinch-/Mausrad-Zoom während der Navigation soll die Karte freigeben.
+    // Automatische Zoomänderungen der Navigation lösen den Follow-Modus nicht.
+    if (navigationActive && navigationFollowMode && !navigationProgrammaticZoom) {
+      setNavigationFollowMode(false);
+    }
   });
   document.getElementById("addPlaceBtn").addEventListener("click", openAddPlaceDialog);
   document.getElementById("cancelPlaceBtn").addEventListener("click", closeAddPlaceDialog);
