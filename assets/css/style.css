@@ -2457,3 +2457,24 @@ body.agenda-dragging {
     word-break: normal;
   }
 }
+
+/* v1.10.3 – mobile Aktivitätsdialog: vertikales Scrollen wieder zulassen,
+   horizontales Überlaufen weiterhin verhindern */
+@media (max-width: 760px) {
+  .activity-dialog {
+    max-height: 88dvh;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .activity-dialog .place-form {
+    overflow-x: hidden;
+    overflow-y: visible;
+  }
+
+  .activity-dialog .dialog-actions {
+    padding-bottom: max(4px, env(safe-area-inset-bottom));
+  }
+}
