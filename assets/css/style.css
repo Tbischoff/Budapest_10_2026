@@ -2398,3 +2398,62 @@ body.agenda-dragging {
     padding-inline: 14px;
   }
 }
+
+/* v1.10.2 – Google Places Web Component strikt an mobile Dialogbreite binden */
+@media (max-width: 760px) {
+  .activity-dialog {
+    box-sizing: border-box;
+    overflow-x: hidden !important;
+  }
+
+  .activity-dialog .place-form {
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    overflow-x: hidden;
+  }
+
+  .activity-dialog .form-field {
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    overflow-x: hidden;
+  }
+
+  .activity-dialog #activityPlaceAutocomplete {
+    display: block;
+    box-sizing: border-box;
+    inline-size: 100%;
+    width: 100%;
+    max-inline-size: 100%;
+    max-width: 100%;
+    min-inline-size: 0;
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .activity-dialog #activityPlaceAutocomplete > gmp-place-autocomplete {
+    display: block !important;
+    box-sizing: border-box !important;
+    inline-size: 100% !important;
+    width: 100% !important;
+    max-inline-size: 100% !important;
+    max-width: 100% !important;
+    min-inline-size: 0 !important;
+    min-width: 0 !important;
+    overflow: hidden !important;
+  }
+
+  .activity-dialog #activityPlaceAutocomplete + .activity-place-selection,
+  .activity-dialog .form-field small {
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: normal;
+  }
+}
