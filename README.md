@@ -1,8 +1,8 @@
-# Budapest Map 2026 – v1.10.5
+# Budapest Map 2026 – v1.10.6
 
-## Routenplanung mit Aktivitäten
-- Aktivitäten werden jetzt mit ihrem Treffpunkt als echte Stopps der Tagesroute berücksichtigt.
-- Reihenfolge entspricht der gemeinsamen Drag-&-Drop-Reihenfolge aus Orten und Aktivitäten.
-- Gilt sowohl für die interne Fußroute als auch für „In Google Maps öffnen“.
-- Treffpunkte bleiben weiterhin getrennt von der normalen Orte-Liste.
-- Keine neue Supabase-/SQL-Anpassung erforderlich.
+## Routenstopp-Fix
+- Routensteuerung zählt jetzt Orte und Aktivitäten gemeinsam.
+- 1 Ort + 1 Aktivität aktiviert die Fußroute und Google Maps.
+- Treffpunkte von Aktivitäten werden als echte Routenstopps verwendet.
+- Beschriftung auf „Erster geplanter Stopp“ angepasst.
+- Keine Datenbankänderung erforderlich.

@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.10.5";
+const APP_VERSION = "v1.10.6";
 
 function syncVersionLabels() {
   document.querySelectorAll(".app-version").forEach(el => { el.textContent = APP_VERSION; });
@@ -1972,7 +1972,7 @@ function formatRouteDuration(durationMillis) {
 function routeErrorMessage(error) {
   const message = String(error?.message || error || "");
   if (/CURRENT_LOCATION_REQUIRED/i.test(message)) {
-    return "Bitte zuerst „📍 Mein Standort“ aktivieren oder als Startpunkt „Erster geplanter Ort“ auswählen.";
+    return "Bitte zuerst „📍 Mein Standort“ aktivieren oder als Startpunkt „Erster geplanter Stopp“ auswählen.";
   }
 
   if (/REQUEST_DENIED|ApiNotActivated|not activated|permission|403/i.test(message)) {
@@ -2236,10 +2236,17 @@ function updateRouteControls() {
     return;
   }
 
-  const routePlaces = getRoutePlacesForDay(day.id);
-  const enoughPlaces = routePlaces.length >= 2;
-  routeButton.disabled = !enoughPlaces || routeLoading;
-  googleButton.disabled = !enoughPlaces || routeLoading;
+  // Route eligibility must use the combined day sequence. Activities are
+  // real route stops because their Google Places meeting point has coordinates.
+  // v1.10.5 already used these stops for route calculation, but the controls
+  // still counted visit places only and therefore disabled the buttons for
+  // e.g. 1 place + 1 activity.
+  const routeStops = getRouteStopsForDay(day.id);
+  const enoughStops = routeStops.length >= 2;
+  const placeCount = routeStops.filter(stop => stop.type === "place").length;
+  const activityCount = routeStops.filter(stop => stop.type === "activity").length;
+  routeButton.disabled = !enoughStops || routeLoading;
+  googleButton.disabled = !enoughStops || routeLoading;
 
   const routeIsActive = activeRouteDay === day.id && dayRoutePolylines.length > 0;
   if (routeLoading) routeButton.textContent = "⏳ Route wird berechnet …";
@@ -2249,15 +2256,20 @@ function updateRouteControls() {
   const startLabel =
     startMode === "current"
       ? (userPosition ? "Start: aktueller Standort" : "Start: aktueller Standort (noch nicht aktiv)")
-      : "Start: erster geplanter Ort";
+      : "Start: erster geplanter Stopp";
 
-  if (!enoughPlaces) {
-    info.textContent = `${day.short}: mindestens 2 geplante Orte erforderlich.`;
+  const stopSummary = [
+    placeCount ? `${placeCount} ${placeCount === 1 ? "Ort" : "Orte"}` : "",
+    activityCount ? `${activityCount} ${activityCount === 1 ? "Aktivität" : "Aktivitäten"}` : ""
+  ].filter(Boolean).join(" · ");
+
+  if (!enoughStops) {
+    info.textContent = `${day.short}: mindestens 2 Routenstopps erforderlich (Orte oder Aktivitäten).`;
   } else if (routeIsActive && activeRouteSummary) {
     info.textContent =
-      `${day.short}: ${routePlaces.length} Orte · ${startLabel} · 🚶 ${formatRouteDistance(activeRouteSummary.distanceMeters)} · ca. ${formatRouteDuration(activeRouteSummary.durationMillis)}`;
+      `${day.short}: ${stopSummary} · ${startLabel} · 🚶 ${formatRouteDistance(activeRouteSummary.distanceMeters)} · ca. ${formatRouteDuration(activeRouteSummary.durationMillis)}`;
   } else {
-    info.textContent = `${day.short}: ${routePlaces.length} Orte · ${startLabel}.`;
+    info.textContent = `${day.short}: ${stopSummary} · ${startLabel}.`;
   }
 }
 
