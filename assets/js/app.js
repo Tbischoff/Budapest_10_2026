@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.10.4";
+const APP_VERSION = "v1.10.5";
 
 function syncVersionLabels() {
   document.querySelectorAll(".app-version").forEach(el => { el.textContent = APP_VERSION; });
@@ -1988,14 +1988,37 @@ function getSelectedTripDay() {
   return TRIP_DAYS.find(day => day.id === selectedDayFilter) || null;
 }
 
-function getRoutePlacesForDay(dayId) {
-  return getPlacesForDay(dayId)
-    .map(place => {
-      const marker = markers.get(place.id);
-      const position = getMarkerPosition(marker);
-      return position ? { place, position } : null;
+function getRouteStopsForDay(dayId) {
+  const placeStops = getPlacesForDay(dayId).map(place => {
+    const marker = markers.get(place.id);
+    const position = marker ? getMarkerPosition(marker) : normalizeLatLng({ lat: place.lat, lng: place.lng });
+    const order = Number((state.places[place.id] || {}).plannedOrder) || Number.MAX_SAFE_INTEGER;
+    return position ? { type: "place", id: place.id, name: place.name, order, position, place } : null;
+  }).filter(Boolean);
+
+  const activityStops = activities
+    .filter(activity => activity.trip_day_id === dayId)
+    .map(activity => {
+      const marker = activityMarkers.get(activity.id);
+      const position = marker ? getMarkerPosition(marker) : normalizeLatLng({ lat: activity.latitude, lng: activity.longitude });
+      const order = Number(activity.planned_order) || Number.MAX_SAFE_INTEGER;
+      return position ? {
+        type: "activity",
+        id: activity.id,
+        name: activity.name,
+        order,
+        position,
+        activity
+      } : null;
     })
     .filter(Boolean);
+
+  return [...placeStops, ...activityStops].sort((a, b) => a.order - b.order);
+}
+
+// Backwards-compatible helper for code paths that explicitly need only visit places.
+function getRoutePlacesForDay(dayId) {
+  return getRouteStopsForDay(dayId).filter(stop => stop.type === "place");
 }
 
 function clearDayRoute() {
@@ -2024,7 +2047,7 @@ function setRouteStartMode(value) {
   updateRouteControls();
 }
 
-function buildRouteRequestPoints(routePlaces) {
+function buildRouteRequestPoints(routeStops) {
   if (getRouteStartMode() === "current") {
     if (!userPosition) {
       throw new Error("CURRENT_LOCATION_REQUIRED");
@@ -2032,17 +2055,17 @@ function buildRouteRequestPoints(routePlaces) {
 
     return {
       origin: { lat: userPosition.lat, lng: userPosition.lng },
-      destination: routePlaces[routePlaces.length - 1].position,
-      intermediates: routePlaces.slice(0, -1).map(item => ({
+      destination: routeStops[routeStops.length - 1].position,
+      intermediates: routeStops.slice(0, -1).map(item => ({
         location: item.position
       }))
     };
   }
 
   return {
-    origin: routePlaces[0].position,
-    destination: routePlaces[routePlaces.length - 1].position,
-    intermediates: routePlaces.slice(1, -1).map(item => ({
+    origin: routeStops[0].position,
+    destination: routeStops[routeStops.length - 1].position,
+    intermediates: routeStops.slice(1, -1).map(item => ({
       location: item.position
     }))
   };
@@ -2056,16 +2079,16 @@ async function showDayRoute(dayId = selectedDayFilter) {
     return;
   }
 
-  const routePlaces = getRoutePlacesForDay(dayId);
+  const routeStops = getRouteStopsForDay(dayId);
 
-  if (routePlaces.length < 2) {
-    setStatus(`Für ${day.label} werden mindestens zwei geplante Orte benötigt.`);
+  if (routeStops.length < 2) {
+    setStatus(`Für ${day.label} werden mindestens zwei Routenstopps benötigt (Orte oder Aktivitäten).`);
     return;
   }
 
   // 25 intermediate waypoints + start + destination.
-  if (routePlaces.length > 27) {
-    setStatus("Eine Tagesroute kann maximal 27 Orte enthalten (Start, Ziel und bis zu 25 Zwischenstopps).");
+  if (routeStops.length > 27) {
+    setStatus("Eine Tagesroute kann maximal 27 Stopps enthalten (Orte und Aktivitäten zusammen).");
     return;
   }
 
@@ -2075,7 +2098,7 @@ async function showDayRoute(dayId = selectedDayFilter) {
 
   try {
     const Route = await ensureRoutesLibrary();
-    const { origin, destination, intermediates } = buildRouteRequestPoints(routePlaces);
+    const { origin, destination, intermediates } = buildRouteRequestPoints(routeStops);
 
     const request = {
       origin,
@@ -2105,7 +2128,7 @@ async function showDayRoute(dayId = selectedDayFilter) {
     activeRouteSummary = {
       distanceMeters: route.distanceMeters,
       durationMillis: route.durationMillis,
-      placeCount: routePlaces.length
+      placeCount: routeStops.length
     };
 
     if (route.path?.length) {
@@ -2157,14 +2180,14 @@ function openDayRouteInGoogleMaps(dayId = selectedDayFilter) {
     return;
   }
 
-  const routePlaces = getRoutePlacesForDay(dayId);
-  if (routePlaces.length < 2) {
-    setStatus(`Für ${day.label} werden mindestens zwei geplante Orte benötigt.`);
+  const routeStops = getRouteStopsForDay(dayId);
+  if (routeStops.length < 2) {
+    setStatus(`Für ${day.label} werden mindestens zwei Routenstopps benötigt (Orte oder Aktivitäten).`);
     return;
   }
 
   let originPosition;
-  const destinationPosition = routePlaces[routePlaces.length - 1].position;
+  const destinationPosition = routeStops[routeStops.length - 1].position;
   let waypointPositions;
 
   if (getRouteStartMode() === "current") {
@@ -2174,10 +2197,10 @@ function openDayRouteInGoogleMaps(dayId = selectedDayFilter) {
     }
 
     originPosition = { lat: userPosition.lat, lng: userPosition.lng };
-    waypointPositions = routePlaces.slice(0, -1).map(item => item.position);
+    waypointPositions = routeStops.slice(0, -1).map(item => item.position);
   } else {
-    originPosition = routePlaces[0].position;
-    waypointPositions = routePlaces.slice(1, -1).map(item => item.position);
+    originPosition = routeStops[0].position;
+    waypointPositions = routeStops.slice(1, -1).map(item => item.position);
   }
 
   const params = new URLSearchParams({

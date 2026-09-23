@@ -1,7 +1,8 @@
-Budapest Map 2026 – v1.10.4
+# Budapest Map 2026 – v1.10.5
 
-Fix:
-- Mobile Aktivitätsdialog: Google-Places-Treffpunktfeld strikt auf die verfügbare Formularbreite begrenzt.
-- Horizontales Überlaufen/Scrollen des Dialogs verhindert.
-- Erklärungstext und ausgewählter Treffpunkt umbrechen innerhalb derselben Formularbreite.
-- Keine Supabase-/SQL-Anpassung erforderlich.
+## Routenplanung mit Aktivitäten
+- Aktivitäten werden jetzt mit ihrem Treffpunkt als echte Stopps der Tagesroute berücksichtigt.
+- Reihenfolge entspricht der gemeinsamen Drag-&-Drop-Reihenfolge aus Orten und Aktivitäten.
+- Gilt sowohl für die interne Fußroute als auch für „In Google Maps öffnen“.
+- Treffpunkte bleiben weiterhin getrennt von der normalen Orte-Liste.
+- Keine neue Supabase-/SQL-Anpassung erforderlich.
