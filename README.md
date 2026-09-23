@@ -1,4 +1,4 @@
-# Budapest Map v1.11.3
+# Budapest Map v1.11.4
 
 - Tagesfilter zählen Orte und Aktivitäten gemeinsam.
 - Aktivitätsmarker folgen dem ausgewählten Reisetag.
@@ -62,6 +62,16 @@ Für v1.11.1 ist keine Datenbankmigration erforderlich.
 
 Für v1.11.2 ist keine Datenbankmigration erforderlich.
 
+
+
+## v1.11.4 – Kartenrotation-Fix
+
+- Google Map explizit auf **Vector Rendering** umgestellt; die JavaScript-`div`-Karte verwendet sonst standardmäßig Raster Rendering.
+- Heading-/Rotationssteuerung für die Karte aktiviert.
+- Navigationsrotation nutzt `moveCamera()` mit `heading`, damit parallele Kamera-Updates die Ausrichtung nicht überschreiben.
+- **„🧭 Richtung“** richtet die Karte nach der ermittelten Bewegungsrichtung aus; **„N Norden“** setzt die Karte auf 0°.
+- Konsolen-Diagnose für den tatsächlich verwendeten Rendering-Typ ergänzt.
+- Keine Datenbankmigration erforderlich.
 
 ## v1.11.3 – Orientierung in der Navigation
 

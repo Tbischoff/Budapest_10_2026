@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.11.3";
+const APP_VERSION = "v1.11.4";
 
 function syncVersionLabels() {
   document.querySelectorAll(".app-version").forEach(el => { el.textContent = APP_VERSION; });
@@ -872,9 +872,24 @@ function initMap() {
     center: CONFIG.initialCenter,
     zoom: CONFIG.initialZoom,
     mapId: CONFIG.googleMapId || "DEMO_MAP_ID",
+    // Heading/Rotation funktioniert bei einer per <div> erzeugten Google Map
+    // nur zuverlässig mit dem Vector-Renderer. Ohne diese Option verwendet
+    // Maps JavaScript standardmäßig den Raster-Renderer.
+    renderingType: google.maps.RenderingType.VECTOR,
+    headingInteractionEnabled: true,
+    tiltInteractionEnabled: false,
+    heading: 0,
+    tilt: 0,
     mapTypeControl: false,
     streetViewControl: false,
     fullscreenControl: true
+  });
+
+  // Diagnose/Fallback: Der Navigationsmodus darf Rotation nur auf einer
+  // Vector Map erwarten. getRenderingType() ist nach dem Laden verfügbar.
+  google.maps.event.addListenerOnce(map, "tilesloaded", () => {
+    const renderingType = map.getRenderingType?.();
+    console.info("Google Maps rendering type:", renderingType || "unbekannt");
   });
 
   geocoder = new google.maps.Geocoder();
@@ -2513,12 +2528,23 @@ function navigationArrowElement() {
   return arrow;
 }
 
+
+function applyNavigationMapHeading(heading) {
+  if (!map) return;
+  const value = Number(heading);
+  if (!Number.isFinite(value)) return;
+  // moveCamera ist für Vector Maps die vorgesehene Kamerasteuerung und
+  // verhindert, dass Heading durch parallele Kamera-Updates verloren geht.
+  if (typeof map.moveCamera === "function") map.moveCamera({ heading: value, tilt: 0 });
+  else if (typeof map.setHeading === "function") map.setHeading(value);
+}
+
 function setNavigationHeading(value) {
   const heading = Number(value);
   if (!Number.isFinite(heading)) return;
   navigationHeading = ((heading % 360) + 360) % 360;
   if (navigationActive && navigationFollowMode && navigationHeadingUp && map?.setHeading) {
-    map.setHeading(navigationHeading);
+    applyNavigationMapHeading(navigationHeading);
   }
   const arrow = userLocationMarker?.querySelector?.(".navigation-position-arrow");
   if (arrow) arrow.style.setProperty("--nav-heading", `${navigationHeadingUp ? 0 : navigationHeading}deg`);
@@ -2580,7 +2606,7 @@ function stopNavigation(message = "Navigation beendet.") {
   navigationLastPosition = null;
   navigationLastDynamicZoom = null;
   navigationHeadingUp = true;
-  if (map?.setHeading) map.setHeading(0);
+  applyNavigationMapHeading(0);
   stopOrientationTracking();
   clearNavigationPolylines();
   setNavigationPanelVisible(false);
@@ -2629,7 +2655,7 @@ function setNavigationHeadingMode(headingUp) {
   navigationHeadingUp = Boolean(headingUp);
   const button = document.getElementById("navigationHeadingBtn");
   if (button) button.textContent = navigationHeadingUp ? "🧭 Richtung" : "N Norden";
-  if (map?.setHeading) map.setHeading(navigationHeadingUp && Number.isFinite(navigationHeading) ? navigationHeading : 0);
+  applyNavigationMapHeading(navigationHeadingUp && Number.isFinite(navigationHeading) ? navigationHeading : 0);
   const arrow = userLocationMarker?.querySelector?.(".navigation-position-arrow");
   if (arrow && Number.isFinite(navigationHeading)) arrow.style.setProperty("--nav-heading", `${navigationHeadingUp ? 0 : navigationHeading}deg`);
 }
@@ -2817,7 +2843,7 @@ function processNavigationPosition(position) {
   updateUserLocationMarker();
   if (navigationFollowMode) {
     map.panTo(next);
-    if (navigationHeadingUp && Number.isFinite(navigationHeading) && map?.setHeading) map.setHeading(navigationHeading);
+    if (navigationHeadingUp && Number.isFinite(navigationHeading) && map?.setHeading) applyNavigationMapHeading(navigationHeading);
   }
   updateNavigationUi(next);
   if (navigationArrived || navigationRerouteInProgress) return;
