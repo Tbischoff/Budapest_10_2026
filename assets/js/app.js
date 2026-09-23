@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.10.11";
+const APP_VERSION = "v1.11.0";
 
 function syncVersionLabels() {
   document.querySelectorAll(".app-version").forEach(el => { el.textContent = APP_VERSION; });
@@ -74,6 +74,17 @@ let activeRouteDay = null;
 let RouteClass = null;
 let routeLoading = false;
 let activeRouteSummary = null;
+let navigationWatchId = null;
+let navigationActive = false;
+let navigationRoute = null;
+let navigationSteps = [];
+let navigationStepIndex = 0;
+let navigationStops = [];
+let navigationFinalTarget = null;
+let navigationTestMode = false;
+let navigationTestTarget = null;
+let navigationPickListener = null;
+let navigationPolylines = [];
 let routeStartMode = "planned";
 let todayRouteClickMode = "planned";
 let todayRouteTargetId = null;
@@ -2368,6 +2379,229 @@ function updateRouteControls() {
   }
 }
 
+
+function navLocationToLatLng(location) {
+  if (!location) return null;
+  return normalizeLatLng(location.latLng || location.location?.latLng || location);
+}
+
+function distanceBetweenMeters(a, b) {
+  const p1 = normalizeLatLng(a);
+  const p2 = normalizeLatLng(b);
+  if (!p1 || !p2) return Infinity;
+  const r = 6371000;
+  const toRad = value => value * Math.PI / 180;
+  const dLat = toRad(p2.lat - p1.lat);
+  const dLng = toRad(p2.lng - p1.lng);
+  const lat1 = toRad(p1.lat);
+  const lat2 = toRad(p2.lat);
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
+  return 2 * r * Math.asin(Math.min(1, Math.sqrt(h)));
+}
+
+function maneuverIcon(maneuver = "") {
+  const value = String(maneuver).toUpperCase();
+  if (value.includes("UTURN")) return "↩️";
+  if (value.includes("LEFT")) return "↰";
+  if (value.includes("RIGHT")) return "↱";
+  if (value.includes("ROUNDABOUT")) return "🔄";
+  if (value.includes("FERRY")) return "⛴️";
+  if (value.includes("STRAIGHT") || value.includes("DEPART")) return "⬆️";
+  return "🚶";
+}
+
+function navigationPanel() {
+  return document.getElementById("navigationPanel");
+}
+
+function setNavigationPanelVisible(visible) {
+  const panel = navigationPanel();
+  if (panel) panel.hidden = !visible;
+}
+
+function clearNavigationPolylines() {
+  navigationPolylines.forEach(polyline => polyline.setMap(null));
+  navigationPolylines = [];
+}
+
+function stopNavigation(message = "Navigation beendet.") {
+  if (navigationWatchId != null && navigator.geolocation) {
+    navigator.geolocation.clearWatch(navigationWatchId);
+  }
+  navigationWatchId = null;
+  navigationActive = false;
+  navigationRoute = null;
+  navigationSteps = [];
+  navigationStepIndex = 0;
+  navigationStops = [];
+  navigationFinalTarget = null;
+  navigationTestMode = false;
+  clearNavigationPolylines();
+  setNavigationPanelVisible(false);
+  setStatus(message);
+}
+
+function updateNavigationUi(position = userPosition) {
+  if (!navigationActive || !navigationRoute) return;
+  const instructionEl = document.getElementById("navigationInstruction");
+  const metaEl = document.getElementById("navigationMeta");
+  const progressEl = document.getElementById("navigationProgress");
+  const titleEl = document.getElementById("navigationTitle");
+  const stepEntry = navigationSteps[navigationStepIndex];
+  const step = stepEntry?.step;
+  const finalDistance = distanceBetweenMeters(position, navigationFinalTarget);
+
+  if (finalDistance <= 35) {
+    if (titleEl) titleEl.textContent = "✓ Ziel erreicht";
+    if (instructionEl) instructionEl.textContent = navigationTestMode ? "Testziel erreicht" : (navigationStops.at(-1)?.name || "Ziel erreicht");
+    if (metaEl) metaEl.textContent = "Du bist am Ziel angekommen.";
+    if (progressEl) progressEl.textContent = navigationTestMode ? "Testnavigation" : `Stopp ${navigationStops.length} von ${navigationStops.length}`;
+    return;
+  }
+
+  if (!step) return;
+  const stepEnd = navLocationToLatLng(step.endLocation);
+  const stepDistance = distanceBetweenMeters(position, stepEnd);
+  if (stepDistance <= 22 && navigationStepIndex < navigationSteps.length - 1) {
+    navigationStepIndex += 1;
+    return updateNavigationUi(position);
+  }
+
+  const currentEntry = navigationSteps[navigationStepIndex];
+  const currentStep = currentEntry?.step;
+  const currentEnd = navLocationToLatLng(currentStep?.endLocation);
+  const metersToManeuver = distanceBetweenMeters(position, currentEnd);
+  const remainingStepMeters = navigationSteps.slice(navigationStepIndex + 1).reduce((sum, item) => sum + (Number(item.step?.distanceMeters) || 0), 0);
+  const remainingMeters = (Number.isFinite(metersToManeuver) ? metersToManeuver : 0) + remainingStepMeters;
+  const legIndex = Number(currentEntry?.legIndex) || 0;
+  const targetName = navigationTestMode ? "Testziel" : (navigationStops[Math.min(legIndex, navigationStops.length - 1)]?.name || "Nächster Stopp");
+
+  if (titleEl) titleEl.textContent = `🚶 ${targetName}`;
+  if (instructionEl) instructionEl.textContent = `${maneuverIcon(currentStep?.maneuver)} ${currentStep?.instructions || "Route folgen"}`;
+  if (metaEl) metaEl.textContent = `${formatRouteDistance(metersToManeuver)} bis zum nächsten Schritt · ${formatRouteDistance(remainingMeters)} verbleibend`;
+  if (progressEl) progressEl.textContent = navigationTestMode ? "Testnavigation" : `Unterwegs zu Stopp ${Math.min(legIndex + 1, navigationStops.length)} von ${navigationStops.length}`;
+}
+
+async function getFreshCurrentPosition() {
+  if (!navigator.geolocation) throw new Error("Standortbestimmung wird von diesem Browser nicht unterstützt.");
+  return new Promise((resolve, reject) => {
+    navigator.geolocation.getCurrentPosition(position => {
+      userPosition = { lat: position.coords.latitude, lng: position.coords.longitude };
+      updateUserLocationMarker();
+      updateDistanceControls();
+      updateRouteControls();
+      resolve(userPosition);
+    }, reject, { enableHighAccuracy: true, timeout: 12000, maximumAge: 5000 });
+  });
+}
+
+async function computeNavigationRoute(stops, { testMode = false } = {}) {
+  if (!stops.length) throw new Error("Kein Navigationsziel vorhanden.");
+  const origin = await getFreshCurrentPosition();
+  const Route = await ensureRoutesLibrary();
+  const destination = stops[stops.length - 1].position;
+  const intermediates = stops.slice(0, -1).map(stop => ({ location: stop.position }));
+  const { routes } = await Route.computeRoutes({
+    origin,
+    destination,
+    intermediates,
+    travelMode: "WALKING",
+    language: "de",
+    units: google.maps.UnitSystem.METRIC,
+    fields: ["path", "legs", "distanceMeters", "durationMillis", "viewport"]
+  });
+  if (!routes?.length) throw new Error("Keine Fußroute gefunden.");
+  const route = routes[0];
+  const steps = [];
+  (route.legs || []).forEach((leg, legIndex) => {
+    (leg.steps || []).forEach(step => steps.push({ step, legIndex }));
+  });
+  if (!steps.length) throw new Error("Google hat für diese Route keine Navigationsschritte geliefert.");
+
+  clearNavigationPolylines();
+  clearRenderedRoute();
+  navigationPolylines = route.createPolylines({
+    polylineOptions: { strokeColor: "#2f625d", strokeOpacity: 0.95, strokeWeight: 7, zIndex: 20 }
+  });
+  navigationPolylines.forEach(polyline => polyline.setMap(map));
+  navigationRoute = route;
+  navigationSteps = steps;
+  navigationStepIndex = 0;
+  navigationStops = stops;
+  navigationFinalTarget = destination;
+  navigationTestMode = testMode;
+  navigationActive = true;
+  setNavigationPanelVisible(true);
+  if (isMobileLayout()) setMobileView("map");
+  if (route.viewport) map.fitBounds(route.viewport, 55);
+  updateNavigationUi(origin);
+
+  if (navigationWatchId != null) navigator.geolocation.clearWatch(navigationWatchId);
+  navigationWatchId = navigator.geolocation.watchPosition(position => {
+    userPosition = { lat: position.coords.latitude, lng: position.coords.longitude };
+    updateUserLocationMarker();
+    if (navigationActive) {
+      map.setCenter(userPosition);
+      if ((Number(map.getZoom()) || 0) < 17) map.setZoom(17);
+      updateNavigationUi(userPosition);
+    }
+  }, error => {
+    console.warn("Navigation GPS:", error);
+    setStatus("GPS-Signal für die Navigation ist momentan nicht verfügbar.");
+  }, { enableHighAccuracy: true, maximumAge: 2000, timeout: 10000 });
+}
+
+async function startDayNavigation() {
+  const day = getSelectedTripDay();
+  if (!day) {
+    setStatus("Bitte zuerst einen konkreten Reisetag auswählen.");
+    return;
+  }
+  const stops = getRouteStopsForDay(day.id);
+  if (!stops.length) {
+    setStatus(`Für ${day.label} ist noch kein Navigationsstopp geplant.`);
+    return;
+  }
+  try {
+    setStatus(`Navigation für ${day.label} wird vorbereitet …`);
+    await computeNavigationRoute(stops);
+    setStatus(`Navigation für ${day.label} gestartet.`);
+  } catch (error) {
+    console.error("Navigation:", error);
+    setStatus(`Navigation konnte nicht gestartet werden: ${error.message || error}`);
+  }
+}
+
+function cancelNavigationTestTarget() {
+  if (navigationPickListener) navigationPickListener.remove();
+  navigationPickListener = null;
+  navigationTestTarget = null;
+  document.getElementById("navigationTestBtn")?.classList.remove("active");
+}
+
+function chooseNavigationTestTarget() {
+  if (!map) return;
+  cancelNavigationTestTarget();
+  const button = document.getElementById("navigationTestBtn");
+  button?.classList.add("active");
+  setStatus("🧪 Testmodus: Tippe auf der Karte auf ein Ziel in deiner Nähe. Es wird nicht gespeichert.");
+  if (isMobileLayout()) setMobileView("map");
+  navigationPickListener = map.addListener("click", async event => {
+    const position = normalizeLatLng(event.latLng);
+    cancelNavigationTestTarget();
+    if (!position) return;
+    navigationTestTarget = position;
+    try {
+      setStatus("Testnavigation wird vorbereitet …");
+      await computeNavigationRoute([{ type: "test", id: "test-target", name: "Testziel", position }], { testMode: true });
+      setStatus("🧪 Testnavigation gestartet. Das Testziel wird nicht gespeichert.");
+    } catch (error) {
+      console.error("Testnavigation:", error);
+      setStatus(`Testnavigation konnte nicht gestartet werden: ${error.message || error}`);
+    }
+  });
+}
+
 function renderDayFilters() {
   const container = document.getElementById("dayFilters");
   if (!container) return;
@@ -4234,6 +4468,9 @@ function wireControls() {
   document.getElementById("routeToggleBtn").addEventListener("click", toggleDayRoute);
   document.getElementById("routeGoogleBtn").addEventListener("click", () => openDayRouteInGoogleMaps());
   document.getElementById("routeStartMode").addEventListener("change", event => setRouteStartMode(event.target.value));
+  document.getElementById("navigationStartBtn")?.addEventListener("click", startDayNavigation);
+  document.getElementById("navigationTestBtn")?.addEventListener("click", chooseNavigationTestTarget);
+  document.getElementById("navigationStopBtn")?.addEventListener("click", () => stopNavigation());
   document.getElementById("addPlaceBtn").addEventListener("click", openAddPlaceDialog);
   document.getElementById("cancelPlaceBtn").addEventListener("click", closeAddPlaceDialog);
   document.getElementById("cancelPlaceBtnBottom").addEventListener("click", closeAddPlaceDialog);

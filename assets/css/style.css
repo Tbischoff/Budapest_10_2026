@@ -2528,3 +2528,27 @@ body.agenda-dragging {
     padding-right: 14px;
   }
 }
+
+
+/* v1.11.0 – In-App-Fußnavigation und lokaler Testmodus */
+.navigation-actions { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:10px; }
+.navigation-start-button { font-weight:700; }
+#navigationTestBtn.active { outline:3px solid rgba(47,98,93,.2); }
+.navigation-panel[hidden] { display:none !important; }
+.navigation-panel {
+  position:absolute; z-index:45; top:76px; left:50%; transform:translateX(-50%);
+  width:min(560px, calc(100% - 32px)); box-sizing:border-box; padding:14px 16px;
+  background:rgba(255,255,255,.97); border:1px solid var(--border); border-radius:16px;
+  box-shadow:0 12px 34px rgba(20,28,31,.18); backdrop-filter:blur(8px);
+}
+.navigation-panel-head { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; }
+.navigation-eyebrow { font-size:.72rem; text-transform:uppercase; letter-spacing:.08em; opacity:.65; margin-bottom:2px; }
+.navigation-stop-button { border:0; background:transparent; font-size:1.15rem; cursor:pointer; padding:4px 7px; }
+.navigation-instruction { font-size:1.08rem; font-weight:750; line-height:1.3; margin-top:12px; }
+.navigation-meta { margin-top:7px; font-size:.9rem; }
+.navigation-progress { margin-top:6px; font-size:.8rem; opacity:.7; }
+@media (max-width:820px) {
+  .navigation-actions { grid-template-columns:1fr; }
+  .navigation-panel { top:12px; width:calc(100% - 24px); border-radius:14px; padding:12px 14px; }
+  .navigation-instruction { font-size:1rem; }
+}

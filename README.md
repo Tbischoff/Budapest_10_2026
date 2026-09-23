@@ -1,4 +1,4 @@
-# Budapest Map v1.10.11
+# Budapest Map v1.11.0
 
 - Tagesfilter zählen Orte und Aktivitäten gemeinsam.
 - Aktivitätsmarker folgen dem ausgewählten Reisetag.
@@ -17,7 +17,7 @@ Keine Supabase-/SQL-Anpassung erforderlich.
 - Der aktuelle Standort wird weiterhin nur verwendet, wenn er ausdrücklich als Routenstart gewählt wurde.
 
 
-## v1.10.11 – Einzelstopp mit aktuellem Standort
+## v1.11.0 – Einzelstopp mit aktuellem Standort
 - Bei genau einem Tagesstopp hängt die Aktion jetzt vom gewählten Startpunkt ab.
 - `Erster geplanter Stopp`: weiterhin nur `📍 Stopp anzeigen`, keine künstliche Route.
 - `Mein aktueller Standort`: `🚶 Fußroute anzeigen` berechnet die Route vom GPS-Standort zum einzelnen Stopp.
@@ -25,3 +25,15 @@ Keine Supabase-/SQL-Anpassung erforderlich.
 - Google Maps kann bei einem Stopp ebenfalls nur mit ausdrücklich gewähltem aktuellem Standort als Route geöffnet werden.
 
 Keine Supabase-/SQL-Anpassung erforderlich.
+
+
+## v1.11.0 – In-App-Fußnavigation
+
+- Navigation aus einem ausgewählten Reisetag mit Orten und Aktivitäten in der geplanten Reihenfolge.
+- Start immer am aktuellen GPS-Standort; ein einzelner Tagesstopp ist damit navigierbar.
+- Google Routes Library liefert Route, Legs und einzelne Navigationsschritte.
+- Navigationskarte folgt während der aktiven Navigation dem aktuellen Standort.
+- Anzeige von nächster Anweisung, Distanz bis zum nächsten Schritt, verbleibender Strecke und Stopp-Fortschritt.
+- Testmodus: temporäres Ziel direkt auf der Karte antippen; der Testort wird nicht in Supabase gespeichert.
+- Keine Datenbankmigration erforderlich.
+- Erste Ausbaustufe: keine automatische Neuberechnung beim Verlassen der Route und keine Sprachansagen.
