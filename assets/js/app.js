@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.11.0";
+const APP_VERSION = "v1.11.1";
 
 function syncVersionLabels() {
   document.querySelectorAll(".app-version").forEach(el => { el.textContent = APP_VERSION; });
@@ -85,6 +85,18 @@ let navigationTestMode = false;
 let navigationTestTarget = null;
 let navigationPickListener = null;
 let navigationPolylines = [];
+let navigationHeading = null;
+let navigationFollowMode = true;
+let navigationOffRouteSamples = 0;
+let navigationLastRerouteAt = 0;
+let navigationRerouteInProgress = false;
+let navigationArrived = false;
+let navigationOrientationHandler = null;
+let navigationLastPosition = null;
+const NAV_OFF_ROUTE_METERS = 45;
+const NAV_OFF_ROUTE_SAMPLES = 3;
+const NAV_REROUTE_COOLDOWN_MS = 15000;
+const NAV_TARGET_REACHED_METERS = 30;
 let routeStartMode = "planned";
 let todayRouteClickMode = "planned";
 let todayRouteTargetId = null;
@@ -2417,6 +2429,7 @@ function navigationPanel() {
 function setNavigationPanelVisible(visible) {
   const panel = navigationPanel();
   if (panel) panel.hidden = !visible;
+  document.body.classList.toggle("navigation-active", Boolean(visible));
 }
 
 function clearNavigationPolylines() {
@@ -2424,10 +2437,62 @@ function clearNavigationPolylines() {
   navigationPolylines = [];
 }
 
+function navigationArrowElement() {
+  const arrow = document.createElement("div");
+  arrow.className = "navigation-position-arrow";
+  arrow.innerHTML = '<span class="navigation-arrow-shape">▲</span>';
+  return arrow;
+}
+
+function setNavigationHeading(value) {
+  const heading = Number(value);
+  if (!Number.isFinite(heading)) return;
+  navigationHeading = ((heading % 360) + 360) % 360;
+  const arrow = userLocationMarker?.querySelector?.(".navigation-position-arrow");
+  if (arrow) arrow.style.setProperty("--nav-heading", `${navigationHeading}deg`);
+}
+
+function enableNavigationArrow() {
+  if (!userPosition || !AdvancedMarkerElement) return;
+  if (userLocationMarker) userLocationMarker.map = null;
+  const arrow = navigationArrowElement();
+  if (Number.isFinite(navigationHeading)) arrow.style.setProperty("--nav-heading", `${navigationHeading}deg`);
+  userLocationMarker = new AdvancedMarkerElement({
+    map,
+    position: normalizeLatLng(userPosition),
+    title: "Mein Standort / Bewegungsrichtung",
+    zIndex: 10000
+  });
+  userLocationMarker.append(arrow);
+}
+
+function restoreLocationMarker() {
+  if (userLocationMarker) userLocationMarker.map = null;
+  userLocationMarker = null;
+  if (userPosition) updateUserLocationMarker();
+}
+
+function startOrientationTracking() {
+  stopOrientationTracking();
+  navigationOrientationHandler = event => {
+    let heading = null;
+    if (Number.isFinite(event.webkitCompassHeading)) heading = event.webkitCompassHeading;
+    else if (event.absolute && Number.isFinite(event.alpha)) heading = 360 - event.alpha;
+    if (Number.isFinite(heading)) setNavigationHeading(heading);
+  };
+  window.addEventListener("deviceorientationabsolute", navigationOrientationHandler, true);
+  window.addEventListener("deviceorientation", navigationOrientationHandler, true);
+}
+
+function stopOrientationTracking() {
+  if (!navigationOrientationHandler) return;
+  window.removeEventListener("deviceorientationabsolute", navigationOrientationHandler, true);
+  window.removeEventListener("deviceorientation", navigationOrientationHandler, true);
+  navigationOrientationHandler = null;
+}
+
 function stopNavigation(message = "Navigation beendet.") {
-  if (navigationWatchId != null && navigator.geolocation) {
-    navigator.geolocation.clearWatch(navigationWatchId);
-  }
+  if (navigationWatchId != null && navigator.geolocation) navigator.geolocation.clearWatch(navigationWatchId);
   navigationWatchId = null;
   navigationActive = false;
   navigationRoute = null;
@@ -2436,33 +2501,91 @@ function stopNavigation(message = "Navigation beendet.") {
   navigationStops = [];
   navigationFinalTarget = null;
   navigationTestMode = false;
+  navigationFollowMode = true;
+  navigationOffRouteSamples = 0;
+  navigationRerouteInProgress = false;
+  navigationArrived = false;
+  navigationLastPosition = null;
+  stopOrientationTracking();
   clearNavigationPolylines();
   setNavigationPanelVisible(false);
+  restoreLocationMarker();
   setStatus(message);
+}
+
+function navigationRoutePath() {
+  const path = navigationRoute?.path || [];
+  return Array.from(path).map(normalizeLatLng).filter(Boolean);
+}
+
+function distancePointToSegmentMeters(point, a, b) {
+  const p = normalizeLatLng(point), p1 = normalizeLatLng(a), p2 = normalizeLatLng(b);
+  if (!p || !p1 || !p2) return Infinity;
+  const lat0 = p.lat * Math.PI / 180;
+  const mx = 111320 * Math.cos(lat0), my = 110540;
+  const px = p.lng * mx, py = p.lat * my;
+  const ax = p1.lng * mx, ay = p1.lat * my, bx = p2.lng * mx, by = p2.lat * my;
+  const dx = bx - ax, dy = by - ay;
+  const len2 = dx * dx + dy * dy;
+  const t = len2 ? Math.max(0, Math.min(1, ((px-ax)*dx + (py-ay)*dy) / len2)) : 0;
+  return Math.hypot(px - (ax + t*dx), py - (ay + t*dy));
+}
+
+function distanceToNavigationRoute(position) {
+  const path = navigationRoutePath();
+  if (path.length < 2) return Infinity;
+  let best = Infinity;
+  for (let i=1; i<path.length; i++) best = Math.min(best, distancePointToSegmentMeters(position, path[i-1], path[i]));
+  return best;
+}
+
+function currentNavigationLegIndex() {
+  return Number(navigationSteps[navigationStepIndex]?.legIndex) || 0;
+}
+
+function remainingNavigationStops() {
+  if (navigationTestMode) return navigationStops.slice(-1);
+  const leg = currentNavigationLegIndex();
+  return navigationStops.slice(Math.min(leg, navigationStops.length - 1));
+}
+
+function setNavigationFollowMode(enabled) {
+  navigationFollowMode = Boolean(enabled);
+  const button = document.getElementById("navigationRecenterBtn");
+  if (button) button.hidden = navigationFollowMode;
+  if (navigationFollowMode && userPosition) {
+    map.panTo(userPosition);
+    if ((Number(map.getZoom()) || 0) < 17) map.setZoom(17);
+  }
 }
 
 function updateNavigationUi(position = userPosition) {
   if (!navigationActive || !navigationRoute) return;
   const instructionEl = document.getElementById("navigationInstruction");
+  const iconEl = document.getElementById("navigationManeuverIcon");
+  const distanceEl = document.getElementById("navigationManeuverDistance");
   const metaEl = document.getElementById("navigationMeta");
   const progressEl = document.getElementById("navigationProgress");
   const titleEl = document.getElementById("navigationTitle");
-  const stepEntry = navigationSteps[navigationStepIndex];
-  const step = stepEntry?.step;
   const finalDistance = distanceBetweenMeters(position, navigationFinalTarget);
 
-  if (finalDistance <= 35) {
+  if (finalDistance <= NAV_TARGET_REACHED_METERS) {
+    navigationArrived = true;
     if (titleEl) titleEl.textContent = "✓ Ziel erreicht";
+    if (iconEl) iconEl.textContent = "✓";
+    if (distanceEl) distanceEl.textContent = "";
     if (instructionEl) instructionEl.textContent = navigationTestMode ? "Testziel erreicht" : (navigationStops.at(-1)?.name || "Ziel erreicht");
     if (metaEl) metaEl.textContent = "Du bist am Ziel angekommen.";
     if (progressEl) progressEl.textContent = navigationTestMode ? "Testnavigation" : `Stopp ${navigationStops.length} von ${navigationStops.length}`;
     return;
   }
 
+  const stepEntry = navigationSteps[navigationStepIndex];
+  const step = stepEntry?.step;
   if (!step) return;
   const stepEnd = navLocationToLatLng(step.endLocation);
   const stepDistance = distanceBetweenMeters(position, stepEnd);
-  if (stepDistance <= 22 && navigationStepIndex < navigationSteps.length - 1) {
+  if (stepDistance <= 24 && navigationStepIndex < navigationSteps.length - 1) {
     navigationStepIndex += 1;
     return updateNavigationUi(position);
   }
@@ -2476,10 +2599,12 @@ function updateNavigationUi(position = userPosition) {
   const legIndex = Number(currentEntry?.legIndex) || 0;
   const targetName = navigationTestMode ? "Testziel" : (navigationStops[Math.min(legIndex, navigationStops.length - 1)]?.name || "Nächster Stopp");
 
-  if (titleEl) titleEl.textContent = `🚶 ${targetName}`;
-  if (instructionEl) instructionEl.textContent = `${maneuverIcon(currentStep?.maneuver)} ${currentStep?.instructions || "Route folgen"}`;
-  if (metaEl) metaEl.textContent = `${formatRouteDistance(metersToManeuver)} bis zum nächsten Schritt · ${formatRouteDistance(remainingMeters)} verbleibend`;
-  if (progressEl) progressEl.textContent = navigationTestMode ? "Testnavigation" : `Unterwegs zu Stopp ${Math.min(legIndex + 1, navigationStops.length)} von ${navigationStops.length}`;
+  if (titleEl) titleEl.textContent = targetName;
+  if (iconEl) iconEl.textContent = maneuverIcon(currentStep?.maneuver);
+  if (distanceEl) distanceEl.textContent = formatRouteDistance(metersToManeuver);
+  if (instructionEl) instructionEl.textContent = currentStep?.instructions || "Route folgen";
+  if (metaEl) metaEl.textContent = `${formatRouteDistance(remainingMeters)} verbleibend`;
+  if (progressEl) progressEl.textContent = navigationTestMode ? "🧪 Testnavigation" : `Stopp ${Math.min(legIndex + 1, navigationStops.length)} von ${navigationStops.length}`;
 }
 
 async function getFreshCurrentPosition() {
@@ -2487,6 +2612,7 @@ async function getFreshCurrentPosition() {
   return new Promise((resolve, reject) => {
     navigator.geolocation.getCurrentPosition(position => {
       userPosition = { lat: position.coords.latitude, lng: position.coords.longitude };
+      if (Number.isFinite(position.coords.heading)) setNavigationHeading(position.coords.heading);
       updateUserLocationMarker();
       updateDistanceControls();
       updateRouteControls();
@@ -2495,9 +2621,7 @@ async function getFreshCurrentPosition() {
   });
 }
 
-async function computeNavigationRoute(stops, { testMode = false } = {}) {
-  if (!stops.length) throw new Error("Kein Navigationsziel vorhanden.");
-  const origin = await getFreshCurrentPosition();
+async function requestNavigationRoute(stops, origin) {
   const Route = await ensureRoutesLibrary();
   const destination = stops[stops.length - 1].position;
   const intermediates = stops.slice(0, -1).map(stop => ({ location: stop.position }));
@@ -2511,44 +2635,109 @@ async function computeNavigationRoute(stops, { testMode = false } = {}) {
     fields: ["path", "legs", "distanceMeters", "durationMillis", "viewport"]
   });
   if (!routes?.length) throw new Error("Keine Fußroute gefunden.");
-  const route = routes[0];
-  const steps = [];
-  (route.legs || []).forEach((leg, legIndex) => {
-    (leg.steps || []).forEach(step => steps.push({ step, legIndex }));
-  });
-  if (!steps.length) throw new Error("Google hat für diese Route keine Navigationsschritte geliefert.");
+  return routes[0];
+}
 
+function applyNavigationRoute(route, stops, { testMode = navigationTestMode, fit = false } = {}) {
+  const steps = [];
+  (route.legs || []).forEach((leg, legIndex) => (leg.steps || []).forEach(step => steps.push({ step, legIndex })));
+  if (!steps.length) throw new Error("Google hat für diese Route keine Navigationsschritte geliefert.");
   clearNavigationPolylines();
   clearRenderedRoute();
   navigationPolylines = route.createPolylines({
-    polylineOptions: { strokeColor: "#2f625d", strokeOpacity: 0.95, strokeWeight: 7, zIndex: 20 }
+    polylineOptions: { strokeColor: "#4285f4", strokeOpacity: 0.95, strokeWeight: 8, zIndex: 20 }
   });
   navigationPolylines.forEach(polyline => polyline.setMap(map));
   navigationRoute = route;
   navigationSteps = steps;
   navigationStepIndex = 0;
   navigationStops = stops;
-  navigationFinalTarget = destination;
+  navigationFinalTarget = stops.at(-1)?.position || null;
   navigationTestMode = testMode;
+  navigationArrived = false;
+  navigationOffRouteSamples = 0;
+  if (fit && route.viewport) map.fitBounds(route.viewport, 55);
+}
+
+async function rerouteNavigation() {
+  if (!navigationActive || navigationRerouteInProgress || !userPosition) return;
+  const now = Date.now();
+  if (now - navigationLastRerouteAt < NAV_REROUTE_COOLDOWN_MS) return;
+  const stops = remainingNavigationStops();
+  if (!stops.length) return;
+  navigationRerouteInProgress = true;
+  navigationLastRerouteAt = now;
+  const title = document.getElementById("navigationTitle");
+  const instruction = document.getElementById("navigationInstruction");
+  if (title) title.textContent = "Route wird neu berechnet …";
+  if (instruction) instruction.textContent = "Einen Moment bitte";
+  try {
+    const route = await requestNavigationRoute(stops, userPosition);
+    applyNavigationRoute(route, stops, { testMode: navigationTestMode });
+    setStatus("Route automatisch neu berechnet.");
+    updateNavigationUi(userPosition);
+  } catch (error) {
+    console.warn("Automatische Neuberechnung:", error);
+    setStatus("Route konnte momentan nicht neu berechnet werden.");
+  } finally {
+    navigationRerouteInProgress = false;
+  }
+}
+
+function processNavigationPosition(position) {
+  const coords = position.coords;
+  const next = { lat: coords.latitude, lng: coords.longitude };
+  userPosition = next;
+  if (Number.isFinite(coords.heading) && (coords.speed == null || coords.speed > 0.3)) setNavigationHeading(coords.heading);
+  if (navigationLastPosition && !Number.isFinite(coords.heading)) {
+    const moved = distanceBetweenMeters(navigationLastPosition, next);
+    if (moved >= 4) {
+      const a = normalizeLatLng(navigationLastPosition), b = normalizeLatLng(next);
+      const y = Math.sin((b.lng-a.lng)*Math.PI/180) * Math.cos(b.lat*Math.PI/180);
+      const x = Math.cos(a.lat*Math.PI/180)*Math.sin(b.lat*Math.PI/180)-Math.sin(a.lat*Math.PI/180)*Math.cos(b.lat*Math.PI/180)*Math.cos((b.lng-a.lng)*Math.PI/180);
+      setNavigationHeading(Math.atan2(y,x)*180/Math.PI);
+    }
+  }
+  navigationLastPosition = next;
+  updateUserLocationMarker();
+  if (navigationFollowMode) {
+    map.panTo(next);
+    if ((Number(map.getZoom()) || 0) < 17) map.setZoom(17);
+  }
+  updateNavigationUi(next);
+  if (navigationArrived || navigationRerouteInProgress) return;
+  const accuracy = Number(coords.accuracy) || 0;
+  const offRouteDistance = distanceToNavigationRoute(next);
+  const threshold = Math.max(NAV_OFF_ROUTE_METERS, accuracy * 1.5);
+  if (offRouteDistance > threshold) navigationOffRouteSamples += 1;
+  else navigationOffRouteSamples = 0;
+  if (navigationOffRouteSamples >= NAV_OFF_ROUTE_SAMPLES) {
+    navigationOffRouteSamples = 0;
+    rerouteNavigation();
+  }
+}
+
+async function computeNavigationRoute(stops, { testMode = false } = {}) {
+  if (!stops.length) throw new Error("Kein Navigationsziel vorhanden.");
+  const origin = await getFreshCurrentPosition();
+  const route = await requestNavigationRoute(stops, origin);
+  applyNavigationRoute(route, stops, { testMode, fit: true });
   navigationActive = true;
+  navigationFollowMode = true;
+  navigationLastRerouteAt = 0;
+  navigationLastPosition = origin;
   setNavigationPanelVisible(true);
   if (isMobileLayout()) setMobileView("map");
-  if (route.viewport) map.fitBounds(route.viewport, 55);
+  enableNavigationArrow();
+  startOrientationTracking();
+  setNavigationFollowMode(true);
   updateNavigationUi(origin);
 
   if (navigationWatchId != null) navigator.geolocation.clearWatch(navigationWatchId);
-  navigationWatchId = navigator.geolocation.watchPosition(position => {
-    userPosition = { lat: position.coords.latitude, lng: position.coords.longitude };
-    updateUserLocationMarker();
-    if (navigationActive) {
-      map.setCenter(userPosition);
-      if ((Number(map.getZoom()) || 0) < 17) map.setZoom(17);
-      updateNavigationUi(userPosition);
-    }
-  }, error => {
+  navigationWatchId = navigator.geolocation.watchPosition(processNavigationPosition, error => {
     console.warn("Navigation GPS:", error);
     setStatus("GPS-Signal für die Navigation ist momentan nicht verfügbar.");
-  }, { enableHighAccuracy: true, maximumAge: 2000, timeout: 10000 });
+  }, { enableHighAccuracy: true, maximumAge: 1500, timeout: 10000 });
 }
 
 async function startDayNavigation() {
@@ -4471,6 +4660,10 @@ function wireControls() {
   document.getElementById("navigationStartBtn")?.addEventListener("click", startDayNavigation);
   document.getElementById("navigationTestBtn")?.addEventListener("click", chooseNavigationTestTarget);
   document.getElementById("navigationStopBtn")?.addEventListener("click", () => stopNavigation());
+  document.getElementById("navigationRecenterBtn")?.addEventListener("click", () => setNavigationFollowMode(true));
+  map?.addListener("dragstart", () => {
+    if (navigationActive) setNavigationFollowMode(false);
+  });
   document.getElementById("addPlaceBtn").addEventListener("click", openAddPlaceDialog);
   document.getElementById("cancelPlaceBtn").addEventListener("click", closeAddPlaceDialog);
   document.getElementById("cancelPlaceBtnBottom").addEventListener("click", closeAddPlaceDialog);
