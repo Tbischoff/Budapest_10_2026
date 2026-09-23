@@ -2593,3 +2593,12 @@ body.agenda-dragging {
   .navigation-heading-button, .navigation-recenter-button { padding:7px 9px; font-size:.78rem; }
   .navigation-gps-quality { padding:5px 7px; font-size:.72rem; }
 }
+
+/* v1.11.5 Tagesnavigation: Aktionen nach Erreichen eines Stopps */
+.navigation-arrival-actions { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:10px; }
+.navigation-arrival-actions[hidden] { display:none !important; }
+.navigation-arrival-button { border-radius:12px; padding:10px 12px; font-weight:750; cursor:pointer; }
+.navigation-arrival-button.primary { border:1px solid #1769e0; background:#1769e0; color:#fff; }
+.navigation-arrival-button.secondary { border:1px solid var(--border); background:#fff; color:inherit; }
+.navigation-arrival-button:disabled { opacity:.58; cursor:default; }
+@media (max-width:700px) { .navigation-arrival-actions { grid-template-columns:1fr; } }

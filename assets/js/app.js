@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.11.4";
+const APP_VERSION = "v1.11.5";
 
 function syncVersionLabels() {
   document.querySelectorAll(".app-version").forEach(el => { el.textContent = APP_VERSION; });
@@ -97,6 +97,10 @@ let navigationOrientationHandler = null;
 let navigationLastPosition = null;
 let navigationHeadingUp = true;
 let navigationLastDynamicZoom = null;
+let navigationTotalStops = 0;
+let navigationCompletedStops = 0;
+let navigationArrivalStop = null;
+let navigationPausedAtStop = false;
 const NAV_OFF_ROUTE_METERS = 45;
 const NAV_OFF_ROUTE_SAMPLES = 3;
 const NAV_REROUTE_COOLDOWN_MS = 15000;
@@ -2605,6 +2609,10 @@ function stopNavigation(message = "Navigation beendet.") {
   navigationArrived = false;
   navigationLastPosition = null;
   navigationLastDynamicZoom = null;
+  navigationTotalStops = 0;
+  navigationCompletedStops = 0;
+  navigationArrivalStop = null;
+  navigationPausedAtStop = false;
   navigationHeadingUp = true;
   applyNavigationMapHeading(0);
   stopOrientationTracking();
@@ -2690,6 +2698,93 @@ function updateNavigationDynamicZoom(metersToManeuver) {
   }
 }
 
+function setNavigationArrivalActions(stop = null) {
+  const box = document.getElementById("navigationArrivalActions");
+  const visitedBtn = document.getElementById("navigationMarkVisitedBtn");
+  const continueBtn = document.getElementById("navigationContinueBtn");
+  if (!box) return;
+  const show = Boolean(stop) && !navigationTestMode;
+  box.hidden = !show;
+  if (!show) return;
+  const placeState = stop?.type === "place" ? ensurePlaceState(stop.id) : null;
+  if (visitedBtn) {
+    visitedBtn.hidden = stop?.type !== "place";
+    visitedBtn.disabled = Boolean(placeState?.visited);
+    visitedBtn.textContent = placeState?.visited ? "✓ Bereits besucht" : "✓ Als besucht markieren";
+  }
+  const hasNext = navigationCompletedStops < navigationTotalStops;
+  if (continueBtn) {
+    continueBtn.hidden = !hasNext;
+    const next = navigationStops[1];
+    continueBtn.textContent = next ? `🚶 Weiter zu ${next.name}` : "🚶 Weiter navigieren";
+  }
+}
+
+function arriveAtNavigationStop(stop) {
+  if (!stop || navigationPausedAtStop) return;
+  navigationPausedAtStop = true;
+  navigationArrived = true;
+  navigationArrivalStop = stop;
+  navigationCompletedStops = Math.min(navigationTotalStops, navigationCompletedStops + 1);
+  const titleEl = document.getElementById("navigationTitle");
+  const iconEl = document.getElementById("navigationManeuverIcon");
+  const distanceEl = document.getElementById("navigationManeuverDistance");
+  const instructionEl = document.getElementById("navigationInstruction");
+  const metaEl = document.getElementById("navigationMeta");
+  const progressEl = document.getElementById("navigationProgress");
+  if (titleEl) titleEl.textContent = "✓ Stopp erreicht";
+  if (iconEl) iconEl.textContent = "✓";
+  if (distanceEl) distanceEl.textContent = "";
+  if (instructionEl) instructionEl.textContent = navigationTestMode ? "Testziel erreicht" : stop.name;
+  const next = navigationStops[1];
+  if (metaEl) metaEl.textContent = navigationTestMode ? "Du bist am Testziel angekommen." : (next ? `Nächster Stopp: ${next.name}` : "Tagesroute abgeschlossen.");
+  if (progressEl) progressEl.textContent = navigationTestMode ? "🧪 Testnavigation" : `Stopp ${navigationCompletedStops} von ${navigationTotalStops}`;
+  setNavigationArrivalActions(stop);
+}
+
+function markNavigationArrivalVisited() {
+  const stop = navigationArrivalStop;
+  if (!stop || stop.type !== "place") return;
+  const item = ensurePlaceState(stop.id);
+  if (!item.visited) {
+    item.visited = true;
+    saveState();
+    applyFilters();
+  }
+  setNavigationArrivalActions(stop);
+  setStatus(`„${stop.name}“ als besucht markiert.`);
+}
+
+async function continueDayNavigation() {
+  if (!navigationPausedAtStop || navigationTestMode) return;
+  const remaining = navigationStops.slice(1);
+  if (!remaining.length) {
+    setNavigationArrivalActions(null);
+    setStatus("Tagesnavigation abgeschlossen.");
+    return;
+  }
+  try {
+    navigationPausedAtStop = false;
+    navigationArrived = false;
+    navigationArrivalStop = null;
+    setNavigationArrivalActions(null);
+    const origin = userPosition || await getFreshCurrentPosition();
+    const route = await requestNavigationRoute(remaining, origin);
+    applyNavigationRoute(route, remaining, { testMode: false });
+    navigationActive = true;
+    navigationPausedAtStop = false;
+    navigationArrived = false;
+    updateNavigationUi(origin);
+    setStatus(`Weiter zu „${remaining[0].name}“.`);
+  } catch (error) {
+    navigationPausedAtStop = true;
+    navigationArrived = true;
+    navigationArrivalStop = navigationStops[0] || null;
+    setNavigationArrivalActions(navigationArrivalStop);
+    setStatus(`Navigation konnte nicht fortgesetzt werden: ${error.message || error}`);
+  }
+}
+
 function updateNavigationUi(position = userPosition) {
   if (!navigationActive || !navigationRoute) return;
   const instructionEl = document.getElementById("navigationInstruction");
@@ -2698,16 +2793,12 @@ function updateNavigationUi(position = userPosition) {
   const metaEl = document.getElementById("navigationMeta");
   const progressEl = document.getElementById("navigationProgress");
   const titleEl = document.getElementById("navigationTitle");
-  const finalDistance = distanceBetweenMeters(position, navigationFinalTarget);
+  const activeLegIndex = Number(navigationSteps[navigationStepIndex]?.legIndex) || 0;
+  const activeStop = navigationTestMode ? navigationStops.at(-1) : navigationStops[Math.min(activeLegIndex, navigationStops.length - 1)];
+  const activeStopDistance = distanceBetweenMeters(position, activeStop?.position);
 
-  if (finalDistance <= NAV_TARGET_REACHED_METERS) {
-    navigationArrived = true;
-    if (titleEl) titleEl.textContent = "✓ Ziel erreicht";
-    if (iconEl) iconEl.textContent = "✓";
-    if (distanceEl) distanceEl.textContent = "";
-    if (instructionEl) instructionEl.textContent = navigationTestMode ? "Testziel erreicht" : (navigationStops.at(-1)?.name || "Ziel erreicht");
-    if (metaEl) metaEl.textContent = "Du bist am Ziel angekommen.";
-    if (progressEl) progressEl.textContent = navigationTestMode ? "Testnavigation" : `Stopp ${navigationStops.length} von ${navigationStops.length}`;
+  if (activeStop && activeStopDistance <= NAV_TARGET_REACHED_METERS) {
+    arriveAtNavigationStop(activeStop);
     return;
   }
 
@@ -2742,7 +2833,7 @@ function updateNavigationUi(position = userPosition) {
   if (distanceEl) distanceEl.textContent = formatRouteDistance(metersToManeuver);
   if (instructionEl) instructionEl.textContent = currentStep?.instructions || "Route folgen";
   if (metaEl) metaEl.textContent = `${formatRouteDistance(remainingMeters)} verbleibend`;
-  if (progressEl) progressEl.textContent = navigationTestMode ? "🧪 Testnavigation" : `Stopp ${Math.min(legIndex + 1, navigationStops.length)} von ${navigationStops.length}`;
+  if (progressEl) progressEl.textContent = navigationTestMode ? "🧪 Testnavigation" : `Stopp ${Math.min(navigationCompletedStops + legIndex + 1, navigationTotalStops)} von ${navigationTotalStops}`;
 }
 
 async function getFreshCurrentPosition() {
@@ -2860,6 +2951,11 @@ function processNavigationPosition(position) {
 
 async function computeNavigationRoute(stops, { testMode = false } = {}) {
   if (!stops.length) throw new Error("Kein Navigationsziel vorhanden.");
+  navigationTotalStops = stops.length;
+  navigationCompletedStops = 0;
+  navigationPausedAtStop = false;
+  navigationArrivalStop = null;
+  setNavigationArrivalActions(null);
   const origin = await getFreshCurrentPosition();
   const route = await requestNavigationRoute(stops, origin);
   applyNavigationRoute(route, stops, { testMode, fit: true });
@@ -4807,6 +4903,8 @@ function wireControls() {
   document.getElementById("navigationStopBtn")?.addEventListener("click", () => stopNavigation());
   document.getElementById("navigationRecenterBtn")?.addEventListener("click", () => setNavigationFollowMode(true));
   document.getElementById("navigationHeadingBtn")?.addEventListener("click", () => setNavigationHeadingMode(!navigationHeadingUp));
+  document.getElementById("navigationMarkVisitedBtn")?.addEventListener("click", markNavigationArrivalVisited);
+  document.getElementById("navigationContinueBtn")?.addEventListener("click", continueDayNavigation);
   map?.addListener("dragstart", () => {
     if (navigationActive) setNavigationFollowMode(false);
   });

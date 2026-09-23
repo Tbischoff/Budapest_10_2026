@@ -1,4 +1,4 @@
-# Budapest Map v1.11.4
+# Budapest Map v1.11.5
 
 - Tagesfilter zählen Orte und Aktivitäten gemeinsam.
 - Aktivitätsmarker folgen dem ausgewählten Reisetag.
@@ -64,7 +64,7 @@ Für v1.11.2 ist keine Datenbankmigration erforderlich.
 
 
 
-## v1.11.4 – Kartenrotation-Fix
+## v1.11.5 – Kartenrotation-Fix
 
 - Google Map explizit auf **Vector Rendering** umgestellt; die JavaScript-`div`-Karte verwendet sonst standardmäßig Raster Rendering.
 - Heading-/Rotationssteuerung für die Karte aktiviert.
@@ -82,3 +82,8 @@ Für v1.11.2 ist keine Datenbankmigration erforderlich.
 - Bereits zurückgelegte Strecke, automatische Neuberechnung und Testnavigation aus v1.11.2 bleiben erhalten.
 
 Für v1.11.3 ist keine Datenbankmigration erforderlich.
+
+
+## v1.11.5 – Tagesnavigation
+
+Die Navigation arbeitet die kombinierte Tagesreihenfolge aus Orten und Aktivitäten Stopp für Stopp ab. Beim Erreichen eines Zwischenstopps pausiert die Führung, zeigt den nächsten Stopp an und bietet „Weiter navigieren“ an. Normale Orte können direkt als besucht markiert werden; Aktivitäten bleiben von der Besucht-Logik getrennt. Die bestehende Testnavigation, Kartenrotation, Fortschrittsanzeige und automatische Neuberechnung bleiben erhalten.
