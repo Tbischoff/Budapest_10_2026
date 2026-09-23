@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.11.8";
+const APP_VERSION = "v1.11.9";
 
 function syncVersionLabels() {
   document.querySelectorAll(".app-version").forEach(el => { el.textContent = APP_VERSION; });
@@ -5000,8 +5000,14 @@ function wireControls() {
   const releaseNavigationFollowForMapGesture = () => {
     if (navigationActive && navigationFollowMode) setNavigationFollowMode(false);
   };
-  // dragstart greift bei normalem Panning. drag ist ein zusätzlicher Fallback
-  // für mobile Google-Maps-Renderer, die dragstart nicht immer früh melden.
+  // v1.11.9: Follow bereits beim Beginn einer echten Nutzergeste lösen.
+  // Auf mobilen Vector Maps kann der nächste GPS-Tick sonst panTo() ausführen,
+  // bevor Google Maps ein dragstart meldet. Die Listener sind bewusst passiv:
+  // wir beobachten die Geste nur und überlassen Panning/Pinch vollständig Maps.
+  const mapElement = document.getElementById("map");
+  mapElement?.addEventListener("pointerdown", releaseNavigationFollowForMapGesture, { passive: true, capture: true });
+  mapElement?.addEventListener("touchstart", releaseNavigationFollowForMapGesture, { passive: true, capture: true });
+  mapElement?.addEventListener("wheel", releaseNavigationFollowForMapGesture, { passive: true, capture: true });
   map?.addListener("dragstart", releaseNavigationFollowForMapGesture);
   map?.addListener("drag", releaseNavigationFollowForMapGesture);
   map?.addListener("zoom_changed", () => {

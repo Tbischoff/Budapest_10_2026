@@ -2603,3 +2603,13 @@ body.agenda-dragging {
 .navigation-arrival-button.secondary { border:1px solid var(--border); background:#fff; color:inherit; }
 .navigation-arrival-button:disabled { opacity:.58; cursor:default; }
 @media (max-width:700px) { .navigation-arrival-actions { grid-template-columns:1fr; } }
+
+
+/* v1.11.9 – mobile Karteninteraktion: keine App-Ebene blockiert Maps-Gesten. */
+.navigation-active #map { pointer-events: auto !important; }
+.navigation-active .map-wrap { pointer-events: auto; }
+.navigation-active .navigation-panel { pointer-events: auto; }
+@media (max-width: 820px) {
+  body.navigation-active #map { pointer-events: auto !important; }
+  body.navigation-active .mobile-scrim:not(.visible) { pointer-events: none !important; }
+}

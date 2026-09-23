@@ -1,4 +1,4 @@
-# Budapest Map v1.11.8
+# Budapest Map v1.11.9
 
 - Tagesfilter zählen Orte und Aktivitäten gemeinsam.
 - Aktivitätsmarker folgen dem ausgewählten Reisetag.
@@ -105,10 +105,17 @@ Die Navigation arbeitet die kombinierte Tagesreihenfolge aus Orten und Aktivitä
 - Automatische Zoomänderungen der Navigation werden von manuellen Zoomgesten unterschieden.
 
 
-## v1.11.8 – Map Interaction Fix
+## v1.11.9 – Map Interaction Fix
 
 - Google Maps verwendet auf Mobilgeräten explizit `gestureHandling: "greedy"`: Die Karte lässt sich während der Navigation mit einem Finger verschieben.
 - `draggable` ist explizit aktiviert.
 - Manuelles Verschieben beendet nur den Follow-Modus; GPS, Navigation, Zielerkennung und Rerouting laufen weiter.
 - `drag` dient zusätzlich zu `dragstart` als mobiler Fallback zur Erkennung manueller Kartenbewegungen.
 - `◎ Position` aktiviert den Follow-Modus anschließend wieder.
+
+
+### v1.11.9 – Map Interaction & Cache Fix
+- Mobile Kartengesten lösen den Follow-Modus bereits bei Pointer-/Touch-Beginn, ohne die Google-Maps-Geste zu blockieren.
+- GPS-Updates ziehen die Karte nach einer manuellen Interaktion nicht zurück; `◎ Position` aktiviert Follow wieder.
+- Explizite Pointer-Events-Regeln verhindern, dass inaktive App-Overlays die Karte abfangen.
+- CSS und JavaScript werden in `index.html` mit `?v=1.11.9` geladen, damit neue Releases auf Mobilgeräten nicht mit alten Cache-Dateien gemischt werden.
