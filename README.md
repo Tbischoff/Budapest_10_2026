@@ -1,4 +1,4 @@
-# Budapest Map v1.11.0
+# Budapest Map v1.11.1
 
 - Tagesfilter zählen Orte und Aktivitäten gemeinsam.
 - Aktivitätsmarker folgen dem ausgewählten Reisetag.
@@ -37,3 +37,17 @@ Keine Supabase-/SQL-Anpassung erforderlich.
 - Testmodus: temporäres Ziel direkt auf der Karte antippen; der Testort wird nicht in Supabase gespeichert.
 - Keine Datenbankmigration erforderlich.
 - Erste Ausbaustufe: keine automatische Neuberechnung beim Verlassen der Route und keine Sprachansagen.
+
+
+## v1.11.1 – Navigation für den Praxiseinsatz
+
+- kompaktere, kartenorientierte Navigationsansicht
+- Richtungspfeil für den eigenen Standort (Geräteorientierung mit GPS-Heading als Fallback)
+- automatisches Fortschalten der Navigationsschritte
+- Follow-Modus; nach manuellem Verschieben erscheint „◎ Position“
+- Zielerkennung bei ca. 30 m
+- automatische Neuberechnung nach mehreren bestätigten Abweichungen von der Route
+- GPS-Genauigkeit wird bei der Abweichungstoleranz berücksichtigt
+- Testnavigation bleibt vollständig lokal und wird nicht in Supabase gespeichert
+
+Für v1.11.1 ist keine Datenbankmigration erforderlich.
