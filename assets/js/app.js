@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.10.6";
+const APP_VERSION = "v1.10.7";
 
 function syncVersionLabels() {
   document.querySelectorAll(".app-version").forEach(el => { el.textContent = APP_VERSION; });
@@ -526,6 +526,7 @@ async function bootstrap() {
     await loadGoogleMaps();
     initMap();
     await createMarkers();
+    createActivityMarkers();
     applyFilters();
 
     suppressSupabaseSync = false;
@@ -1988,8 +1989,15 @@ function getSelectedTripDay() {
   return TRIP_DAYS.find(day => day.id === selectedDayFilter) || null;
 }
 
-function getRouteStopsForDay(dayId) {
-  const placeStops = getPlacesForDay(dayId).map(place => {
+function getRouteStopsForDay(dayDate) {
+  // Frontend days use the ISO date (2026-10-04), while trip_activities stores
+  // the UUID of trip_days. Resolve that relationship once here so agenda,
+  // markers and both route buttons all work from the same day sequence.
+  const dbDay = currentTripDays.find(day => day.day_date === dayDate || day.id === dayDate);
+  const dbDayId = dbDay?.id || null;
+  const normalizedDayDate = dbDay?.day_date || dayDate;
+
+  const placeStops = getPlacesForDay(normalizedDayDate).map(place => {
     const marker = markers.get(place.id);
     const position = marker ? getMarkerPosition(marker) : normalizeLatLng({ lat: place.lat, lng: place.lng });
     const order = Number((state.places[place.id] || {}).plannedOrder) || Number.MAX_SAFE_INTEGER;
@@ -1997,7 +2005,7 @@ function getRouteStopsForDay(dayId) {
   }).filter(Boolean);
 
   const activityStops = activities
-    .filter(activity => activity.trip_day_id === dayId)
+    .filter(activity => dbDayId && activity.trip_day_id === dbDayId)
     .map(activity => {
       const marker = activityMarkers.get(activity.id);
       const position = marker ? getMarkerPosition(marker) : normalizeLatLng({ lat: activity.latitude, lng: activity.longitude });
@@ -2047,6 +2055,24 @@ function setRouteStartMode(value) {
   updateRouteControls();
 }
 
+async function ensureRouteOriginForSingleStop() {
+  if (userPosition) return { lat: userPosition.lat, lng: userPosition.lng };
+  if (!navigator.geolocation) throw new Error("CURRENT_LOCATION_REQUIRED");
+
+  const position = await new Promise((resolve, reject) => {
+    navigator.geolocation.getCurrentPosition(resolve, reject, {
+      enableHighAccuracy: true,
+      timeout: 10000,
+      maximumAge: 60000
+    });
+  });
+  userPosition = { lat: position.coords.latitude, lng: position.coords.longitude };
+  updateUserLocationMarker();
+  updateDistanceControls();
+  applyFilters();
+  return { lat: userPosition.lat, lng: userPosition.lng };
+}
+
 function buildRouteRequestPoints(routeStops) {
   if (getRouteStartMode() === "current") {
     if (!userPosition) {
@@ -2081,8 +2107,8 @@ async function showDayRoute(dayId = selectedDayFilter) {
 
   const routeStops = getRouteStopsForDay(dayId);
 
-  if (routeStops.length < 2) {
-    setStatus(`Für ${day.label} werden mindestens zwei Routenstopps benötigt (Orte oder Aktivitäten).`);
+  if (!routeStops.length) {
+    setStatus(`Für ${day.label} ist noch kein Routenstopp geplant.`);
     return;
   }
 
@@ -2098,7 +2124,16 @@ async function showDayRoute(dayId = selectedDayFilter) {
 
   try {
     const Route = await ensureRoutesLibrary();
-    const { origin, destination, intermediates } = buildRouteRequestPoints(routeStops);
+    let routePoints;
+    if (routeStops.length === 1) {
+      // With one program point there is no planned origin. Use the current
+      // position (request it on demand) so the route is still useful.
+      const origin = await ensureRouteOriginForSingleStop();
+      routePoints = { origin, destination: routeStops[0].position, intermediates: [] };
+    } else {
+      routePoints = buildRouteRequestPoints(routeStops);
+    }
+    const { origin, destination, intermediates } = routePoints;
 
     const request = {
       origin,
@@ -2181,8 +2216,22 @@ function openDayRouteInGoogleMaps(dayId = selectedDayFilter) {
   }
 
   const routeStops = getRouteStopsForDay(dayId);
-  if (routeStops.length < 2) {
-    setStatus(`Für ${day.label} werden mindestens zwei Routenstopps benötigt (Orte oder Aktivitäten).`);
+  if (!routeStops.length) {
+    setStatus(`Für ${day.label} ist noch kein Routenstopp geplant.`);
+    return;
+  }
+
+  // A destination-only Google Maps URL lets Google Maps use the device's
+  // current/start location itself. This keeps a one-stop day navigable.
+  if (routeStops.length === 1) {
+    const destinationPosition = routeStops[0].position;
+    const params = new URLSearchParams({
+      api: "1",
+      destination: `${destinationPosition.lat},${destinationPosition.lng}`,
+      travelmode: "walking"
+    });
+    window.open(`https://www.google.com/maps/dir/?${params.toString()}`, "_blank", "noopener");
+    setStatus(`Route zu „${routeStops[0].name}“ wird in Google Maps geöffnet.`);
     return;
   }
 
@@ -2242,7 +2291,7 @@ function updateRouteControls() {
   // still counted visit places only and therefore disabled the buttons for
   // e.g. 1 place + 1 activity.
   const routeStops = getRouteStopsForDay(day.id);
-  const enoughStops = routeStops.length >= 2;
+  const enoughStops = routeStops.length >= 1;
   const placeCount = routeStops.filter(stop => stop.type === "place").length;
   const activityCount = routeStops.filter(stop => stop.type === "activity").length;
   routeButton.disabled = !enoughStops || routeLoading;
@@ -2264,7 +2313,9 @@ function updateRouteControls() {
   ].filter(Boolean).join(" · ");
 
   if (!enoughStops) {
-    info.textContent = `${day.short}: mindestens 2 Routenstopps erforderlich (Orte oder Aktivitäten).`;
+    info.textContent = `${day.short}: noch kein Routenstopp geplant (Ort oder Aktivität).`;
+  } else if (routeStops.length === 1) {
+    info.textContent = `${day.short}: ${stopSummary} · Route zum einzigen Stopp ab aktuellem Standort.`;
   } else if (routeIsActive && activeRouteSummary) {
     info.textContent =
       `${day.short}: ${stopSummary} · ${startLabel} · 🚶 ${formatRouteDistance(activeRouteSummary.distanceMeters)} · ca. ${formatRouteDuration(activeRouteSummary.durationMillis)}`;

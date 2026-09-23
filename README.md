@@ -1,8 +1,9 @@
-# Budapest Map 2026 – v1.10.6
+# Budapest Map v1.10.7
 
-## Routenstopp-Fix
-- Routensteuerung zählt jetzt Orte und Aktivitäten gemeinsam.
-- 1 Ort + 1 Aktivität aktiviert die Fußroute und Google Maps.
-- Treffpunkte von Aktivitäten werden als echte Routenstopps verwendet.
-- Beschriftung auf „Erster geplanter Stopp“ angepasst.
-- Keine Datenbankänderung erforderlich.
+Fix: Aktivitäten und Orte verwenden jetzt eine gemeinsame zentrale Routenstopp-Liste.
+- trip_day UUID/Datum-Zuordnung für Aktivitäten korrigiert
+- Aktivitätsmarker werden bereits beim initialen Kartenaufbau erstellt
+- Route ab einem einzigen Ort/Aktivität möglich
+- interne Route nutzt bei einem einzelnen Stopp den aktuellen Standort
+- Google Maps kann auch mit nur einem Ziel geöffnet werden
+- keine Datenbankänderung erforderlich
