@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.10.7";
+const APP_VERSION = "v1.10.8";
 
 function syncVersionLabels() {
   document.querySelectorAll(".app-version").forEach(el => { el.textContent = APP_VERSION; });
@@ -71,7 +71,7 @@ let PinElement = null;
 let sortByDistance = false;
 let dayRoutePolylines = [];
 let activeRouteDay = null;
-let RouteClass = null;
+let DirectionsServiceInstance = null;
 let routeLoading = false;
 let activeRouteSummary = null;
 let routeStartMode = "planned";
@@ -1934,17 +1934,47 @@ function plannedTimeEditorHtml(place, saved) {
 }
 
 
-async function ensureRoutesLibrary() {
-  if (RouteClass) return RouteClass;
+async function ensureDirectionsService() {
+  if (DirectionsServiceInstance) return DirectionsServiceInstance;
 
   const routesLibrary = await google.maps.importLibrary("routes");
-  RouteClass = routesLibrary.Route;
+  const DirectionsService = routesLibrary.DirectionsService;
 
-  if (!RouteClass) {
-    throw new Error("Google Routes Library konnte nicht geladen werden.");
+  if (!DirectionsService) {
+    throw new Error("Google Directions Service konnte nicht geladen werden.");
   }
 
-  return RouteClass;
+  DirectionsServiceInstance = new DirectionsService();
+  return DirectionsServiceInstance;
+}
+
+function directionsRouteMetrics(result) {
+  const route = result?.routes?.[0];
+  if (!route) return null;
+  const legs = route.legs || [];
+  return {
+    route,
+    distanceMeters: legs.reduce((sum, leg) => sum + (Number(leg.distance?.value) || 0), 0),
+    durationMillis: legs.reduce((sum, leg) => sum + (Number(leg.duration?.value) || 0) * 1000, 0),
+    path: route.overview_path || []
+  };
+}
+
+async function computeWalkingDirections(origin, destination, intermediates = []) {
+  const directionsService = await ensureDirectionsService();
+  const result = await directionsService.route({
+    origin,
+    destination,
+    travelMode: google.maps.TravelMode.WALKING,
+    waypoints: intermediates.map(item => ({
+      location: item?.location || item,
+      stopover: true
+    })),
+    optimizeWaypoints: false
+  });
+  const metrics = directionsRouteMetrics(result);
+  if (!metrics) throw new Error("Keine Route gefunden.");
+  return metrics;
 }
 
 function clearRenderedRoute() {
@@ -2123,7 +2153,6 @@ async function showDayRoute(dayId = selectedDayFilter) {
   setStatus(`Fußroute für ${day.label} wird berechnet …`);
 
   try {
-    const Route = await ensureRoutesLibrary();
     let routePoints;
     if (routeStops.length === 1) {
       // With one program point there is no planned origin. Use the current
@@ -2135,45 +2164,34 @@ async function showDayRoute(dayId = selectedDayFilter) {
     }
     const { origin, destination, intermediates } = routePoints;
 
-    const request = {
-      origin,
-      destination,
-      travelMode: "WALKING",
-      intermediates,
-      fields: ["path", "distanceMeters", "durationMillis"]
-    };
-
-    const { routes } = await Route.computeRoutes(request);
-    if (!routes?.length) throw new Error("Keine Route gefunden.");
-
-    const route = routes[0];
+    const computed = await computeWalkingDirections(origin, destination, intermediates);
     clearRenderedRoute();
 
-    dayRoutePolylines = route.createPolylines({
-      polylineOptions: {
-        strokeColor: "#2f625d",
-        strokeOpacity: 0.95,
-        strokeWeight: 6,
-        zIndex: 10
-      }
+    const polyline = new google.maps.Polyline({
+      path: computed.path,
+      strokeColor: "#2f625d",
+      strokeOpacity: 0.95,
+      strokeWeight: 6,
+      zIndex: 10,
+      map
     });
-    dayRoutePolylines.forEach(polyline => polyline.setMap(map));
+    dayRoutePolylines = [polyline];
 
     activeRouteDay = dayId;
     activeRouteSummary = {
-      distanceMeters: route.distanceMeters,
-      durationMillis: route.durationMillis,
+      distanceMeters: computed.distanceMeters,
+      durationMillis: computed.durationMillis,
       placeCount: routeStops.length
     };
 
-    if (route.path?.length) {
+    if (computed.path?.length) {
       const bounds = new google.maps.LatLngBounds();
-      route.path.forEach(point => bounds.extend(point));
+      computed.path.forEach(point => bounds.extend(point));
       map.fitBounds(bounds, 70);
     }
 
-    const distanceText = formatRouteDistance(route.distanceMeters);
-    const durationText = formatRouteDuration(route.durationMillis);
+    const distanceText = formatRouteDistance(computed.distanceMeters);
+    const durationText = formatRouteDuration(computed.durationMillis);
     setStatus(`Fußroute für ${day.label}: ${distanceText || "Distanz unbekannt"} · ${durationText || "Dauer unbekannt"}.`);
   } catch (error) {
     console.error("Routes API:", error);
@@ -2848,7 +2866,6 @@ async function showNextPlace() {
   setStatus(`Restliche Tagesroute ab „${nextPlace.name}“ wird berechnet …`);
 
   try {
-    const Route = await ensureRoutesLibrary();
     const plannedRoutePoints = destinations.map(item => item.position);
 
     // Build 15: "Nächster Ort" respects the route-start option selected by
@@ -2871,18 +2888,7 @@ async function showNextPlace() {
     // Segmentweise rechnen, damit die geplante Reihenfolge garantiert
     // erhalten bleibt. Nur der Startpunkt hängt von der gewählten Option ab.
     for (let i = 0; i < routePoints.length - 1; i += 1) {
-      const { routes: segmentRoutes } = await Route.computeRoutes({
-        origin: routePoints[i],
-        destination: routePoints[i + 1],
-        travelMode: "WALKING",
-        fields: ["path", "distanceMeters", "durationMillis"]
-      });
-
-      if (!segmentRoutes?.length) {
-        throw new Error("Für einen Abschnitt wurde keine Fußroute gefunden.");
-      }
-
-      const segment = segmentRoutes[0];
+      const segment = await computeWalkingDirections(routePoints[i], routePoints[i + 1]);
       routes.push(segment);
       totalDistanceMeters += segment.distanceMeters || 0;
       totalDurationMillis += segment.durationMillis || 0;
@@ -2894,18 +2900,15 @@ async function showNextPlace() {
     dayRoutePolylines = [];
 
     routes.forEach(route => {
-      const polylines = route.createPolylines({
-        polylineOptions: {
-          strokeColor: "#2f625d",
-          strokeOpacity: 0.95,
-          strokeWeight: 6,
-          zIndex: 10
-        }
+      const polyline = new google.maps.Polyline({
+        path: route.path,
+        strokeColor: "#2f625d",
+        strokeOpacity: 0.95,
+        strokeWeight: 6,
+        zIndex: 10,
+        map
       });
-      polylines.forEach(polyline => {
-        polyline.setMap(map);
-        dayRoutePolylines.push(polyline);
-      });
+      dayRoutePolylines.push(polyline);
       route.path?.forEach(point => bounds.extend(point));
     });
 
