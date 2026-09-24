@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.13.3";
+const APP_VERSION = "v1.13.4";
 
 function syncVersionLabels() {
   document.querySelectorAll(".app-version").forEach(el => { el.textContent = APP_VERSION; });

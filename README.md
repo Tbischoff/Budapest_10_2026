@@ -1,4 +1,4 @@
-# Budapest Travel Planner v1.13.3
+# Budapest Travel Planner v1.13.4
 
 ## Navigation Persistence & Wake Lock
 
