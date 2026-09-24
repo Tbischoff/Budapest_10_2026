@@ -1,67 +1,5 @@
 
-const APP_VERSION = "v1.22.13";
-
-const MOBILE_DEBUG_STORAGE_KEY = "budapestMobileDebugV1";
-function debugLog(message, detail = "") {
-  try {
-    const rows = JSON.parse(localStorage.getItem(MOBILE_DEBUG_STORAGE_KEY) || "[]");
-    rows.push({ time:new Date().toLocaleTimeString("de-DE"), message:String(message), detail:detail ? String(detail) : "" });
-    localStorage.setItem(MOBILE_DEBUG_STORAGE_KEY, JSON.stringify(rows.slice(-80)));
-  } catch {}
-  renderMobileDebug();
-}
-function clearMobileDebug() {
-  localStorage.removeItem(MOBILE_DEBUG_STORAGE_KEY);
-  renderMobileDebug();
-}
-async function collectOfflineDiagnostics() {
-  const trip = loadOfflineTripSnapshot();
-  const routes = loadOfflineDayRoutes();
-  let mapCached = false, shellCached = false;
-  try { mapCached = Boolean(await (await caches.open(OFFLINE_MAP_CACHE)).match(OFFLINE_MAP_URL)); } catch {}
-  try { shellCached = Boolean(await caches.match("./index.html")); } catch {}
-  return {
-    online:navigator.onLine,
-    version:APP_VERSION,
-    serviceWorker:Boolean(navigator.serviceWorker?.controller),
-    tripSnapshot:Boolean(trip),
-    tripSavedAt:trip?.savedAt || null,
-    places:trip?.places?.length || 0,
-    activities:trip?.activities?.length || 0,
-    weather:Boolean(loadOfflineWeatherSnapshot()),
-    savedRoutes:Object.keys(routes).length,
-    offlineMapFlag:offlineMapIsPrepared(),
-    offlineMapCached:mapCached,
-    appShellCached:shellCached,
-    mapLibre:Boolean(window.maplibregl),
-    pmtiles:Boolean(window.pmtiles),
-    supabase:Boolean(window.supabase)
-  };
-}
-async function renderMobileDebug() {
-  const box=document.getElementById("mobileDebugContent");
-  if(!box) return;
-  const d=await collectOfflineDiagnostics();
-  const rows=JSON.parse(localStorage.getItem(MOBILE_DEBUG_STORAGE_KEY)||"[]");
-  box.innerHTML=`<div class="debug-grid">
-    <span>Version</span><b>${escapeHtml(d.version)}</b>
-    <span>Netz</span><b>${d.online?"🟢 online":"🟠 offline"}</b>
-    <span>Service Worker</span><b>${d.serviceWorker?"✅":"❌"}</b>
-    <span>App-Shell Cache</span><b>${d.appShellCached?"✅":"❌"}</b>
-    <span>Reise-Snapshot</span><b>${d.tripSnapshot?"✅":"❌"} ${d.places} Orte / ${d.activities} Aktivitäten</b>
-    <span>Wetter-Cache</span><b>${d.weather?"✅":"❌"}</b>
-    <span>Routen</span><b>${d.savedRoutes}</b>
-    <span>Offline-Karte Flag</span><b>${d.offlineMapFlag?"✅":"❌"}</b>
-    <span>PMTiles im Cache</span><b>${d.offlineMapCached?"✅":"❌"}</b>
-    <span>MapLibre / PMTiles</span><b>${d.mapLibre?"✅":"❌"} / ${d.pmtiles?"✅":"❌"}</b>
-  </div><div class="debug-log">${rows.slice().reverse().map(x=>`<div><small>${escapeHtml(x.time)}</small> ${escapeHtml(x.message)}${x.detail?`<br><code>${escapeHtml(x.detail)}</code>`:""}</div>`).join("")||"<div>Noch keine Debug-Einträge.</div>"}</div>`;
-}
-function toggleMobileDebug() {
-  document.getElementById("mobileDebugPanel")?.classList.toggle("is-open");
-  renderMobileDebug();
-}
-window.addEventListener("error", e=>debugLog("JS-Fehler", e.message+" @ "+(e.filename||"")+" :"+(e.lineno||"")));
-window.addEventListener("unhandledrejection", e=>debugLog("Promise-Fehler", e.reason?.message || e.reason || "unbekannt"));
+const APP_VERSION = "v1.22.14";
 
 
 function syncVersionLabels() {
@@ -293,11 +231,9 @@ async function bootstrapAuth() {
   try {
     // Ein vorbereiteter Offline-Trip darf nicht von Supabase-Auth abhängen.
     if (navigator.onLine === false && loadOfflineTripSnapshot()) {
-      debugLog("Offline-Start: Snapshot gefunden");
       currentUser = { id: "offline", email: "offline@local" };
       document.getElementById("authGate").classList.add("is-hidden");
       await bootstrap();
-      debugLog("Offline-Start: Bootstrap abgeschlossen");
       return;
     }
     if (!window.supabase?.createClient) throw new Error("Supabase-Bibliothek konnte nicht geladen werden.");
@@ -2589,14 +2525,12 @@ async function ensureOfflineMap() {
 }
 
 async function activateOfflineMap() {
-  debugLog("Offline-Karte aktivieren");
   if (!offlineMapIsPrepared()) return false;
   const googleEl = document.getElementById("map");
   const offlineEl = document.getElementById("offlineMap");
   if (!offlineEl) return false;
   try {
     await ensureOfflineMap();
-    debugLog("Offline-Karte geladen");
     googleEl?.classList.add("map-hidden");
     offlineEl.classList.add("offline-map-active");
     syncOfflineMarkers();
@@ -2604,7 +2538,6 @@ async function activateOfflineMap() {
     return true;
   } catch (error) {
     console.warn("Offline-Karte:", error);
-    debugLog("Offline-Karte FEHLER", error?.message || error);
     return false;
   }
 }
