@@ -1,4 +1,16 @@
-# Budapest Travel Planner v1.28.0
+# Budapest Travel Planner v1.29.0
+
+## v1.29.0 – UI/UX Refresh: Heute
+
+- Die Heute-Ansicht wurde konsequent auf die Nutzung unterwegs fokussiert.
+- „Was jetzt?“ ist visuell die dominante Hauptkarte; Navigation erhält gegenüber „Auf Karte“ mehr Gewicht.
+- Allgemeines Budapest-Wetter und die komplette Reise-Wetterleiste wurden aus „Heute“ entfernt; das Wetter des aktuellen Reisetags bleibt kompakt im Tageskopf.
+- Die Tageskarte wurde deutlich verkleinert und zeigt Tag, Datum und Tageswetter auf engem Raum.
+- Die Machbarkeitskarte wird in „Heute“ nur noch bei tatsächlichen Warnungen oder Zeitkonflikten angezeigt; ein unauffälliger Tagesplan erzeugt keine zusätzliche Karte mehr.
+- „Freie Zeit nutzen“, „In meiner Nähe“ und Tagesfortschritt wurden optisch kompakter gestaltet.
+- Der Tagesfortschritt erhält eine begrenzte Timeline-Höhe und einen kürzeren „Tagesplan öffnen“-Button.
+- Abstände und Kartenradien der Heute-Ansicht wurden vereinheitlicht.
+- Keine Datenbankmigration erforderlich.
 
 ## v1.28.0 – UI/UX Refresh: Plan
 
