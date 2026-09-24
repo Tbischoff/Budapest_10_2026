@@ -118,6 +118,8 @@ const NAV_CACHED_POSITION_MAX_ACCURACY = 50;
 const NAV_SESSION_STORAGE_KEY = "budapestActiveNavigation";
 const LAST_LOCATION_STORAGE_KEY = "budapestLastKnownLocation";
 const LAST_LOCATION_MAX_AGE_MS = 30 * 60 * 1000;
+const LAST_LOCATION_STORAGE_KEY = "budapestLastKnownLocation";
+const LAST_LOCATION_MAX_AGE_MS = 30 * 60 * 1000;
 const NAV_OFF_ROUTE_METERS = 45;
 const NAV_OFF_ROUTE_SAMPLES = 3;
 const NAV_REROUTE_COOLDOWN_MS = 15000;
@@ -175,7 +177,9 @@ function storeKnownPosition(position) {
       accuracy: Number(position.coords.accuracy) || null,
       timestamp: Number(position.timestamp) || Date.now()
     }));
-  } catch (_) {}
+  } catch (error) {
+    console.debug("Standort konnte nicht lokal gespeichert werden.", error);
+  }
   return userPosition;
 }
 
@@ -186,7 +190,7 @@ function loadLastKnownLocation() {
     const timestamp = Number(saved.timestamp) || 0;
     if (!timestamp || Date.now() - timestamp > LAST_LOCATION_MAX_AGE_MS) return null;
     return saved;
-  } catch (_) {
+  } catch (error) {
     return null;
   }
 }
