@@ -1,4 +1,11 @@
-# Budapest Travel Planner v1.32.0
+# Budapest Travel Planner v1.32.1
+
+## v1.32.1 – Standort-Button ohne Überlagerung
+
+- Der mobile Standort-Button wurde nach links versetzt.
+- Dadurch überdeckt er keine native Google-Maps-Kartensteuerung mehr.
+- Position und Touch-Fläche bleiben weiterhin gut mit dem rechten Daumen erreichbar.
+- Keine Änderungen an Standort-, Karten- oder Navigationslogik.
 
 ## v1.32.0 – UI/UX Refresh: Karte
 
