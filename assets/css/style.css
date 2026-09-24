@@ -3521,3 +3521,48 @@ body.agenda-dragging {
   .desktop-places-panel .panel-title-row { margin-bottom:9px; }
   .place-card { grid-template-columns:36px minmax(0,1fr); padding:10px 11px; }
 }
+
+
+/* v1.32.0 – UI/UX Refresh: Karte */
+.map-toolbar {
+  display:flex; align-items:center; gap:7px;
+  padding:5px; border:1px solid rgba(255,255,255,.65);
+  border-radius:16px; background:rgba(255,255,255,.82);
+  box-shadow:0 8px 24px rgba(31,48,45,.13);
+  backdrop-filter:blur(14px);
+}
+.map-toolbar .floating-button {
+  display:inline-flex; align-items:center; justify-content:center; gap:6px;
+  min-height:39px; margin:0; padding:7px 10px;
+  border:0; border-radius:11px; box-shadow:none; background:transparent;
+  font-size:12px; font-weight:750;
+}
+.map-toolbar .primary-floating { background:#2f625d; color:#fff; }
+.map-toolbar-flag { font-size:15px; }
+.map-toolbar-plus { font-size:18px; line-height:1; }
+.map-fit-button { color:#5f6966; }
+
+.map-round-action svg {
+  width:23px; height:23px; fill:none; stroke:currentColor;
+  stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round;
+}
+
+@media (max-width:820px) {
+  .map-toolbar {
+    top:14px; left:50%; right:auto; transform:translateX(-50%);
+    max-width:calc(100vw - 24px); gap:3px; padding:4px;
+    border-radius:15px;
+  }
+  .map-toolbar .floating-button { min-height:38px; padding:7px 10px; font-size:11.5px; white-space:nowrap; }
+  .map-toolbar .map-add-button { padding-left:11px; padding-right:11px; }
+  .map-toolbar .map-fit-button { width:38px; padding-left:0; padding-right:0; }
+  .map-fit-label { display:none; }
+
+  .mobile-locate-fab.map-round-action {
+    display:grid; place-items:center; width:50px; height:50px;
+    padding:0; border:1px solid rgba(47,98,93,.12);
+    border-radius:50%; background:rgba(255,255,255,.96);
+    color:#2f625d; box-shadow:0 7px 20px rgba(31,48,45,.16);
+    font-size:0;
+  }
+}
