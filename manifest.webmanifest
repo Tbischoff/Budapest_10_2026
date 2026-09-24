@@ -1,0 +1,11 @@
+{
+  "name": "Budapest Travel Planner",
+  "short_name": "Budapest 2026",
+  "description": "Persönlicher Travel Planner für Budapest 2026",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f6faf9",
+  "theme_color": "#2f625d",
+  "icons": [{"src":"assets/icons/favicon.svg","sizes":"any","type":"image/svg+xml","purpose":"any"}]
+}
