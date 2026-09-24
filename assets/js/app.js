@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.22.10";
+const APP_VERSION = "v1.22.11";
 
 const MOBILE_DEBUG_STORAGE_KEY = "budapestMobileDebugV1";
 function debugLog(message, detail = "") {
@@ -2486,20 +2486,21 @@ function offlineBaseStyle() {
       { id:"buildings", type:"fill", source:"budapest", "source-layer":"buildings", minzoom:13, paint:{ "fill-color":"#e1dbd2", "fill-outline-color":"#cfc7bc" } },
       { id:"roads-casing", type:"line", source:"budapest", "source-layer":"roads", minzoom:10, layout:{"line-cap":"round","line-join":"round"}, paint:{ "line-color":"#c9c4bb", "line-width":roadCasingWidth } },
       { id:"roads", type:"line", source:"budapest", "source-layer":"roads", minzoom:10, layout:{"line-cap":"round","line-join":"round"}, paint:{ "line-color":"#ffffff", "line-width":roadWidth } },
-      { id:"road-labels", type:"symbol", source:"budapest", "source-layer":"roads", minzoom:13, layout:{
+      { id:"road-labels", type:"symbol", source:"budapest", "source-layer":"roads", minzoom:14, layout:{
           "symbol-placement":"line",
           "text-field":["coalesce",["get","name:de"],["get","name"],""],
           "text-font":["Roboto","Arial","sans-serif"],
-          "text-size":["interpolate",["linear"],["zoom"],13,10,16,13],
-          "text-letter-spacing":0.02,
-          "text-max-angle":35,
-          "text-padding":3
+          "text-size":["interpolate",["linear"],["zoom"],14,9,16,12.5,18,14],
+          "text-letter-spacing":0.01,
+          "text-max-angle":30,
+          "text-padding":8,
+          "symbol-spacing":360
         }, paint:{ "text-color":"#68645e","text-halo-color":"#ffffff","text-halo-width":2 } },
       { id:"place-labels", type:"symbol", source:"budapest", "source-layer":"places", minzoom:11, layout:{
           "text-field":["coalesce",["get","name:de"],["get","name"],""],
           "text-font":["Roboto","Arial","sans-serif"],
-          "text-size":["interpolate",["linear"],["zoom"],11,11,15,15],
-          "text-padding":4,
+          "text-size":["interpolate",["linear"],["zoom"],11,11,15,14],
+          "text-padding":8,
           "text-allow-overlap":false
         }, paint:{ "text-color":"#454b49","text-halo-color":"#f7f5ef","text-halo-width":2 } },
     ]
@@ -2540,6 +2541,17 @@ function highlightOfflineMarker(id, kind) {
   else {
     offlineMap.addSource("selected-trip-marker",{type:"geojson",data});
     offlineMap.addLayer({id:"selected-trip-marker-ring",type:"circle",source:"selected-trip-marker",paint:{"circle-radius":21,"circle-color":"rgba(0,0,0,0)","circle-stroke-color":"#f59e0b","circle-stroke-width":4}});
+    offlineMap.addLayer({id:"selected-trip-marker-label",type:"symbol",source:"selected-trip-marker",layout:{
+      "text-field":["get","name"],
+      "text-font":["Roboto","Arial","sans-serif"],
+      "text-size":13,
+      "text-anchor":"bottom",
+      "text-offset":[0,-2.1],
+      "text-max-width":18,
+      "text-padding":5,
+      "text-allow-overlap":true
+    },paint:{"text-color":"#26312f","text-halo-color":"#ffffff","text-halo-width":3}});
+
   }
 }
 
