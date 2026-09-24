@@ -1,4 +1,15 @@
-# Budapest Travel Planner v1.25.0
+# Budapest Travel Planner v1.26.0
+
+## v1.26.0 – „Freie Zeit nutzen“
+
+- Die Heute-Ansicht erkennt während der Reise freie Zeit bis zum nächsten festen Programmpunkt.
+- Berücksichtigt aktuelle Budapest-Uhrzeit, aktuellen Standort, geschätzte Gehzeiten, Öffnungszeiten und bereits besuchte Orte.
+- Ein Zwischenstopp wird nur vorgeschlagen, wenn nach Hinweg, Weiterweg und 15 Minuten Sicherheitsreserve noch mindestens 25 Minuten vor Ort bleiben.
+- Vorschläge zeigen Gehzeit vom aktuellen Standort, verfügbare Zeit am Ort und den anschließenden Weg zum nächsten Termin.
+- Ist die Zeit zu knapp, empfiehlt die App stattdessen eine späteste Aufbruchszeit zum nächsten festen Programmpunkt.
+- Geschlossene Orte werden nicht als Zwischenstopp vorgeschlagen; Orte mit unbekannter Öffnungszeit bleiben als nachrangige Option möglich.
+- Die Funktion erscheint erst während der Reise mit verfügbarem Standort; die Vorschau vor Reisebeginn bleibt unverändert.
+- Keine Datenbankmigration erforderlich.
 
 ## v1.25.0 – Machbarkeit der Tagesplanung
 
