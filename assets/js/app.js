@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.13.0";
+const APP_VERSION = "v1.13.1";
 
 function syncVersionLabels() {
   document.querySelectorAll(".app-version").forEach(el => { el.textContent = APP_VERSION; });
@@ -109,6 +109,8 @@ let navigationProgrammaticZoom = false;
 let navigationExpanded = false;
 let navigationWakeLock = null;
 let navigationResumeInProgress = false;
+let navigationPaused = false;
+let navigationOnline = navigator.onLine !== false;
 const NAV_SESSION_STORAGE_KEY = "budapestActiveNavigation";
 const NAV_OFF_ROUTE_METERS = 45;
 const NAV_OFF_ROUTE_SAMPLES = 3;
@@ -137,6 +139,9 @@ let state = loadState();
 
 document.addEventListener("DOMContentLoaded", bootstrapAuth);
 document.addEventListener("visibilitychange", handleNavigationVisibilityChange);
+window.addEventListener("online", handleNavigationOnline);
+window.addEventListener("offline", handleNavigationOffline);
+window.setTimeout(updateNavigationConnectivityUi, 0);
 window.addEventListener("pagehide", () => { if (navigationActive) saveNavigationSession(); });
 
 
@@ -2672,7 +2677,8 @@ function saveNavigationSession() {
       testMode: navigationTestMode,
       stops,
       headingUp: navigationHeadingUp,
-      expanded: navigationExpanded
+      expanded: navigationExpanded,
+      paused: navigationPaused
     }));
   } catch (error) {
     console.warn("Navigationszustand konnte nicht gespeichert werden:", error);
@@ -2693,6 +2699,7 @@ function loadNavigationSession() {
 }
 
 async function requestNavigationWakeLock() {
+  if (navigationPaused) return;
   if (!navigationActive || !navigator.wakeLock?.request || document.visibilityState !== "visible") return;
   try {
     if (navigationWakeLock && !navigationWakeLock.released) return;
@@ -2712,7 +2719,7 @@ async function releaseNavigationWakeLock() {
 }
 
 function startNavigationPositionWatch() {
-  if (!navigator.geolocation) return;
+  if (navigationPaused || !navigator.geolocation) return;
   if (navigationWatchId != null) navigator.geolocation.clearWatch(navigationWatchId);
   navigationWatchId = navigator.geolocation.watchPosition(processNavigationPosition, error => {
     console.warn("Navigation GPS:", error);
@@ -2729,6 +2736,7 @@ async function resumeNavigationSession(session = loadNavigationSession(), { anno
     const route = await requestNavigationRoute(session.stops, origin);
     applyNavigationRoute(route, session.stops, { testMode: Boolean(session.testMode), fit: true });
     navigationActive = true;
+    navigationPaused = Boolean(session.paused);
     navigationFollowMode = true;
     navigationHeadingUp = session.headingUp !== false;
     navigationLastPosition = origin;
@@ -2742,10 +2750,15 @@ async function resumeNavigationSession(session = loadNavigationSession(), { anno
     setNavigationHeadingMode(navigationHeadingUp);
     updateNavigationGpsQuality(null);
     updateNavigationUi(origin);
-    startNavigationPositionWatch();
-    await requestNavigationWakeLock();
+    updateNavigationPauseButton();
+    if (!navigationPaused) {
+      startNavigationPositionWatch();
+      await requestNavigationWakeLock();
+      setStatus("Navigation fortgesetzt · Route ab aktueller Position aktualisiert.");
+    } else {
+      setStatus("Navigation im pausierten Zustand wiederhergestellt.");
+    }
     saveNavigationSession();
-    setStatus("Navigation fortgesetzt · Route ab aktueller Position aktualisiert.");
     return true;
   } catch (error) {
     console.warn("Navigation konnte nicht fortgesetzt werden:", error);
@@ -2762,6 +2775,7 @@ async function handleNavigationVisibilityChange() {
     return;
   }
   if (navigationActive) {
+    if (navigationPaused) { saveNavigationSession(); return; }
     await requestNavigationWakeLock();
     // Browser können Geolocation-Watches im Hintergrund pausieren. Beim
     // Zurückkehren wird der Watch deshalb frisch gestartet und die Route bei
@@ -2780,6 +2794,99 @@ async function handleNavigationVisibilityChange() {
   }
 }
 
+function updateNavigationPauseButton() {
+  const button = document.getElementById("navigationPauseBtn");
+  if (!button) return;
+  button.hidden = !navigationActive;
+  button.textContent = navigationPaused ? "▶ Fortsetzen" : "⏸ Pause";
+  button.setAttribute("aria-pressed", navigationPaused ? "true" : "false");
+  document.getElementById("navigationPanel")?.classList.toggle("paused", navigationPaused);
+}
+
+function updateNavigationConnectivityUi() {
+  navigationOnline = navigator.onLine !== false;
+  const badge = document.getElementById("navigationConnectivity");
+  if (badge) {
+    badge.textContent = navigationOnline ? "● Online" : "● Offline";
+    badge.dataset.state = navigationOnline ? "online" : "offline";
+    badge.title = navigationOnline ? "Internetverbindung verfügbar" : "Keine Internetverbindung – vorhandene Route bleibt sichtbar";
+  }
+}
+
+async function pauseNavigation() {
+  if (!navigationActive || navigationPaused) return;
+  navigationPaused = true;
+  if (navigationWatchId != null && navigator.geolocation) navigator.geolocation.clearWatch(navigationWatchId);
+  navigationWatchId = null;
+  await releaseNavigationWakeLock();
+  stopOrientationTracking();
+  updateNavigationPauseButton();
+  saveNavigationSession();
+  setStatus("Navigation pausiert. Route und aktueller Stopp bleiben erhalten.");
+}
+
+async function continuePausedNavigation() {
+  if (!navigationActive || !navigationPaused) return;
+  if (!navigationOnline) {
+    setStatus("Keine Internetverbindung. Die Navigation bleibt pausiert, bis wieder eine Verbindung besteht.");
+    return;
+  }
+  try {
+    setStatus("Navigation wird fortgesetzt … Position wird aktualisiert.");
+    const origin = await getFreshCurrentPosition();
+    userPosition = origin;
+    const stops = remainingNavigationStops();
+    if (stops.length) {
+      const route = await requestNavigationRoute(stops, origin);
+      applyNavigationRoute(route, stops, { testMode: navigationTestMode });
+    }
+    navigationPaused = false;
+    navigationLastPosition = origin;
+    navigationFollowMode = true;
+    startOrientationTracking();
+    setNavigationFollowMode(true);
+    startNavigationPositionWatch();
+    await requestNavigationWakeLock();
+    updateNavigationPauseButton();
+    updateNavigationUi(origin);
+    saveNavigationSession();
+    setStatus("Navigation fortgesetzt · Route ab aktueller Position aktualisiert.");
+  } catch (error) {
+    console.warn("Navigation fortsetzen:", error);
+    setStatus(`Navigation konnte nicht fortgesetzt werden: ${error.message || error}`);
+  }
+}
+
+async function toggleNavigationPause() {
+  if (navigationPaused) await continuePausedNavigation();
+  else await pauseNavigation();
+}
+
+function handleNavigationOffline() {
+  updateNavigationConnectivityUi();
+  if (navigationActive) {
+    saveNavigationSession();
+    setStatus("Offline · Die vorhandene Route bleibt sichtbar. Neuberechnung ist erst wieder online möglich.");
+  }
+}
+
+async function handleNavigationOnline() {
+  updateNavigationConnectivityUi();
+  if (!navigationActive) return;
+  if (navigationPaused) {
+    setStatus("Wieder online · Navigation ist weiterhin pausiert.");
+    return;
+  }
+  setStatus("Wieder online · Navigation wird aktualisiert.");
+  try {
+    const position = await getFreshCurrentPosition();
+    userPosition = position;
+    await rerouteNavigation({ force: true });
+  } catch (_) {
+    setStatus("Wieder online.");
+  }
+}
+
 function stopNavigation(message = "Navigation beendet.") {
   hideNavigationSuccess();
   clearNavigationSession();
@@ -2787,7 +2894,9 @@ function stopNavigation(message = "Navigation beendet.") {
   if (navigationWatchId != null && navigator.geolocation) navigator.geolocation.clearWatch(navigationWatchId);
   navigationWatchId = null;
   navigationActive = false;
+  navigationPaused = false;
   updateNavigationStartButton();
+  updateNavigationPauseButton();
   navigationRoute = null;
   navigationSteps = [];
   navigationStepIndex = 0;
@@ -3132,6 +3241,7 @@ async function getFreshCurrentPosition() {
 }
 
 async function requestNavigationRoute(stops, origin) {
+  if (!navigationOnline) throw new Error("Keine Internetverbindung – Route kann momentan nicht berechnet werden.");
   const Route = await ensureRoutesLibrary();
   const destination = stops[stops.length - 1].position;
   const intermediates = stops.slice(0, -1).map(stop => ({ location: stop.position }));
@@ -3176,10 +3286,11 @@ function applyNavigationRoute(route, stops, { testMode = navigationTestMode, fit
   if (navigationActive) saveNavigationSession();
 }
 
-async function rerouteNavigation() {
-  if (!navigationActive || navigationRerouteInProgress || !userPosition) return;
+async function rerouteNavigation({ force = false } = {}) {
+  if (!navigationActive || navigationPaused || navigationRerouteInProgress || !userPosition) return;
+  if (!navigationOnline) { setStatus("Offline · Neuberechnung ist momentan nicht möglich."); return; }
   const now = Date.now();
-  if (now - navigationLastRerouteAt < NAV_REROUTE_COOLDOWN_MS) return;
+  if (!force && now - navigationLastRerouteAt < NAV_REROUTE_COOLDOWN_MS) return;
   const stops = remainingNavigationStops();
   if (!stops.length) return;
   navigationRerouteInProgress = true;
@@ -3202,6 +3313,7 @@ async function rerouteNavigation() {
 }
 
 function processNavigationPosition(position) {
+  if (navigationPaused) return;
   const coords = position.coords;
   const next = { lat: coords.latitude, lng: coords.longitude };
   userPosition = next;
@@ -3258,7 +3370,9 @@ async function computeNavigationRoute(stops, { testMode = false } = {}) {
   const route = await requestNavigationRoute(stops, origin);
   applyNavigationRoute(route, stops, { testMode, fit: true });
   navigationActive = true;
+  navigationPaused = false;
   updateNavigationStartButton();
+  updateNavigationPauseButton();
   navigationFollowMode = true;
   navigationHeadingUp = true;
   navigationLastDynamicZoom = null;
@@ -3277,6 +3391,7 @@ async function computeNavigationRoute(stops, { testMode = false } = {}) {
   setNavigationFollowMode(true);
   setNavigationHeadingMode(true);
   updateNavigationGpsQuality(null);
+  updateNavigationConnectivityUi();
   updateNavigationUi(origin);
 
   startNavigationPositionWatch();
@@ -5207,6 +5322,7 @@ function wireControls() {
   });
   document.getElementById("navigationTestBtn")?.addEventListener("click", chooseNavigationTestTarget);
   document.getElementById("navigationStopBtn")?.addEventListener("click", () => stopNavigation());
+  document.getElementById("navigationPauseBtn")?.addEventListener("click", toggleNavigationPause);
   document.getElementById("navigationSuccessCloseBtn")?.addEventListener("click", () => stopNavigation("Ziel erreicht – Navigation beendet."));
 document.getElementById("navigationExpandBtn")?.addEventListener("click", () => setNavigationExpanded(!navigationExpanded));
   document.getElementById("navigationRecenterBtn")?.addEventListener("click", () => setNavigationFollowMode(true));
@@ -5214,7 +5330,7 @@ document.getElementById("navigationExpandBtn")?.addEventListener("click", () => 
   document.getElementById("navigationMarkVisitedBtn")?.addEventListener("click", markNavigationArrivalVisited);
   document.getElementById("navigationContinueBtn")?.addEventListener("click", continueDayNavigation);
   const releaseNavigationFollowForMapGesture = () => {
-    if (navigationActive && navigationFollowMode) setNavigationFollowMode(false);
+    if (navigationActive && !navigationPaused && navigationFollowMode) setNavigationFollowMode(false);
   };
   // v1.11.9: Follow bereits beim Beginn einer echten Nutzergeste lösen.
   // Auf mobilen Vector Maps kann der nächste GPS-Tick sonst panTo() ausführen,
@@ -5229,7 +5345,7 @@ document.getElementById("navigationExpandBtn")?.addEventListener("click", () => 
   map?.addListener("zoom_changed", () => {
     // Pinch-/Mausrad-Zoom während der Navigation soll die Karte freigeben.
     // Automatische Zoomänderungen der Navigation lösen den Follow-Modus nicht.
-    if (navigationActive && navigationFollowMode && !navigationProgrammaticZoom) {
+    if (navigationActive && !navigationPaused && navigationFollowMode && !navigationProgrammaticZoom) {
       setNavigationFollowMode(false);
     }
   });
