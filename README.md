@@ -1,4 +1,15 @@
-# Budapest Travel Planner v1.24.1
+# Budapest Travel Planner v1.25.0
+
+## v1.25.0 – Machbarkeit der Tagesplanung
+
+- Neue automatische Machbarkeitsprüfung in der Heute-Ansicht und im vollständigen Tagesplan.
+- Prüft auf Basis der geplanten Reihenfolge, Start-/Endzeiten und geschätzten Gehzeiten, ob der nächste Programmpunkt rechtzeitig erreichbar ist.
+- Erkennt direkte zeitliche Überschneidungen und zu kurze Transferzeiten.
+- Warnt bei weniger als 15 Minuten Puffer nach dem geschätzten Fußweg.
+- Bezieht vorhandene Öffnungszeiten ein und weist auf geplante Besuche außerhalb der Öffnungszeit hin.
+- Status unterscheidet zwischen „Tagesplan wirkt machbar“, „Tagesplan ist knapp“, „Zeitkonflikte“ und „Teilweise prüfbar“.
+- Gehzeiten bleiben bewusst als konservative Schätzung gekennzeichnet; die echte Google-Navigation bleibt für die tatsächliche Route maßgeblich.
+- Keine Datenbankmigration erforderlich.
 
 ## v1.24.1 – Öffnungszeiten bei „In meiner Nähe“
 
