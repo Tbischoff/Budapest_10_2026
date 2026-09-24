@@ -1,9 +1,9 @@
-const CACHE_NAME = "budapest-travel-v1.20.0";
-const OFFLINE_MAP_CACHE = "budapest-offline-map-v1.20.0";
+const CACHE_NAME = "budapest-travel-v1.20.1";
+const OFFLINE_MAP_CACHE = "budapest-offline-map-v1.20.1";
 const APP_SHELL = ["./","./index.html","./assets/css/style.css?v=1.20.0","./assets/js/app.js?v=1.20.0","./data/places.js","./assets/icons/favicon.svg","./manifest.webmanifest?v=1.20.0",
-  "https://unpkg.com/maplibre-gl@5.7.3/dist/maplibre-gl.css",
-  "https://unpkg.com/maplibre-gl@5.7.3/dist/maplibre-gl.js",
-  "https://unpkg.com/pmtiles@4.3.0/dist/pmtiles.js"];
+  "https://cdn.jsdelivr.net/npm/maplibre-gl@5.7.3/dist/maplibre-gl.css",
+  "https://cdn.jsdelivr.net/npm/maplibre-gl@5.7.3/dist/maplibre-gl.js",
+  "https://cdn.jsdelivr.net/npm/pmtiles@4.3.0/dist/pmtiles.js"];
 self.addEventListener("install", event => { event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(APP_SHELL)).then(() => self.skipWaiting())); });
 self.addEventListener("activate", event => { event.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(key => key !== CACHE_NAME && key !== OFFLINE_MAP_CACHE).map(key => caches.delete(key)))).then(() => self.clients.claim())); });
 self.addEventListener("fetch", event => {
