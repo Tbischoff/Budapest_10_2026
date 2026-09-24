@@ -1,4 +1,4 @@
-# Budapest Travel Planner v1.21.4
+# Budapest Travel Planner v1.21.5
 
 ## Navigation Persistence & Wake Lock
 
@@ -383,3 +383,7 @@ Die Navigation arbeitet die kombinierte Tagesreihenfolge aus Orten und Aktivitä
 
 ### v1.21.4
 - Wetterabruf startet nun direkt beim normalen App-Start statt erst bei einer Supabase-Live-Aktualisierung.
+
+
+### v1.21.5
+- Race Condition beim parallelen Wetterstart behoben: Wetterdaten werden früh geladen, die Ansichten aber erst nach Initialisierung der Reisedaten gerendert.
