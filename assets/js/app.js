@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.32.2";
+const APP_VERSION = "v1.33.0";
 
 
 function syncVersionLabels() {
@@ -4183,8 +4183,8 @@ function renderDayFilters() {
   const container = document.getElementById("dayFilters");
   if (!container) return;
 
+  if (selectedDayFilter === "all") selectedDayFilter = TRIP_DAYS[0]?.id || "unplanned";
   const buttons = [
-    { id: "all", label: "Alle" },
     ...TRIP_DAYS.map(day => ({ id: day.id, label: day.short })),
     { id: "unplanned", label: "Noch offen" }
   ];
@@ -4252,9 +4252,7 @@ function updateDayCounts() {
 
   document.querySelectorAll(".day-filter-button").forEach(button => {
     const id = button.dataset.day;
-    if (id === "all") {
-      button.textContent = `Alle (${placesData.places.length + activities.length})`;
-    } else if (id === "unplanned") {
+    if (id === "unplanned") {
       // Activities always belong to a trip day and deliberately do not belong
       // to the visit-place state "Noch offen".
       button.textContent = `Offen (${unplanned})`;
@@ -4614,7 +4612,7 @@ function analyzeDayFeasibility(dayId, stops = getRouteStopsForDay(dayId)) {
     const leg = legs[index];
     if (!leg) return;
 
-    const leave = minutesFromClock(stop.plannedEndTime || stop.plannedStartTime);
+    const leave = minutesFromClock(stop.plannedEndTime);
     const arriveBy = minutesFromClock(next.plannedStartTime);
     if (leave == null || arriveBy == null) return;
 
@@ -4631,7 +4629,9 @@ function analyzeDayFeasibility(dayId, stops = getRouteStopsForDay(dayId)) {
 
   const dangerCount = issues.filter(item => item.kind === "danger").length;
   const warningCount = issues.filter(item => item.kind === "warning").length;
-  let status = { kind: "ok", icon: "✓", title: "Tagesplan wirkt machbar", text: "Keine offensichtlichen Zeitkonflikte erkannt." };
+  let status = stops.length <= 1
+    ? { kind: "info", icon: "i", title: stops.length ? "Kein Transfer zu prüfen" : "Noch nichts zu prüfen", text: stops.length ? "Für diesen Tag ist nur ein Programmpunkt geplant." : "Für diesen Tag sind noch keine Programmpunkte geplant." }
+    : { kind: "ok", icon: "✓", title: "Tagesplan wirkt machbar", text: "Keine offensichtlichen Zeitkonflikte erkannt." };
   if (dangerCount) status = { kind: "danger", icon: "!", title: "Zeitkonflikte im Tagesplan", text: `${dangerCount} kritische ${dangerCount === 1 ? "Stelle" : "Stellen"} gefunden.` };
   else if (warningCount) status = { kind: "warning", icon: "!", title: "Tagesplan ist knapp", text: `${warningCount} ${warningCount === 1 ? "Hinweis" : "Hinweise"} prüfen.` };
   else if (!checkedConnections && stops.length > 1) status = { kind: "info", icon: "i", title: "Teilweise prüfbar", text: "Für eine genaue Prüfung fehlen bei einigen Stopps Start- oder Endzeiten." };
@@ -4648,7 +4648,7 @@ function feasibilityCardHtml(dayId, stops) {
   return `<div class="feasibility-card ${result.status.kind}">
     <div class="feasibility-head"><span class="feasibility-icon">${result.status.icon}</span><div><strong>${escapeHtml(result.status.title)}</strong><small>${escapeHtml(result.status.text)}</small></div></div>
     ${issueHtml ? `<div class="feasibility-issues">${issueHtml}${more}</div>` : ""}
-    <div class="feasibility-note">🚶 Wege sind konservative Luftlinien-Gehzeitschätzungen. Die echte Navigation kann abweichen.</div>
+    <div class="feasibility-note">🚶 Wege sind grobe Luftlinien-Gehzeitschätzungen. Die echte Navigation kann abweichen.</div>
   </div>`;
 }
 
@@ -5186,6 +5186,7 @@ function tripStatusOverviewHtml() {
       <span>✓ <strong>${progress}%</strong> besucht</span>
     </div>
     <div class="trip-status-progress" aria-label="${progress}% der geplanten Orte besucht"><span style="width:${progress}%"></span></div>
+    <div class="trip-status-legend"><span>Machbarkeit:</span><span>🟢 gut</span><span>🟡 knapp</span><span>🔴 Konflikt</span><span>⚪ offen</span></div>
     <div class="trip-status-days">${dayRows}</div>
   </div>`;
 }
@@ -6609,7 +6610,6 @@ function wireControls() {
     event.target.value = "";
   });
   document.getElementById("todayButton")?.addEventListener("click", selectToday);
-  document.getElementById("nextPlaceButton")?.addEventListener("click", showNextPlace);
   document.getElementById("searchInput").addEventListener("input", () => {
     applyFilters();
     renderSearchSuggestions();
