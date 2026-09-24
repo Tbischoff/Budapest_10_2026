@@ -3566,3 +3566,12 @@ body.agenda-dragging {
     font-size:0;
   }
 }
+
+
+/* v1.32.1 – Standort-FAB kollisionsfrei */
+@media (max-width:820px) {
+  .mobile-locate-fab.map-round-action {
+    right:78px;
+    bottom:18px;
+  }
+}
