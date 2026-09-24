@@ -1,4 +1,4 @@
-# Budapest Travel Planner v1.18.0
+# Budapest Travel Planner v1.19.0
 
 ## Navigation Persistence & Wake Lock
 
@@ -329,3 +329,11 @@ Die Navigation arbeitet die kombinierte Tagesreihenfolge aus Orten und Aktivitä
 - Die „Was jetzt?“-Karte zeigt das Wetter zum geplanten Zeitpunkt des nächsten Programmpunkts.
 - Die Wetterabfrage läuft parallel zum übrigen App-Start und blockiert Karte oder Supabase nicht.
 - Außerhalb des verfügbaren Vorhersagezeitraums bleibt die Planung vollständig nutzbar und zeigt keine erfundenen Wetterwerte.
+
+
+## v1.19.0 – PWA & Offline-Basis
+- Web-App-Manifest und installierbare PWA-Basis.
+- Service Worker cached App-Oberfläche und zentrale lokale Assets für erneute Starts ohne Netz.
+- Sichtbarer Online-/Offline-Indikator.
+- Bereits lokal gespeicherte Planungs-, Standort- und Geocache-Daten bleiben verfügbar.
+- Google Maps, Supabase-Synchronisation, Wetter und Google Places benötigen weiterhin Internet; die Offline-Basis ersetzt diese externen Dienste nicht.
