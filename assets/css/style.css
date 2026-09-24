@@ -3186,3 +3186,19 @@ body.agenda-dragging {
 .weather-periods{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:10px}.weather-period{display:grid;gap:3px;padding:8px;border-radius:9px;background:#fff;font-size:10px}.weather-period>span:first-child{font-weight:700}.weather-period small{display:block;color:var(--muted);font-weight:400}
 @media(max-width:820px){.trip-weather-strip{grid-template-columns:repeat(5,120px);overflow-x:auto;padding-bottom:4px}.weather-periods{grid-template-columns:repeat(3,1fr)}.weather-period{padding:7px 5px}}
 
+
+
+/* v1.23.0 – Was jetzt? 2.0 */
+.what-now-status {
+  display:inline-flex; align-items:center; width:max-content; max-width:100%;
+  margin-top:10px; padding:5px 9px; border-radius:999px;
+  font-size:11px; font-weight:800;
+  background:#eef3f2; color:#53615e;
+}
+.what-now-status.urgent { background:#fff0df; color:#8a4b00; }
+.what-now-status.warning { background:#fff1e8; color:#9a4d19; }
+.what-now-status.ok { background:#eaf6ef; color:#286344; }
+.what-now-done {
+  width:100%; margin-top:8px; border:0; background:transparent;
+  color:var(--accent); font-size:12px; font-weight:800; padding:7px; cursor:pointer;
+}
