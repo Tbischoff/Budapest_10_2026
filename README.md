@@ -1,4 +1,4 @@
-# Budapest Travel Planner v1.22.8
+# Budapest Travel Planner v1.22.9
 
 ## Navigation Persistence & Wake Lock
 
@@ -442,3 +442,9 @@ Die Navigation arbeitet die kombinierte Tagesreihenfolge aus Orten und Aktivitä
 ### v1.22.8
 - MapLibre-Stylefehler in der Straßenumrandung behoben.
 - Zoomabhängige Breite der Straßenumrandung verwendet nun eine gültige top-level interpolate-Expression.
+
+
+### v1.22.9
+- Offline-Kartenstil ohne externe Glyph-Abhängigkeit stabilisiert.
+- Text-Symbol-Layer, die MapLibre-Glyphs benötigen, vorerst entfernt; damit startet die Offline-Karte wieder vollständig ohne Internet.
+- Straßen-, Wasser-, Gebäude- und Marker-Layer bleiben erhalten.
