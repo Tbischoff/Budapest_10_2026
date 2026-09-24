@@ -1,4 +1,4 @@
-# Budapest Travel Planner v1.14.9
+# Budapest Travel Planner v1.14.10
 
 ## Navigation Persistence & Wake Lock
 
@@ -259,3 +259,11 @@ Die Navigation arbeitet die kombinierte Tagesreihenfolge aus Orten und Aktivitä
 - Mehrere interne Aufrufe teilen sich denselben Maps-Ladevorgang, damit das Script nicht doppelt geladen wird.
 - Sobald die Reisedaten bereit sind, kann die bereits parallel geladene Karte sofort initialisiert und auf die zuvor ermittelte Position gesetzt werden.
 - Routes bleibt weiterhin Lazy-Loading und wird erst bei einer tatsächlichen Routenberechnung geladen.
+
+
+## v1.14.10 – Mobile Standort-Zentrierung
+- Die automatische Start-Standortabfrage wartet auf Mobilgeräten nun bis zu 10 Sekunden statt nur 2,5 Sekunden auf den ersten Fix.
+- Der erste erfolgreiche Standort-Fix zentriert die Karte beim App-Start garantiert auf den aktuellen Standort.
+- Die Zentrierung verwendet wie der funktionierende Standort-Button panTo und mindestens Zoom 14.
+- Ein nachfolgender hochgenauer GPS-Fix aktualisiert die Position im Hintergrund, ohne die Karte nach einer bereits erfolgreichen Startzentrierung erneut unnötig zu verschieben.
+- Falls die schnelle Cache-Abfrage keinen Standort liefert, übernimmt der hochgenaue GPS-Fix automatisch die erstmalige Zentrierung.
