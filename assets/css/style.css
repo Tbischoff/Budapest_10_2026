@@ -3236,3 +3236,23 @@ body.agenda-dragging {
 .today-nearby-opening.soon { color:#946300; }
 .today-nearby-opening.unknown { color:#737b79; font-weight:700; }
 .today-nearby-opening.closed { color:#a14d4d; font-weight:700; }
+
+
+/* v1.25.0 – Machbarkeit der Tagesplanung */
+.feasibility-card { margin-top:10px; padding:13px 14px; border:1px solid var(--border); border-radius:16px; background:#fff; }
+.feasibility-card.ok { border-color:#b9ddc8; background:#f5fbf7; }
+.feasibility-card.warning { border-color:#ead7a3; background:#fffaf0; }
+.feasibility-card.danger { border-color:#e5b9b9; background:#fff6f6; }
+.feasibility-card.info { border-color:#cbd8dc; background:#f6fafb; }
+.feasibility-head { display:flex; gap:10px; align-items:flex-start; }
+.feasibility-icon { flex:0 0 28px; width:28px; height:28px; display:grid; place-items:center; border-radius:50%; background:#e8f2ef; color:#315e57; font-weight:900; }
+.feasibility-card.warning .feasibility-icon { background:#fff0c9; color:#8b6200; }
+.feasibility-card.danger .feasibility-icon { background:#f8dddd; color:#9a3838; }
+.feasibility-head strong { display:block; font-size:13px; }
+.feasibility-head small { display:block; margin-top:2px; color:#68716f; font-size:11px; line-height:1.35; }
+.feasibility-issues { display:grid; gap:6px; margin-top:10px; }
+.feasibility-issue { display:grid; grid-template-columns:20px 1fr; gap:5px; font-size:11px; line-height:1.4; }
+.feasibility-issue.danger { color:#8e3434; }
+.feasibility-issue.warning { color:#7b610d; }
+.feasibility-more { margin-top:3px; font-size:11px; font-weight:700; color:#68716f; }
+.feasibility-note { margin-top:9px; padding-top:8px; border-top:1px solid rgba(0,0,0,.06); color:#7a817f; font-size:10px; line-height:1.35; }
