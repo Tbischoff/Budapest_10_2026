@@ -1,4 +1,4 @@
-# Budapest Travel Planner v1.13.1
+# Budapest Travel Planner v1.13.2
 
 ## Navigation Persistence & Wake Lock
 
@@ -163,7 +163,7 @@ Die Navigation arbeitet die kombinierte Tagesreihenfolge aus Orten und Aktivitä
 - Cache-Busting für CSS und JavaScript auf v1.12.2 aktualisiert.
 
 
-## v1.13.1 – Pause & Verbindungsstatus
+## v1.13.2 – Pause & Verbindungsstatus
 - Navigation kann pausiert und fortgesetzt werden.
 - Beim Pausieren werden GPS-Watch, Wake Lock, Karten-Follow und automatische Neuberechnung angehalten; Route und Stopp bleiben erhalten.
 - Beim Fortsetzen wird die Position neu bestimmt und die Route ab dort aktualisiert.

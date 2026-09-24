@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.13.1";
+const APP_VERSION = "v1.13.2";
 
 function syncVersionLabels() {
   document.querySelectorAll(".app-version").forEach(el => { el.textContent = APP_VERSION; });
@@ -111,6 +111,10 @@ let navigationWakeLock = null;
 let navigationResumeInProgress = false;
 let navigationPaused = false;
 let navigationOnline = navigator.onLine !== false;
+let navigationLastPositionAt = 0;
+let navigationLastAccuracy = Infinity;
+const NAV_CACHED_POSITION_MAX_AGE_MS = 20000;
+const NAV_CACHED_POSITION_MAX_ACCURACY = 50;
 const NAV_SESSION_STORAGE_KEY = "budapestActiveNavigation";
 const NAV_OFF_ROUTE_METERS = 45;
 const NAV_OFF_ROUTE_SAMPLES = 3;
@@ -2831,30 +2835,44 @@ async function continuePausedNavigation() {
     setStatus("Keine Internetverbindung. Die Navigation bleibt pausiert, bis wieder eine Verbindung besteht.");
     return;
   }
-  try {
-    setStatus("Navigation wird fortgesetzt … Position wird aktualisiert.");
-    const origin = await getFreshCurrentPosition();
-    userPosition = origin;
-    const stops = remainingNavigationStops();
-    if (stops.length) {
-      const route = await requestNavigationRoute(stops, origin);
-      applyNavigationRoute(route, stops, { testMode: navigationTestMode });
-    }
-    navigationPaused = false;
-    navigationLastPosition = origin;
-    navigationFollowMode = true;
-    startOrientationTracking();
+
+  // Sofort wieder in den aktiven Zustand wechseln. Die vorhandene Route bleibt
+  // sichtbar; GPS und eine ggf. notwendige Neuberechnung laufen im Hintergrund.
+  navigationPaused = false;
+  navigationFollowMode = true;
+  updateNavigationPauseButton();
+  startOrientationTracking();
+  startNavigationPositionWatch();
+  requestNavigationWakeLock();
+  if (userPosition) {
     setNavigationFollowMode(true);
-    startNavigationPositionWatch();
-    await requestNavigationWakeLock();
-    updateNavigationPauseButton();
-    updateNavigationUi(origin);
-    saveNavigationSession();
-    setStatus("Navigation fortgesetzt · Route ab aktueller Position aktualisiert.");
-  } catch (error) {
-    console.warn("Navigation fortsetzen:", error);
-    setStatus(`Navigation konnte nicht fortgesetzt werden: ${error.message || error}`);
+    updateNavigationUi(userPosition);
   }
+  saveNavigationSession();
+  setStatus("Navigation fortgesetzt · Position wird im Hintergrund aktualisiert …");
+
+  try {
+    const before = userPosition ? { ...userPosition } : null;
+    const origin = await getFreshCurrentPosition({ timeout: 6000, maximumAge: 12000 });
+    userPosition = origin;
+    navigationLastPosition = origin;
+    setNavigationFollowMode(true);
+    updateNavigationUi(origin);
+    const moved = before ? distanceBetweenMeters(before, origin) : Infinity;
+    const offRoute = distanceToNavigationRoute(origin);
+    if (moved > 25 || offRoute > NAV_OFF_ROUTE_METERS) {
+      await rerouteNavigation({ force: true });
+      setStatus("Navigation fortgesetzt · Route aktualisiert.");
+    } else {
+      setStatus("Navigation fortgesetzt.");
+    }
+  } catch (error) {
+    // Der laufende Watch kann trotzdem gleich eine Position liefern. Deshalb
+    // Navigation nicht erneut pausieren.
+    console.info("Positionsaktualisierung nach Fortsetzen:", error?.message || error);
+    setStatus("Navigation fortgesetzt · GPS wird weiter gesucht.");
+  }
+  saveNavigationSession();
 }
 
 async function toggleNavigationPause() {
@@ -3226,18 +3244,35 @@ function updateNavigationUi(position = userPosition) {
   if (progressEl) progressEl.textContent = navigationTestMode ? "🧪 Test" : `Stopp ${Math.min(navigationCompletedStops + legIndex + 1, navigationTotalStops)}/${navigationTotalStops}`;
 }
 
-async function getFreshCurrentPosition() {
+async function getFreshCurrentPosition({ timeout = 7000, maximumAge = 8000 } = {}) {
   if (!navigator.geolocation) throw new Error("Standortbestimmung wird von diesem Browser nicht unterstützt.");
   return new Promise((resolve, reject) => {
     navigator.geolocation.getCurrentPosition(position => {
       userPosition = { lat: position.coords.latitude, lng: position.coords.longitude };
+      navigationLastPositionAt = Date.now();
+      navigationLastAccuracy = Number(position.coords.accuracy) || Infinity;
+      window.__navigationLastAccuracy = Number(position.coords.accuracy) || 0;
       if (Number.isFinite(position.coords.heading)) setNavigationHeading(position.coords.heading);
       updateUserLocationMarker();
       updateDistanceControls();
       updateRouteControls();
       resolve(userPosition);
-    }, reject, { enableHighAccuracy: true, timeout: 12000, maximumAge: 5000 });
+    }, reject, { enableHighAccuracy: true, timeout, maximumAge });
   });
+}
+
+function getUsableCachedNavigationPosition() {
+  if (!userPosition || !navigationLastPositionAt) return null;
+  const age = Date.now() - navigationLastPositionAt;
+  if (age > NAV_CACHED_POSITION_MAX_AGE_MS) return null;
+  if (Number.isFinite(navigationLastAccuracy) && navigationLastAccuracy > NAV_CACHED_POSITION_MAX_ACCURACY) return null;
+  return { ...userPosition };
+}
+
+async function getNavigationStartPosition() {
+  const cached = getUsableCachedNavigationPosition();
+  if (cached) return { position: cached, cached: true };
+  return { position: await getFreshCurrentPosition({ timeout: 7000, maximumAge: 10000 }), cached: false };
 }
 
 async function requestNavigationRoute(stops, origin) {
@@ -3318,6 +3353,8 @@ function processNavigationPosition(position) {
   const next = { lat: coords.latitude, lng: coords.longitude };
   userPosition = next;
   window.__navigationLastAccuracy = Number(coords.accuracy) || 0;
+  navigationLastPositionAt = Date.now();
+  navigationLastAccuracy = Number(coords.accuracy) || Infinity;
   updateNavigationGpsQuality(coords.accuracy);
   if (Number.isFinite(coords.heading) && (coords.speed == null || coords.speed > 0.3)) setNavigationHeading(coords.heading);
   if (navigationLastPosition && !Number.isFinite(coords.heading)) {
@@ -3366,7 +3403,7 @@ async function computeNavigationRoute(stops, { testMode = false } = {}) {
   navigationPausedAtStop = false;
   navigationArrivalStop = null;
   setNavigationArrivalActions(null);
-  const origin = await getFreshCurrentPosition();
+  const { position: origin, cached } = await getNavigationStartPosition();
   const route = await requestNavigationRoute(stops, origin);
   applyNavigationRoute(route, stops, { testMode, fit: true });
   navigationActive = true;
@@ -3396,7 +3433,20 @@ async function computeNavigationRoute(stops, { testMode = false } = {}) {
 
   startNavigationPositionWatch();
   saveNavigationSession();
-  await requestNavigationWakeLock();
+  requestNavigationWakeLock();
+
+  // Bei einem schnellen Start mit einer frischen Cache-Position sofort die UI
+  // freigeben und die präzisere Position anschließend im Hintergrund holen.
+  if (cached) {
+    getFreshCurrentPosition({ timeout: 6000, maximumAge: 0 }).then(fresh => {
+      if (!navigationActive || navigationPaused) return;
+      const moved = distanceBetweenMeters(origin, fresh);
+      userPosition = fresh;
+      navigationLastPosition = fresh;
+      updateNavigationUi(fresh);
+      if (moved > 25 || distanceToNavigationRoute(fresh) > NAV_OFF_ROUTE_METERS) rerouteNavigation({ force: true });
+    }).catch(() => {});
+  }
 }
 
 async function startDayNavigation() {
