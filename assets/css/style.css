@@ -3575,3 +3575,12 @@ body.agenda-dragging {
     bottom:18px;
   }
 }
+
+
+/* v1.32.2 – Standort-FAB oberhalb der Kartensteuerung */
+@media (max-width:820px) {
+  .mobile-locate-fab.map-round-action {
+    right:14px;
+    bottom:84px;
+  }
+}
