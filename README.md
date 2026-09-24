@@ -1,4 +1,4 @@
-# Budapest Travel Planner v1.20.0
+# Budapest Travel Planner v1.20.2
 
 ## Navigation Persistence & Wake Lock
 
@@ -354,3 +354,8 @@ Die Navigation arbeitet die kombinierte Tagesreihenfolge aus Orten und Aktivitä
 - Offline schaltet die App automatisch von Google Maps auf MapLibre um.
 - Gespeicherte Tagesrouten werden auf der Offline-Karte dargestellt.
 - Online bleibt Google Maps die primäre Karte.
+
+
+### v1.20.2
+- CSP erlaubt nun auch das MapLibre-Stylesheet von cdn.jsdelivr.net.
+- Cache-/Asset-Versionen für den Offline-Kartentest aktualisiert.
