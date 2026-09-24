@@ -3256,3 +3256,17 @@ body.agenda-dragging {
 .feasibility-issue.warning { color:#7b610d; }
 .feasibility-more { margin-top:3px; font-size:11px; font-weight:700; color:#68716f; }
 .feasibility-note { margin-top:9px; padding-top:8px; border-top:1px solid rgba(0,0,0,.06); color:#7a817f; font-size:10px; line-height:1.35; }
+
+
+/* v1.26.0 – Freie Zeit nutzen */
+.free-time-card { margin-top:10px; padding:14px; border:1px solid #c8ddd7; border-radius:16px; background:#f7fbfa; }
+.free-time-card.leave { border-color:#ead7a3; background:#fffaf0; }
+.free-time-kicker { margin-bottom:7px; color:#5f6d69; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.03em; }
+.free-time-head { display:flex; align-items:flex-start; justify-content:space-between; gap:10px; }
+.free-time-head strong, .free-time-card.leave > strong { display:block; font-size:14px; }
+.free-time-head small { display:block; margin-top:3px; color:#68716f; font-size:11px; }
+.free-time-stay { flex:0 0 auto; padding:5px 8px; border-radius:999px; background:#e5f2ee; color:#2f625d; font-size:10px; font-weight:800; }
+.free-time-opening { margin-top:9px; font-size:11px; font-weight:800; }
+.free-time-opening.open { color:#28714c; } .free-time-opening.soon { color:#946300; } .free-time-opening.unknown { color:#737b79; }
+.free-time-next, .free-time-main, .free-time-advice { margin-top:7px; color:#5f6966; font-size:11px; line-height:1.45; }
+.free-time-map { margin-top:10px; width:100%; }
