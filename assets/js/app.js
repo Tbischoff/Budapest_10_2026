@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.16.0";
+const APP_VERSION = "v1.17.0";
 
 function syncVersionLabels() {
   document.querySelectorAll(".app-version").forEach(el => { el.textContent = APP_VERSION; });
@@ -4452,6 +4452,12 @@ function renderTodayView() {
       ? (nextStop.activity?.meeting_place_name || nextStop.activity?.address || "Aktivität")
       : categoryLabel(nextStop.place?.category))
     : "";
+  const whatNowOpening = nextStop?.type === "place"
+    ? plannedOpeningStatus(nextStop.place, day.id, nextStop.plannedStartTime)
+    : null;
+  const whatNowOpeningHtml = whatNowOpening
+    ? `<span class="today-opening-status ${whatNowOpening.kind}" title="${escapeHtml(whatNowOpening.detail)}">${escapeHtml(whatNowOpening.label)}</span>`
+    : "";
   const whatNowCard = nextStop ? `
     <div class="today-what-now-card">
       <div class="today-what-now-head">
@@ -4460,7 +4466,7 @@ function renderTodayView() {
       </div>
       <button class="today-what-now-main" type="button" data-what-now-focus>
         <span class="today-next-icon">${whatNowIcon}</span>
-        <span><strong>${escapeHtml(nextStop.name)}</strong><small>${escapeHtml(whatNowMeta)}${whatNowDistance != null ? ` · 📍 ${escapeHtml(formatDistance(whatNowDistance))}` : ""}${whatNowMinutes != null ? ` · 🚶 ca. ${whatNowMinutes} Min.` : ""}</small></span>
+        <span><strong>${escapeHtml(nextStop.name)}</strong><small>${escapeHtml(whatNowMeta)}${whatNowDistance != null ? ` · 📍 ${escapeHtml(formatDistance(whatNowDistance))}` : ""}${whatNowMinutes != null ? ` · 🚶 ca. ${whatNowMinutes} Min.` : ""}</small>${whatNowOpeningHtml}</span>
         <span class="today-chevron">›</span>
       </button>
       <div class="today-what-now-actions">
@@ -4995,6 +5001,46 @@ function getActivitiesForDay(dayDate) {
   return activities.filter(item => item.trip_day_id === day.id).sort((a,b) => (Number(a.planned_order)||9999)-(Number(b.planned_order)||9999));
 }
 
+function openingHoursForTripDay(place, dayId) {
+  const raw = String(place?.openingHours || "").trim();
+  if (!raw || !dayId) return null;
+  const date = new Date(`${dayId}T12:00:00`);
+  if (Number.isNaN(date.getTime())) return null;
+  const names = {
+    0: ["Sonntag", "Sunday"], 1: ["Montag", "Monday"], 2: ["Dienstag", "Tuesday"],
+    3: ["Mittwoch", "Wednesday"], 4: ["Donnerstag", "Thursday"],
+    5: ["Freitag", "Friday"], 6: ["Samstag", "Saturday"]
+  };
+  const parts = raw.split(/\s*·\s*/).map(x => x.trim()).filter(Boolean);
+  const row = parts.find(part => names[date.getDay()].some(name => part.toLowerCase().startsWith(name.toLowerCase())));
+  if (!row) return null;
+  const value = row.replace(/^[^:]+:\s*/, "").trim();
+  return { text: value || row, closed: /geschlossen|closed/i.test(value) };
+}
+
+function minutesFromClock(value) {
+  const match = String(value || "").match(/^(\d{1,2}):(\d{2})$/);
+  if (!match) return null;
+  return Number(match[1]) * 60 + Number(match[2]);
+}
+
+function plannedOpeningStatus(place, dayId, plannedStartTime) {
+  const hours = openingHoursForTripDay(place, dayId);
+  if (!hours) return null;
+  if (hours.closed) return { kind: "warning", label: "⚠️ geschlossen", detail: hours.text };
+  if (!plannedStartTime) return { kind: "info", label: `🕒 ${hours.text}`, detail: hours.text };
+
+  const planned = minutesFromClock(plannedStartTime);
+  const ranges = [...hours.text.matchAll(/(\d{1,2}):(\d{2})\s*[–-]\s*(\d{1,2}):(\d{2})/g)]
+    .map(m => [Number(m[1]) * 60 + Number(m[2]), Number(m[3]) * 60 + Number(m[4])]);
+  if (planned == null || !ranges.length) return { kind: "info", label: `🕒 ${hours.text}`, detail: hours.text };
+  const range = ranges.find(([start, end]) => planned >= start && planned <= end);
+  if (!range) return { kind: "warning", label: "⚠️ außerhalb Öffnungszeit", detail: hours.text };
+  const untilClose = range[1] - planned;
+  if (untilClose >= 0 && untilClose <= 60) return { kind: "warning", label: `⚠️ schließt ${String(Math.floor(range[1]/60)).padStart(2,"0")}:${String(range[1]%60).padStart(2,"0")}`, detail: hours.text };
+  return { kind: "ok", label: "✓ geöffnet", detail: hours.text };
+}
+
 function renderDayAgenda() {
   renderTodayView();
   const container = document.getElementById("dayAgenda");
@@ -5033,7 +5079,9 @@ function renderDayAgenda() {
     const saved = state.places[place.id] || {};
     const time = [stop.plannedStartTime, stop.plannedEndTime].filter(Boolean).join("–");
     const distance = userPosition ? distanceToPlace(place) : null;
-    return `<div class="agenda-place-wrap" data-agenda-key="place:${escapeHtml(place.id)}"><div class="agenda-timeline-row"><div class="agenda-time-column"><div class="agenda-time ${time ? "" : "agenda-time-open"}">${time ? escapeHtml(time) : "offen"}</div><div class="agenda-timeline-dot ${saved.visited ? "visited" : ""}">${saved.visited ? "✓" : index + 1}</div>${index < stops.length - 1 ? '<div class="agenda-timeline-line"></div>' : ""}</div><div class="agenda-content-column"><div class="agenda-item ${saved.visited ? "agenda-item-visited" : ""}" data-place-id="${place.id}"><button type="button" class="agenda-drag-handle" aria-label="${escapeHtml(place.name)} verschieben">⋮⋮</button><div class="agenda-main"><div class="agenda-title">${CATEGORY_ICONS[place.category] || "•"} ${escapeHtml(place.name)}</div><div class="agenda-meta">${escapeHtml(categoryLabel(place.category))}${distance != null ? ` · 📍 ${escapeHtml(formatDistance(distance))} entfernt` : ""}${saved.visited ? " · ✓ besucht" : ""}</div></div><button type="button" class="agenda-visited-button ${saved.visited ? "visited" : ""}" data-action="toggle-visited" data-place-id="${place.id}">${saved.visited ? "✓" : "○"}</button></div>${legHtml}</div></div></div>`;
+    const opening = plannedOpeningStatus(place, selectedDay.id, stop.plannedStartTime);
+    const openingHtml = opening ? `<div class="agenda-opening-status ${opening.kind}" title="${escapeHtml(opening.detail)}">${escapeHtml(opening.label)}</div>` : "";
+    return `<div class="agenda-place-wrap" data-agenda-key="place:${escapeHtml(place.id)}"><div class="agenda-timeline-row"><div class="agenda-time-column"><div class="agenda-time ${time ? "" : "agenda-time-open"}">${time ? escapeHtml(time) : "offen"}</div><div class="agenda-timeline-dot ${saved.visited ? "visited" : ""}">${saved.visited ? "✓" : index + 1}</div>${index < stops.length - 1 ? '<div class="agenda-timeline-line"></div>' : ""}</div><div class="agenda-content-column"><div class="agenda-item ${saved.visited ? "agenda-item-visited" : ""}" data-place-id="${place.id}"><button type="button" class="agenda-drag-handle" aria-label="${escapeHtml(place.name)} verschieben">⋮⋮</button><div class="agenda-main"><div class="agenda-title">${CATEGORY_ICONS[place.category] || "•"} ${escapeHtml(place.name)}</div><div class="agenda-meta">${escapeHtml(categoryLabel(place.category))}${distance != null ? ` · 📍 ${escapeHtml(formatDistance(distance))} entfernt` : ""}${saved.visited ? " · ✓ besucht" : ""}</div>${openingHtml}</div><button type="button" class="agenda-visited-button ${saved.visited ? "visited" : ""}" data-action="toggle-visited" data-place-id="${place.id}">${saved.visited ? "✓" : "○"}</button></div>${legHtml}</div></div></div>`;
   }).join("");
 
   container.innerHTML = `${header}<div class="agenda-timeline">${rows}</div><div class="agenda-estimate-note">🚶 Gehzeiten sind kompakte Luftlinien-Schätzungen. Die Navigation verwendet weiterhin die echte Google-Fußroute.</div>`;
