@@ -1,4 +1,4 @@
-# Budapest Map v1.12.1
+# Budapest Map v1.12.2
 
 - Tagesfilter zählen Orte und Aktivitäten gemeinsam.
 - Aktivitätsmarker folgen dem ausgewählten Reisetag.
@@ -132,7 +132,7 @@ Die Navigation arbeitet die kombinierte Tagesreihenfolge aus Orten und Aktivitä
 - Bestehende Tagesnavigation, Rerouting, Kartenrotation, Karteninteraktion und Zielerkennung bleiben erhalten.
 
 
-## v1.12.1 – Zielbildschirm
+## v1.12.2 – Zielbildschirm
 
 - Neuer Abschlussbildschirm beim Erreichen des letzten Navigationsziels.
 - Konfetti-Animation startet automatisch nach stabil bestätigter Zielerkennung.
@@ -141,3 +141,13 @@ Die Navigation arbeitet die kombinierte Tagesreihenfolge aus Orten und Aktivitä
 - Auch die Testnavigation kann den Zielbildschirm auslösen, damit die Funktion lokal getestet werden kann.
 - „Navigation beenden“ schließt den Zielbildschirm und setzt den Navigationszustand sauber zurück.
 - Keine Datenbank-/Supabase-Anpassung erforderlich.
+
+
+## v1.12.2 – Kompakter Zielbildschirm
+
+- Ziel-Overlay deutlich kleiner und als halbtransparente Glass-Card gestaltet.
+- Hintergrund wird nur noch leicht abgedunkelt; die Karte bleibt sichtbar.
+- Überschrift auf „Ziel erreicht!“ verkürzt, Icon und Abstände reduziert.
+- Kompakter „Navigation beenden“-Button statt vollbreitem Button.
+- Konfetti und die bestehende stabile Zielerkennung bleiben unverändert.
+- Cache-Busting für CSS und JavaScript auf v1.12.2 aktualisiert.

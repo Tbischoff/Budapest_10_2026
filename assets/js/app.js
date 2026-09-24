@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.12.1";
+const APP_VERSION = "v1.12.2";
 
 function syncVersionLabels() {
   document.querySelectorAll(".app-version").forEach(el => { el.textContent = APP_VERSION; });
@@ -2808,7 +2808,7 @@ function showNavigationSuccess(stop) {
   const note = document.getElementById("navigationSuccessNote");
   const isActivity = stop?.type === "activity";
   if (icon) icon.textContent = isActivity ? "🎟️" : "📍";
-  if (title) title.textContent = "Du hast dein Ziel erreicht!";
+  if (title) title.textContent = "Ziel erreicht!";
   if (name) name.textContent = navigationTestMode ? "Testziel" : (stop?.name || "Ziel");
   if (note) note.textContent = navigationTestMode ? "Testnavigation erfolgreich abgeschlossen." : (isActivity ? "Viel Spaß!" : "Tagesnavigation erfolgreich abgeschlossen.");
   overlay.hidden = false;
