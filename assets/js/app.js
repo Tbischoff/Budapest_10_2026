@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.22.6";
+const APP_VERSION = "v1.22.7";
 
 const MOBILE_DEBUG_STORAGE_KEY = "budapestMobileDebugV1";
 function debugLog(message, detail = "") {
@@ -2471,22 +2471,38 @@ function offlineMapIsPrepared() {
 }
 
 function offlineBaseStyle() {
+  const roadWidth = ["interpolate",["linear"],["zoom"],10,0.7,13,1.6,16,4.2];
   return {
     version: 8,
     sources: {
       budapest: { type: "vector", url: `pmtiles://${new URL(OFFLINE_MAP_URL, location.href).href}` }
     },
     layers: [
-      { id:"background", type:"background", paint:{ "background-color":"#f5f1e8" } },
-      { id:"landuse", type:"fill", source:"budapest", "source-layer":"landuse", paint:{ "fill-color":"#e7eee3", "fill-opacity":0.7 } },
-      { id:"water", type:"fill", source:"budapest", "source-layer":"water", paint:{ "fill-color":"#b9d9e8" } },
-      { id:"buildings", type:"fill", source:"budapest", "source-layer":"buildings", minzoom:13, paint:{ "fill-color":"#ddd5c9", "fill-outline-color":"#c9c0b3" } },
-      { id:"roads-casing", type:"line", source:"budapest", "source-layer":"roads", minzoom:10, paint:{ "line-color":"#d2cbc0", "line-width":["interpolate",["linear"],["zoom"],10,1,15,5] } },
-      { id:"roads", type:"line", source:"budapest", "source-layer":"roads", minzoom:10, paint:{ "line-color":"#ffffff", "line-width":["interpolate",["linear"],["zoom"],10,0.5,15,3] } }
+      { id:"background", type:"background", paint:{ "background-color":"#f7f5ef" } },
+      { id:"landuse", type:"fill", source:"budapest", "source-layer":"landuse", paint:{ "fill-color":"#e8eee2", "fill-opacity":0.78 } },
+      { id:"water", type:"fill", source:"budapest", "source-layer":"water", paint:{ "fill-color":"#acd4e6" } },
+      { id:"water-outline", type:"line", source:"budapest", "source-layer":"water", paint:{ "line-color":"#8fc3d9", "line-width":1 } },
+      { id:"buildings", type:"fill", source:"budapest", "source-layer":"buildings", minzoom:13, paint:{ "fill-color":"#e1dbd2", "fill-outline-color":"#cfc7bc" } },
+      { id:"roads-casing", type:"line", source:"budapest", "source-layer":"roads", minzoom:10, layout:{"line-cap":"round","line-join":"round"}, paint:{ "line-color":"#c9c4bb", "line-width":["+",roadWidth,1.8] } },
+      { id:"roads", type:"line", source:"budapest", "source-layer":"roads", minzoom:10, layout:{"line-cap":"round","line-join":"round"}, paint:{ "line-color":"#ffffff", "line-width":roadWidth } },
+      { id:"road-labels", type:"symbol", source:"budapest", "source-layer":"roads", minzoom:13, layout:{
+          "symbol-placement":"line",
+          "text-field":["coalesce",["get","name:de"],["get","name"],""],
+          "text-size":["interpolate",["linear"],["zoom"],13,10,16,13],
+          "text-letter-spacing":0.02,
+          "text-max-angle":35,
+          "text-padding":3
+        }, paint:{ "text-color":"#68645e","text-halo-color":"#ffffff","text-halo-width":2 } },
+      { id:"place-labels", type:"symbol", source:"budapest", "source-layer":"places", minzoom:11, layout:{
+          "text-field":["coalesce",["get","name:de"],["get","name"],""],
+          "text-size":["interpolate",["linear"],["zoom"],11,11,15,15],
+          "text-font":["Open Sans Regular"],
+          "text-padding":4,
+          "text-allow-overlap":false
+        }, paint:{ "text-color":"#454b49","text-halo-color":"#f7f5ef","text-halo-width":2 } }
     ]
   };
 }
-
 
 function offlineMarkerFeatures() {
   const placeFeatures = (placesData?.places || []).map(place => {
