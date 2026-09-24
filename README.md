@@ -1,4 +1,4 @@
-# Budapest Travel Planner v1.22.12
+# Budapest Travel Planner v1.22.13
 
 ## Navigation Persistence & Wake Lock
 
@@ -465,3 +465,8 @@ Die Navigation arbeitet die kombinierte Tagesreihenfolge aus Orten und Aktivitä
 ### v1.22.12
 - Offline-Tagesroute wird beim Ausblenden jetzt auch aus den MapLibre-Quellen entfernt.
 - Routenstatus erkennt aktive Offline-Routen korrekt, sodass „Route ausblenden“ auch offline angeboten wird.
+
+
+### v1.22.13
+- Toggle-Logik für „Route ausblenden“ erkennt nun auch die aktive MapLibre-Offlineroute.
+- Der Offline-Routenlayer und die Offline-Stopp-Punkte werden dadurch beim Klick tatsächlich geleert.
