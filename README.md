@@ -1,4 +1,4 @@
-# Budapest Travel Planner v1.22.4
+# Budapest Travel Planner v1.22.5
 
 ## Navigation Persistence & Wake Lock
 
@@ -418,3 +418,8 @@ Die Navigation arbeitet die kombinierte Tagesreihenfolge aus Orten und Aktivitä
 ### v1.22.4
 - Ursache des Offline-Kartenfehlers behoben: App und Service Worker verwendeten unterschiedliche Cache-Namen für dieselbe PMTiles-Datei.
 - Offline-Karten-Cache erhält nun einen gemeinsamen stabilen Namen und wird nicht mehr bei jeder App-Version auseinandergezogen.
+
+
+### v1.22.5
+- „Stopp/Ort auf Karte anzeigen“ verwendet offline MapLibre statt Google Maps und verursacht keinen google-is-not-defined-Fehler mehr.
+- Aktivitäten können ebenfalls auf der Offline-Karte fokussiert werden.
