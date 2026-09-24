@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.15.0";
+const APP_VERSION = "v1.16.0";
 
 function syncVersionLabels() {
   document.querySelectorAll(".app-version").forEach(el => { el.textContent = APP_VERSION; });
@@ -4421,6 +4421,8 @@ function renderTodayView() {
   const dayPlaces = getPlacesForDay(day.id);
   const openPlaces = dayPlaces.filter(place => !(state.places[place.id] || {}).visited);
   const nextPlace = openPlaces[0] || null;
+  const dayStops = getRouteStopsForDay(day.id);
+  const nextStop = dayStops.find(stop => stop.type === "activity" || !(state.places[stop.id] || {}).visited) || null;
   const visitedCount = dayPlaces.length - openPlaces.length;
   const progress = dayPlaces.length ? Math.round((visitedCount / dayPlaces.length) * 100) : 0;
   const dayIndex = Math.max(0, TRIP_DAYS.findIndex(item => item.id === day.id)) + 1;
@@ -4436,6 +4438,37 @@ function renderTodayView() {
         <span class="today-place-name">${escapeHtml(place.name)}</span>
       </div>`;
   }).join("");
+
+  const whatNowDistance = nextStop && userPosition
+    ? haversineDistanceMeters(userPosition, nextStop.position)
+    : null;
+  const whatNowMinutes = whatNowDistance != null ? estimatedWalkingMinutes(whatNowDistance) : null;
+  const whatNowTime = nextStop ? [nextStop.plannedStartTime, nextStop.plannedEndTime].filter(Boolean).join("–") : "";
+  const whatNowIcon = nextStop?.type === "activity"
+    ? "🎟️"
+    : (nextStop?.place ? (CATEGORY_ICONS[nextStop.place.category] || "📍") : "📍");
+  const whatNowMeta = nextStop
+    ? (nextStop.type === "activity"
+      ? (nextStop.activity?.meeting_place_name || nextStop.activity?.address || "Aktivität")
+      : categoryLabel(nextStop.place?.category))
+    : "";
+  const whatNowCard = nextStop ? `
+    <div class="today-what-now-card">
+      <div class="today-what-now-head">
+        <div><div class="today-card-label">Was jetzt?</div><div class="today-what-now-subtitle">${preview ? "Nächster Programmpunkt der Reise" : "Als Nächstes in deinem Tagesplan"}</div></div>
+        ${whatNowTime ? `<span class="today-next-time">🕒 ${escapeHtml(whatNowTime)}</span>` : ""}
+      </div>
+      <button class="today-what-now-main" type="button" data-what-now-focus>
+        <span class="today-next-icon">${whatNowIcon}</span>
+        <span><strong>${escapeHtml(nextStop.name)}</strong><small>${escapeHtml(whatNowMeta)}${whatNowDistance != null ? ` · 📍 ${escapeHtml(formatDistance(whatNowDistance))}` : ""}${whatNowMinutes != null ? ` · 🚶 ca. ${whatNowMinutes} Min.` : ""}</small></span>
+        <span class="today-chevron">›</span>
+      </button>
+      <div class="today-what-now-actions">
+        <button id="whatNowNavigateBtn" class="primary-button today-action-button" type="button">🧭 Navigation starten</button>
+        <button id="whatNowMapBtn" class="secondary-button today-action-button" type="button">🗺️ Auf Karte</button>
+      </div>
+      ${userPosition ? "" : '<div class="today-location-hint">📍 Sobald dein Standort verfügbar ist, werden Entfernung und Gehzeit ergänzt.</div>'}
+    </div>` : '<div class="today-complete-card">✓ Für heute sind keine offenen Programmpunkte mehr vorhanden.</div>';
 
   const nextDistance = nextPlace && userPosition ? distanceToPlace(nextPlace) : null;
   const nextSaved = nextPlace ? (state.places[nextPlace.id] || {}) : {};
@@ -4466,13 +4499,37 @@ function renderTodayView() {
       <div><div class="today-kicker">${preview ? "Erster Reisetag" : "Heute"}</div><h2>${escapeHtml(formatTodayDayTitle(day))}</h2><div class="today-day-label">${escapeHtml(day.label)}</div></div>
       <span class="today-day-number">Tag ${dayIndex}</span>
     </div>
-    ${nextCard}
+    ${whatNowCard}
     <div class="today-plan-card">
       <div class="today-plan-head"><strong>${preview ? "Planung" : "Heutige Planung"}</strong><span>${visitedCount} von ${dayPlaces.length} erledigt</span></div>
       <div class="today-progress"><span style="width:${progress}%"></span></div>
       <div class="today-timeline">${timeline || '<div class="today-empty">Noch keine Programmpunkte geplant.</div>'}</div>
       <button id="todayOpenPlanButton" class="secondary-button today-open-plan" type="button">☷ Gesamten Tagesplan öffnen</button>
     </div>`;
+
+  const focusWhatNowStop = () => {
+    if (!nextStop) return;
+    setMobileView("map");
+    if (nextStop.type === "activity" && nextStop.activity) {
+      focusActivityOnMap(nextStop.activity);
+    } else if (nextStop.place) {
+      focusExistingPlaceOnMap(nextStop.place);
+    }
+  };
+
+  container.querySelector("[data-what-now-focus]")?.addEventListener("click", focusWhatNowStop);
+  document.getElementById("whatNowMapBtn")?.addEventListener("click", focusWhatNowStop);
+  document.getElementById("whatNowNavigateBtn")?.addEventListener("click", async () => {
+    if (!nextStop) return;
+    selectedDayFilter = day.id;
+    try {
+      if (!userPosition) await getFreshCurrentPosition({ timeout: 8000, maximumAge: 60000 });
+      await startNavigationWithStops([nextStop], { testMode: false });
+    } catch (error) {
+      console.error("Was jetzt? – Navigation:", error);
+      setStatus(error?.message || "Navigation konnte nicht gestartet werden.");
+    }
+  });
 
   container.querySelectorAll("[data-today-show-place]").forEach(button => {
     button.addEventListener("click", () => {
