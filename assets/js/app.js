@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.28.0";
+const APP_VERSION = "v1.29.0";
 
 
 function syncVersionLabels() {
@@ -5290,8 +5290,6 @@ function renderTodayView() {
     <div class="today-complete-card">✓ ${dayPlaces.length ? "Tagesplan abgeschlossen – alle Orte besucht." : "Für diesen Tag sind noch keine Orte geplant."}</div>`;
 
   container.innerHTML = `
-    ${currentBudapestWeatherHtml()}
-    ${tripForecastStripHtml()}
     ${preview ? '<div class="today-preview-note">Vorschau · Die Reise hat noch nicht begonnen</div>' : ''}
     <div class="today-day-card">
       <div><div class="today-kicker">${preview ? "Erster Reisetag" : "Heute"}</div><h2>${escapeHtml(formatTodayDayTitle(day))}</h2><div class="today-day-label">${escapeHtml(day.label)}</div></div>
@@ -5300,12 +5298,17 @@ function renderTodayView() {
     ${whatNowCard}
     ${freeTimeCardHtml(day.id, dayStops, preview)}
     ${nearbyTodayCardHtml(day.id)}
-    ${feasibilityCardHtml(day.id, dayStops)}
+    ${(() => {
+      const feasibility = analyzeDayFeasibility(day.id, dayStops);
+      return feasibility.status.kind === "warning" || feasibility.status.kind === "danger"
+        ? feasibilityCardHtml(day.id, dayStops)
+        : "";
+    })()}
     <div class="today-plan-card">
-      <div class="today-plan-head"><strong>${preview ? "Planung" : "Heutige Planung"}</strong><span>${visitedCount} von ${dayPlaces.length} erledigt</span></div>
+      <div class="today-plan-head"><strong>${preview ? "Planung" : "Tagesfortschritt"}</strong><span>${visitedCount} von ${dayPlaces.length} erledigt</span></div>
       <div class="today-progress"><span style="width:${progress}%"></span></div>
       <div class="today-timeline">${timeline || '<div class="today-empty">Noch keine Programmpunkte geplant.</div>'}</div>
-      <button id="todayOpenPlanButton" class="secondary-button today-open-plan" type="button">☷ Gesamten Tagesplan öffnen</button>
+      <button id="todayOpenPlanButton" class="secondary-button today-open-plan" type="button">☷ Tagesplan öffnen</button>
     </div>`;
 
   container.querySelector("[data-free-time-place]")?.addEventListener("click", event => {
