@@ -1,4 +1,4 @@
-# Budapest Travel Planner v1.14.7
+# Budapest Travel Planner v1.14.8
 
 ## Navigation Persistence & Wake Lock
 
@@ -244,3 +244,10 @@ Die Navigation arbeitet die kombinierte Tagesreihenfolge aus Orten und Aktivitä
 - Dadurch muss beim Start eines Budapest-Tages aus Deutschland nicht mehr sofort eine Fußroute über den gesamten Tagesplan berechnet werden.
 - Neuberechnung, Fortsetzen und „Stopp überspringen“ verwenden ebenfalls nur den jeweils nächsten Zielabschnitt.
 - Die normale Tagesrouten-Anzeige im Plan bleibt unverändert und kann weiterhin den kompletten Tagesverlauf darstellen.
+
+
+## v1.14.8 – Schnellere Standortanzeige beim App-Start
+- Die Standortbestimmung startet jetzt parallel zu Anmeldung, Supabase- und Karteninitialisierung.
+- Für den ersten Kartensprung wird zunächst eine schnelle bzw. gecachte Position akzeptiert; anschließend wird GPS im Hintergrund hochgenau präzisiert.
+- Die Google Routes Library wird beim normalen Öffnen der App nicht mehr geladen, sondern erst bei der ersten tatsächlichen Routenberechnung.
+- Die präzisere Hintergrundposition aktualisiert Standort- und Navigationsdaten, ohne einen bereits erfolgten schnellen Kartensprung unnötig zu verzögern.
