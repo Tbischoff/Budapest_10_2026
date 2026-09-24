@@ -1,4 +1,13 @@
-# Budapest Travel Planner v1.24.0
+# Budapest Travel Planner v1.24.1
+
+## v1.24.1 – Öffnungszeiten bei „In meiner Nähe“
+
+- Nähe-Vorschläge berücksichtigen jetzt die gespeicherten Öffnungszeiten für den aktuellen Budapest-Tag und die aktuelle Uhrzeit.
+- Priorität: jetzt geöffnet → öffnet innerhalb von 90 Minuten → Öffnungszeit unbekannt → geschlossen/später geöffnet.
+- Innerhalb derselben Öffnungsstatus-Gruppe entscheidet weiterhin die Entfernung.
+- Jeder Vorschlag zeigt seinen aktuellen Status, z. B. „🟢 Geöffnet · bis 18:00“, „🟡 Öffnet um 11:00 · in 35 Min.“ oder „🔴 Heute geschlossen“.
+- Geschlossene Orte bleiben als Fallback sichtbar, verdrängen aber keine geöffneten Alternativen.
+- Keine Datenbankmigration erforderlich.
 
 ## v1.24.0 – „In meiner Nähe“
 
