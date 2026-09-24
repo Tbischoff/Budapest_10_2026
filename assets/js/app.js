@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.27.3";
+const APP_VERSION = "v1.28.0";
 
 
 function syncVersionLabels() {
@@ -4257,10 +4257,11 @@ function updateDayCounts() {
     } else if (id === "unplanned") {
       // Activities always belong to a trip day and deliberately do not belong
       // to the visit-place state "Noch offen".
-      button.textContent = `Noch offen (${unplanned})`;
+      button.textContent = `Offen (${unplanned})`;
     } else {
       const day = TRIP_DAYS.find(d => d.id === id);
-      button.textContent = `${day.short} (${counts[id] || 0})`;
+      const compact = day.short.replace(/\s\d{2}\.10\.$/, match => match.slice(0, 4));
+      button.textContent = `${compact} (${counts[id] || 0})`;
     }
   });
 }
@@ -5178,13 +5179,13 @@ function tripStatusOverviewHtml() {
 
   return `<div class="trip-status-card">
     <div class="trip-status-head"><div><div class="today-card-label">Reiseübersicht</div><div class="today-what-now-subtitle">Budapest auf einen Blick</div></div><span class="trip-status-total">${totalProgram} Programmpunkte</span></div>
-    <div class="trip-status-stats">
-      <div><strong>${plannedPlaces.length}</strong><span>geplante Orte</span></div>
-      <div><strong>${activities.length}</strong><span>Aktivitäten</span></div>
-      <div><strong>${unplannedCount}</strong><span>noch offen</span></div>
-      <div><strong>${progress}%</strong><span>besucht</span></div>
+    <div class="trip-status-summary">
+      <span>📍 <strong>${plannedPlaces.length}</strong> geplant</span>
+      <span>🎟️ <strong>${activities.length}</strong> Aktivitäten</span>
+      <span>☆ <strong>${unplannedCount}</strong> offen</span>
+      <span>✓ <strong>${progress}%</strong> besucht</span>
     </div>
-    <div class="trip-status-progress"><span style="width:${progress}%"></span></div>
+    <div class="trip-status-progress" aria-label="${progress}% der geplanten Orte besucht"><span style="width:${progress}%"></span></div>
     <div class="trip-status-days">${dayRows}</div>
   </div>`;
 }
