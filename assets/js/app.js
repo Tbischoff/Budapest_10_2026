@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.14.5";
+const APP_VERSION = "v1.14.6";
 
 function syncVersionLabels() {
   document.querySelectorAll(".app-version").forEach(el => { el.textContent = APP_VERSION; });
@@ -113,7 +113,7 @@ let navigationPaused = false;
 let navigationOnline = navigator.onLine !== false;
 let navigationLastPositionAt = 0;
 let navigationLastAccuracy = Infinity;
-const NAV_CACHED_POSITION_MAX_AGE_MS = 20000;
+const NAV_CACHED_POSITION_MAX_AGE_MS = 60000;
 const NAV_CACHED_POSITION_MAX_ACCURACY = 50;
 const NAV_SESSION_STORAGE_KEY = "budapestActiveNavigation";
 const NAV_OFF_ROUTE_METERS = 45;
@@ -653,6 +653,12 @@ function centerMapOnCurrentLocation({ silent = false } = {}) {
         lat: position.coords.latitude,
         lng: position.coords.longitude
       };
+      // v1.14.6: Die ohnehin beim Kartenstart ermittelte Position auch als
+      // Navigations-Startposition wiederverwenden. Zuvor war userPosition zwar
+      // vorhanden, aber ohne Zeitstempel/Genauigkeit für den Navigations-Cache.
+      navigationLastPositionAt = Date.now();
+      navigationLastAccuracy = Number(position.coords.accuracy) || Infinity;
+      window.__navigationLastAccuracy = Number(position.coords.accuracy) || 0;
 
       updateUserLocationMarker();
       updateDistanceControls();
