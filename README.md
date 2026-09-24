@@ -1,4 +1,4 @@
-# Budapest Travel Planner v1.21.1
+# Budapest Travel Planner v1.21.2
 
 ## Navigation Persistence & Wake Lock
 
@@ -370,3 +370,7 @@ Die Navigation arbeitet die kombinierte Tagesreihenfolge aus Orten und Aktivitä
 
 ### v1.21.1
 - Syntaxfehler durch versehentlich als Text eingefügte Zeilenumbrüche im Wetterausbau behoben.
+
+
+### v1.21.2
+- Open-Meteo API in der Content Security Policy für Wetterabrufe freigegeben.
