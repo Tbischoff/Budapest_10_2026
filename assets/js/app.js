@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.26.0";
+const APP_VERSION = "v1.27.0";
 
 
 function syncVersionLabels() {
@@ -5152,6 +5152,43 @@ function freeTimeCardHtml(dayId, stops, preview) {
   return `<div class="free-time-card"><div class="free-time-kicker">✨ Freie Zeit nutzen</div><div class="free-time-head"><div><strong>${escapeHtml(s.place.name)}</strong><small>${escapeHtml(categoryLabel(s.place.category))} · 🚶 ca. ${s.toPlace} Min. von hier</small></div><span class="free-time-stay">ca. ${s.stayMinutes} Min. Zeit</span></div><div class="free-time-opening ${escapeHtml(s.opening.kind)}">${escapeHtml(s.opening.label)}</div><div class="free-time-next">Danach 🚶 ca. ${s.toFixed} Min. zu <strong>${escapeHtml(free.nextFixed.name)}</strong> · Termin ${escapeHtml(free.nextFixed.plannedStartTime)} Uhr</div><button class="secondary-button free-time-map" type="button" data-free-time-place="${escapeHtml(s.place.id)}">🗺️ Zwischenstopp auf Karte</button></div>`;
 }
 
+function tripStatusOverviewHtml() {
+  const allPlaces = placesData?.places || [];
+  const plannedPlaces = allPlaces.filter(place => (state.places[place.id] || {}).plannedDay);
+  const visitedPlaces = allPlaces.filter(place => (state.places[place.id] || {}).visited);
+  const unplannedCount = Math.max(0, allPlaces.length - plannedPlaces.length);
+  const totalProgram = plannedPlaces.length + activities.length;
+  const progress = plannedPlaces.length ? Math.round(visitedPlaces.filter(place => (state.places[place.id] || {}).plannedDay).length / plannedPlaces.length * 100) : 0;
+
+  const dayRows = TRIP_DAYS.map((day, index) => {
+    const places = getPlacesForDay(day.id);
+    const acts = getActivitiesForDay(day.id);
+    const visited = places.filter(place => (state.places[place.id] || {}).visited).length;
+    const feasibility = analyzeDayFeasibility(day.id, getRouteStopsForDay(day.id));
+    const statusIcon = feasibility.status.kind === "danger" ? "🔴" : feasibility.status.kind === "warning" ? "🟡" : feasibility.status.kind === "ok" ? "🟢" : "⚪";
+    const weather = dailyWeatherFor(day.id);
+    const weatherText = weather ? `${weatherIcon(weather.code)} ${Math.round(Number(weather.max))}°` : "🌦️ –";
+    return `<button class="trip-status-day" type="button" data-trip-status-day="${escapeHtml(day.id)}">
+      <span class="trip-status-day-number">${index + 1}</span>
+      <span class="trip-status-day-copy"><strong>${escapeHtml(day.short)}</strong><small>${places.length} Orte · ${acts.length} Aktivitäten · ${visited}/${places.length} besucht</small></span>
+      <span class="trip-status-day-side"><span>${weatherText}</span><span title="${escapeHtml(feasibility.status.title)}">${statusIcon}</span></span>
+      <span class="today-chevron">›</span>
+    </button>`;
+  }).join("");
+
+  return `<div class="trip-status-card">
+    <div class="trip-status-head"><div><div class="today-card-label">Reiseübersicht</div><div class="today-what-now-subtitle">Budapest auf einen Blick</div></div><span class="trip-status-total">${totalProgram} Programmpunkte</span></div>
+    <div class="trip-status-stats">
+      <div><strong>${plannedPlaces.length}</strong><span>geplante Orte</span></div>
+      <div><strong>${activities.length}</strong><span>Aktivitäten</span></div>
+      <div><strong>${unplannedCount}</strong><span>noch offen</span></div>
+      <div><strong>${progress}%</strong><span>besucht</span></div>
+    </div>
+    <div class="trip-status-progress"><span style="width:${progress}%"></span></div>
+    <div class="trip-status-days">${dayRows}</div>
+  </div>`;
+}
+
 function renderTodayView() {
   const container = document.getElementById("todayOverview");
   if (!container) return;
@@ -5254,6 +5291,7 @@ function renderTodayView() {
   container.innerHTML = `
     ${currentBudapestWeatherHtml()}
     ${tripForecastStripHtml()}
+    ${tripStatusOverviewHtml()}
     ${preview ? '<div class="today-preview-note">Vorschau · Die Reise hat noch nicht begonnen</div>' : ''}
     <div class="today-day-card">
       <div><div class="today-kicker">${preview ? "Erster Reisetag" : "Heute"}</div><h2>${escapeHtml(formatTodayDayTitle(day))}</h2><div class="today-day-label">${escapeHtml(day.label)}</div></div>
@@ -5269,6 +5307,17 @@ function renderTodayView() {
       <div class="today-timeline">${timeline || '<div class="today-empty">Noch keine Programmpunkte geplant.</div>'}</div>
       <button id="todayOpenPlanButton" class="secondary-button today-open-plan" type="button">☷ Gesamten Tagesplan öffnen</button>
     </div>`;
+
+  container.querySelectorAll("[data-trip-status-day]").forEach(button => {
+    button.addEventListener("click", () => {
+      selectedDayFilter = button.dataset.tripStatusDay;
+      applyFilters();
+      renderDayFilters();
+      renderDayAgenda();
+      if (isMobileLayout()) setMobileView("plan");
+      setStatus(`${dayLongLabel(selectedDayFilter)} im Tagesplan geöffnet.`);
+    });
+  });
 
   container.querySelector("[data-free-time-place]")?.addEventListener("click", event => {
     const place = placesData.places.find(item => item.id === event.currentTarget.dataset.freeTimePlace);
