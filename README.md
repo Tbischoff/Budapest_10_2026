@@ -1,4 +1,15 @@
-# Budapest Travel Planner v1.29.0
+# Budapest Travel Planner v1.30.0
+
+## v1.30.0 – Globaler UI/UX Refresh
+
+- Die mobile Hauptnavigation verwendet jetzt vier konsistente Line-Icons statt unterschiedlich großer Emojis.
+- Karte, Heute, Plan und Orte erhalten dadurch eine einheitlichere visuelle Sprache.
+- Der aktive Navigationsbereich bleibt durch eine dezente Fläche und Akzentfarbe klar erkennbar.
+- Die Bottom-Navigation wurde kompakter gestaltet und erhält konsistentere Abstände, Radien und Schatten.
+- Der mobile Kopfbereich wurde verkleinert: Titel, Reisezeitraum, Version und Online-Status benötigen weniger vertikalen Platz.
+- Version und Verbindungsstatus stehen nun gemeinsam in einer kompakten Statuszeile.
+- Abmelden und Schließen bleiben direkt erreichbar, beanspruchen aber weniger Raum.
+- Keine Datenbankmigration erforderlich.
 
 ## v1.29.0 – UI/UX Refresh: Heute
 
