@@ -1,9 +1,11 @@
-const CACHE_NAME = "budapest-travel-v1.22.0";
-const OFFLINE_MAP_CACHE = "budapest-offline-map-v1.22.0";
-const APP_SHELL = ["./","./index.html","./assets/css/style.css?v=1.22.0","./assets/js/app.js?v=1.22.0","./data/places.js","./assets/icons/favicon.svg","./manifest.webmanifest?v=1.22.0",
+const CACHE_NAME = "budapest-travel-v1.22.1";
+const OFFLINE_MAP_CACHE = "budapest-offline-map-v1.22.1";
+const APP_SHELL = ["./","./index.html","./assets/css/style.css?v=1.22.1","./assets/js/app.js?v=1.22.1","./data/places.js","./assets/icons/favicon.svg","./manifest.webmanifest?v=1.22.1",
   "https://cdn.jsdelivr.net/npm/maplibre-gl@5.7.3/dist/maplibre-gl.css",
   "https://cdn.jsdelivr.net/npm/maplibre-gl@5.7.3/dist/maplibre-gl.js",
-  "https://cdn.jsdelivr.net/npm/pmtiles@4.3.0/dist/pmtiles.js"];
+  "https://cdn.jsdelivr.net/npm/pmtiles@4.3.0/dist/pmtiles.js",
+  "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0",
+  "https://cdn.jsdelivr.net/npm/@googlemaps/markerclusterer@2.6.2/dist/index.min.js"];
 self.addEventListener("install", event => { event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(APP_SHELL)).then(() => self.skipWaiting())); });
 self.addEventListener("activate", event => { event.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(key => key !== CACHE_NAME && key !== OFFLINE_MAP_CACHE).map(key => caches.delete(key)))).then(() => self.clients.claim())); });
 self.addEventListener("fetch", event => {
@@ -17,7 +19,7 @@ self.addEventListener("fetch", event => {
       const cached = await cache.match("./assets/maps/budapest.pmtiles");
       if (!cached) return fetch(request);
       const bytes = await cached.arrayBuffer();
-      const match = /bytes=(\\d+)-(\\d*)/.exec(request.headers.get("range") || "");
+      const match = /bytes=(\d+)-(\d*)/.exec(request.headers.get("range") || "");
       if (!match) return cached;
       const start = Number(match[1]);
       const end = match[2] ? Number(match[2]) : bytes.byteLength - 1;
@@ -37,5 +39,10 @@ self.addEventListener("fetch", event => {
     event.respondWith(fetch(request).then(response => { const copy=response.clone(); caches.open(CACHE_NAME).then(cache=>cache.put("./index.html",copy)); return response; }).catch(() => caches.match("./index.html").then(response => response || caches.match("./"))));
     return;
   }
-  if (url.origin === self.location.origin) event.respondWith(caches.match(request).then(cached => cached || fetch(request).then(response => { if(response.ok){const copy=response.clone();caches.open(CACHE_NAME).then(cache=>cache.put(request,copy));} return response; })));
+  if (url.origin === self.location.origin || url.hostname === "cdn.jsdelivr.net") {
+    event.respondWith(caches.match(request).then(cached => cached || fetch(request).then(response => {
+      if (response.ok) { const copy=response.clone(); caches.open(CACHE_NAME).then(cache=>cache.put(request,copy)); }
+      return response;
+    })));
+  }
 });
