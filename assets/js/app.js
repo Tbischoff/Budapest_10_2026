@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.22.4";
+const APP_VERSION = "v1.22.5";
 
 const MOBILE_DEBUG_STORAGE_KEY = "budapestMobileDebugV1";
 function debugLog(message, detail = "") {
@@ -990,7 +990,13 @@ function resetGooglePlaceSelection({ recreateAutocomplete = false } = {}) {
 }
 
 function focusExistingPlaceOnMap(place, { openInfo = true } = {}) {
-  if (!place || !map) return;
+  if (!place) return;
+  if (navigator.onLine === false || !map) {
+    const position = normalizeLatLng({ lat: place.lat, lng: place.lng });
+    if (isMobileLayout()) setMobileView("map");
+    if (focusOfflinePosition(position)) setStatus(`📍 „${place.name || "Ort"}“ auf der Offline-Karte angezeigt.`);
+    return;
+  }
 
   const marker = markers.get(place.id);
   const position = marker
@@ -2521,6 +2527,14 @@ async function activateOfflineMap() {
 function deactivateOfflineMap() {
   document.getElementById("map")?.classList.remove("map-hidden");
   document.getElementById("offlineMap")?.classList.remove("offline-map-active");
+}
+
+
+function focusOfflinePosition(position, zoom = 16) {
+  if (!offlineMapReady || !offlineMap || !position) return false;
+  offlineMap.resize();
+  offlineMap.jumpTo({ center:[Number(position.lng), Number(position.lat)], zoom:Math.max(Number(offlineMap.getZoom())||0, zoom) });
+  return true;
 }
 
 function renderOfflineRouteOnMapLibre(cached) {
@@ -5350,6 +5364,11 @@ function focusActivityOnMap(activity) {
   const position = marker ? getMarkerPosition(marker) : normalizeLatLng({lat: activity.latitude, lng: activity.longitude});
   if (!position) return;
   if (isMobileLayout()) setMobileView("map");
+  if (navigator.onLine === false || !map) {
+    focusOfflinePosition(position);
+    setStatus(`📍 „${activity.name || "Aktivität"}“ auf der Offline-Karte angezeigt.`);
+    return;
+  }
   requestAnimationFrame(() => {
     google.maps.event.trigger(map, "resize");
     map.setCenter(position);
