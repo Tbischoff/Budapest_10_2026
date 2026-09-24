@@ -6322,3 +6322,20 @@ function initPwaOfflineMode() {
   refreshOfflineUi();
 }
 document.addEventListener("DOMContentLoaded", initPwaOfflineMode);
+
+
+function initPwaOfflineMode() {
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(error => console.warn("Service Worker:", error));
+  const refreshOfflineUi = () => {
+    const offline = navigator.onLine === false;
+    document.documentElement.classList.toggle("app-offline", offline);
+    document.querySelectorAll("[data-app-connectivity]").forEach(el => {
+      el.textContent = offline ? "🟠 Offline · lokale Daten" : "🟢 Online";
+      el.classList.toggle("offline", offline);
+    });
+  };
+  window.addEventListener("online", refreshOfflineUi);
+  window.addEventListener("offline", refreshOfflineUi);
+  refreshOfflineUi();
+}
+document.addEventListener("DOMContentLoaded", initPwaOfflineMode);
