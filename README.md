@@ -1,4 +1,16 @@
-# Budapest Travel Planner v1.31.0
+# Budapest Travel Planner v1.32.0
+
+## v1.32.0 – UI/UX Refresh: Karte
+
+- Die Kartenaktionen wurden zu einer gemeinsamen kompakten Toolbar zusammengeführt.
+- „Budapest“, „Ort hinzufügen“ und „Alle anzeigen“ wirken dadurch nicht mehr wie voneinander unabhängige schwebende Buttons.
+- Auf Mobilgeräten sitzt die Toolbar zentriert am oberen Kartenrand und benötigt deutlich weniger Breite.
+- „Ort hinzufügen“ bleibt als primäre Kartenaktion farblich hervorgehoben.
+- „Alle anzeigen“ ist mobil als kompakte Symbolaktion ausgeführt.
+- Der Standort-Button verwendet jetzt ein zum restlichen UI passendes Line-Icon statt des Pin-Emojis.
+- Schatten, Rundungen und Transparenz wurden an die neue Designsprache der Bottom-Navigation angepasst.
+- Marker-, Routing-, Offline- und Navigationslogik bleiben unverändert.
+- Keine Datenbankmigration erforderlich.
 
 ## v1.31.0 – UI/UX Refresh: Orte
 
