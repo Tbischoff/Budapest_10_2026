@@ -1,4 +1,11 @@
-# Budapest Travel Planner v1.27.0
+# Budapest Travel Planner v1.27.1
+
+## v1.27.1 – Reiseübersicht in „Plan“
+
+- Die Reise-/Statusübersicht wurde aus der Heute-Ansicht entfernt, damit „Heute“ wieder stärker auf die unmittelbare Nutzung unterwegs fokussiert ist.
+- Die Übersicht ist jetzt direkt in „Plan“ unterhalb der Tagesauswahl und oberhalb der Tagesagenda integriert.
+- Ein Tipp auf einen Reisetag in der Übersicht öffnet weiterhin unmittelbar dessen Tagesagenda.
+- Keine Datenbankmigration erforderlich.
 
 ## v1.27.0 – Reise-/Statusübersicht
 
