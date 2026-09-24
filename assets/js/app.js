@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.30.0";
+const APP_VERSION = "v1.31.0";
 
 
 function syncVersionLabels() {
@@ -5997,18 +5997,24 @@ function renderPlaceList(filteredPlaces) {
     const card = document.createElement("div");
     card.className = "place-card";
     card.innerHTML = `
-      <div class="place-card-title">
-        <span class="place-card-name">${CATEGORY_ICONS[place.category] || "•"} ${escapeHtml(place.name)}</span>
-        <span class="place-card-badges">${saved.plannedDay ? `🗓️ ${escapeHtml(dayShortLabel(saved.plannedDay))}` : ""}${place.localTip ? " ⭐" : ""}${place.isLocalPlace ? " 📌" : ""}</span>
+      <div class="place-card-leading">${CATEGORY_ICONS[place.category] || "•"}</div>
+      <div class="place-card-content">
+        <div class="place-card-title">
+          <span class="place-card-name">${escapeHtml(place.name)}</span>
+          <span class="place-card-chevron">›</span>
+        </div>
+        <div class="place-card-meta">
+          <span>${escapeHtml(categoryLabel(place.category))}</span>
+          ${userPosition && distanceToPlace(place) != null ? `<span>📍 ${escapeHtml(formatDistance(distanceToPlace(place)))}</span>` : ""}
+        </div>
+        <div class="place-card-status">
+          ${saved.plannedDay ? `<span class="place-status-chip planned">🗓️ ${escapeHtml(dayShortLabel(saved.plannedDay))}${formatPlannedTime(saved) ? ` · ${escapeHtml(formatPlannedTime(saved))}` : ""}</span>` : '<span class="place-status-chip open">Noch offen</span>'}
+          ${saved.visited ? '<span class="place-status-chip visited">✓ Besucht</span>' : ""}
+          ${place.localTip ? '<span class="place-status-chip tip">★ Local-Tipp</span>' : ""}
+          ${place.isLocalPlace ? '<span class="place-status-chip own">📌 Eigener Ort</span>' : ""}
+        </div>
+        ${place.notes ? `<div class="place-card-note">${escapeHtml(place.notes)}</div>` : ""}
       </div>
-      <div class="place-card-meta">
-        ${escapeHtml(categoryLabel(place.category))}
-        ${userPosition && distanceToPlace(place) != null ? ` · 📍 ${escapeHtml(formatDistance(distanceToPlace(place)))} entfernt` : ""}
-        ${saved.plannedDay ? ` · 🗓️ ${escapeHtml(dayLongLabel(saved.plannedDay))}` : ""}
-        ${saved.plannedDay && formatPlannedTime(saved) ? ` · 🕐 ${escapeHtml(formatPlannedTime(saved))}` : ""}
-        ${saved.visited ? " · ✓ besucht" : ""}
-      </div>
-      ${place.notes ? `<div class="place-card-note">${escapeHtml(place.notes)}</div>` : ""}
     `;
 
     card.addEventListener("click", event => {
