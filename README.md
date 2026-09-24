@@ -1,4 +1,4 @@
-# Budapest Travel Planner v1.17.0
+# Budapest Travel Planner v1.18.0
 
 ## Navigation Persistence & Wake Lock
 
@@ -320,3 +320,12 @@ Die Navigation arbeitet die kombinierte Tagesreihenfolge aus Orten und Aktivitä
 - Die „Was jetzt?“-Karte zeigt den Öffnungsstatus des nächsten Ortes ebenfalls direkt an.
 - Bei Orten ohne geplante Uhrzeit wird die Öffnungszeit des Reisetags informativ angezeigt.
 - Orte ohne gespeicherte Öffnungszeiten bleiben unverändert; es werden keine Öffnungszeiten erfunden.
+
+
+## v1.18.0 – Wetter im Tagesplan
+- Wetterdaten für Budapest werden über Open-Meteo geladen.
+- Der Tageskopf zeigt Wetterlage, Höchst-/Tiefsttemperatur und maximale Regenwahrscheinlichkeit.
+- Geplante Programmpunkte erhalten passend zu ihrer Uhrzeit eine stündliche Temperatur- und Regenprognose.
+- Die „Was jetzt?“-Karte zeigt das Wetter zum geplanten Zeitpunkt des nächsten Programmpunkts.
+- Die Wetterabfrage läuft parallel zum übrigen App-Start und blockiert Karte oder Supabase nicht.
+- Außerhalb des verfügbaren Vorhersagezeitraums bleibt die Planung vollständig nutzbar und zeigt keine erfundenen Wetterwerte.
