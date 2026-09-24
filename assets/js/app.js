@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.33.0";
+const APP_VERSION = "v1.33.1";
 
 
 function syncVersionLabels() {
@@ -4185,8 +4185,8 @@ function renderDayFilters() {
 
   if (selectedDayFilter === "all") selectedDayFilter = TRIP_DAYS[0]?.id || "unplanned";
   const buttons = [
-    ...TRIP_DAYS.map(day => ({ id: day.id, label: day.short })),
-    { id: "unplanned", label: "Noch offen" }
+    { id: "unplanned", label: "Noch offen" },
+    ...TRIP_DAYS.map(day => ({ id: day.id, label: day.short }))
   ];
 
   container.innerHTML = "";
@@ -4475,9 +4475,6 @@ function updateUserLocationMarker() {
 function distanceToPlace(place) {
   if (!userPosition) return null;
 
-  const budapestDistance = haversineDistanceKm(userPosition.lat, userPosition.lng, 47.4979, 19.0402);
-  if (!Number.isFinite(budapestDistance) || budapestDistance > 100) return null;
-
   const lat = Number(place?.lat);
   const lng = Number(place?.lng);
   if (Number.isFinite(lat) && Number.isFinite(lng)) {
@@ -4489,6 +4486,12 @@ function distanceToPlace(place) {
   const pos = getMarkerPosition(marker);
   if (!pos) return null;
   return haversineDistanceKm(userPosition.lat, userPosition.lng, pos.lat, pos.lng);
+}
+
+function shouldDisplayPlaceDistance() {
+  if (!userPosition) return false;
+  const budapestDistance = haversineDistanceKm(userPosition.lat, userPosition.lng, 47.4979, 19.0402);
+  return Number.isFinite(budapestDistance) && budapestDistance <= 100;
 }
 
 function haversineDistanceKm(lat1, lng1, lat2, lng2) {
@@ -6008,7 +6011,7 @@ function renderPlaceList(filteredPlaces) {
         </div>
         <div class="place-card-meta">
           <span>${escapeHtml(categoryLabel(place.category))}</span>
-          ${userPosition && distanceToPlace(place) != null ? `<span>📍 ${escapeHtml(formatDistance(distanceToPlace(place)))}</span>` : ""}
+          ${shouldDisplayPlaceDistance() && distanceToPlace(place) != null ? `<span>📍 ${escapeHtml(formatDistance(distanceToPlace(place)))}</span>` : ""}
         </div>
         <div class="place-card-status">
           ${saved.plannedDay ? `<span class="place-status-chip planned">🗓️ ${escapeHtml(dayShortLabel(saved.plannedDay))}${formatPlannedTime(saved) ? ` · ${escapeHtml(formatPlannedTime(saved))}` : ""}</span>` : '<span class="place-status-chip open">Noch offen</span>'}
