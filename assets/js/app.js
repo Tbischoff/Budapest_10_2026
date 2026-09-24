@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.14.8";
+const APP_VERSION = "v1.14.9";
 
 function syncVersionLabels() {
   document.querySelectorAll(".app-version").forEach(el => { el.textContent = APP_VERSION; });
@@ -132,6 +132,7 @@ let lastFocusedPlaceId = null;
 let activeInfoPlaceId = null;
 let searchDebounceTimer = null;
 let startupLocationPromise = null;
+let googleMapsLoadPromise = null;
 
 let map;
 let geocoder;
@@ -146,6 +147,8 @@ document.addEventListener("DOMContentLoaded", () => {
   // v1.14.8: Standort parallel zum restlichen App-Start anfordern.
   // Eine schnelle/gecachte Position kann dadurch schon vor der Karte vorliegen.
   startupLocationPromise = requestStartupLocation();
+  // v1.14.9: Google Maps sofort parallel zu Auth/Supabase laden.
+  googleMapsLoadPromise = loadGoogleMaps();
   bootstrapAuth();
 });
 document.addEventListener("visibilitychange", handleNavigationVisibilityChange);
@@ -605,7 +608,7 @@ async function bootstrap() {
     renderTryList();
     wireControls();
 
-    await loadGoogleMaps();
+    await (googleMapsLoadPromise || loadGoogleMaps());
     initMap();
     await createMarkers();
     createActivityMarkers();
@@ -625,7 +628,9 @@ async function bootstrap() {
 }
 
 function loadGoogleMaps() {
-  return new Promise((resolve, reject) => {
+  // Mehrfache Aufrufe während des parallelen Starts teilen sich denselben Ladevorgang.
+  if (googleMapsLoadPromise) return googleMapsLoadPromise;
+  googleMapsLoadPromise = new Promise((resolve, reject) => {
     if (!CONFIG.googleMapsApiKey) {
       reject(new Error("Google Maps API-Key fehlt in app.js."));
       return;
@@ -654,6 +659,7 @@ function loadGoogleMaps() {
     script.onerror = () => reject(new Error("Google Maps konnte nicht geladen werden."));
     document.head.appendChild(script);
   });
+  return googleMapsLoadPromise;
 }
 
 
