@@ -1,4 +1,4 @@
-const CACHE_NAME = "budapest-travel-v1.19.0";
+const CACHE_NAME = "budapest-travel-v1.19.1";
 const APP_SHELL = ["./","./index.html","./assets/css/style.css?v=1.19.0","./assets/js/app.js?v=1.19.0","./data/places.js","./assets/icons/favicon.svg","./manifest.webmanifest?v=1.19.0"];
 self.addEventListener("install", event => { event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(APP_SHELL)).then(() => self.skipWaiting())); });
 self.addEventListener("activate", event => { event.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(key => key !== CACHE_NAME).map(key => caches.delete(key)))).then(() => self.clients.claim())); });
