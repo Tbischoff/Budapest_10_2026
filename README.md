@@ -1,4 +1,4 @@
-# Budapest Travel Planner v1.21.0
+# Budapest Travel Planner v1.21.1
 
 ## Navigation Persistence & Wake Lock
 
@@ -366,3 +366,7 @@ Die Navigation arbeitet die kombinierte Tagesreihenfolge aus Orten und Aktivitä
 - Kompakte Prognose für alle Reisetage in der Heute-Ansicht.
 - Tagesplanung zeigt Tageswerte sowie Morgen-, Mittag- und Abendprognose.
 - Wetter an geplanten Stopps bleibt erhalten und nutzt die jeweilige Uhrzeit.
+
+
+### v1.21.1
+- Syntaxfehler durch versehentlich als Text eingefügte Zeilenumbrüche im Wetterausbau behoben.
