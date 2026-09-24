@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.14.0";
+const APP_VERSION = "v1.14.1";
 
 function syncVersionLabels() {
   document.querySelectorAll(".app-version").forEach(el => { el.textContent = APP_VERSION; });
@@ -3294,22 +3294,35 @@ function updateNavigationSchedule(stop, legIndex, metersToManeuver) {
   }
   const remainingMillis = navigationRemainingDurationToLeg(legIndex, metersToManeuver);
   const arrival = new Date(Date.now() + Math.max(0, remainingMillis));
-  const deltaMinutes = Math.round((schedule.start.getTime() - arrival.getTime()) / 60000);
+
+  // Der Puffer ist eine Differenz zwischen Uhrzeiten innerhalb des geplanten Tages.
+  // Dadurch funktioniert die Vorschau/Testnavigation auch schon vor dem Reisetag,
+  // statt die Tage bis zum geplanten Datum fälschlich als Puffer zu zählen.
+  const plannedMinutes = schedule.start.getHours() * 60 + schedule.start.getMinutes();
+  const arrivalMinutes = arrival.getHours() * 60 + arrival.getMinutes();
+  const deltaMinutes = plannedMinutes - arrivalMinutes;
+
   const range = stop.plannedEndTime ? `${stop.plannedStartTime}–${stop.plannedEndTime}` : stop.plannedStartTime;
   let state = "ok";
-  let message = `🕒 ${range} · Ankunft ca. ${formatClockTime(arrival)}`;
+  let statusText = `${deltaMinutes} Min. Puffer`;
   if (deltaMinutes < 0) {
     state = "late";
-    message += ` · ⚠️ ca. ${Math.abs(deltaMinutes)} Min. zu spät`;
+    statusText = `⚠️ ca. ${Math.abs(deltaMinutes)} Min. zu spät`;
   } else if (deltaMinutes <= 15) {
     state = "tight";
-    message += ` · ⚠️ nur ${deltaMinutes} Min. Puffer`;
-  } else {
-    message += ` · ${deltaMinutes} Min. Puffer`;
+    statusText = `⚠️ nur ${deltaMinutes} Min. Puffer`;
   }
+
   el.hidden = false;
   el.className = `navigation-schedule ${state}`;
-  el.textContent = message;
+  el.replaceChildren();
+  const timeLine = document.createElement("span");
+  timeLine.className = "navigation-schedule-time";
+  timeLine.textContent = `🕒 ${range}`;
+  const etaLine = document.createElement("span");
+  etaLine.className = "navigation-schedule-eta";
+  etaLine.textContent = `Ankunft ca. ${formatClockTime(arrival)} · ${statusText}`;
+  el.append(timeLine, etaLine);
 }
 
 function updateNavigationUi(position = userPosition) {

@@ -2807,7 +2807,7 @@ body.agenda-dragging {
 }
 
 
-/* v1.14.0 – intelligente Tagesnavigation */
+/* v1.14.1 – intelligente Tagesnavigation: Pufferberechnung + mobile Lesbarkeit */
 .navigation-schedule {
   margin-top: 5px;
   padding: 6px 9px;
@@ -2823,4 +2823,15 @@ body.agenda-dragging {
 .navigation-schedule[hidden] { display: none !important; }
 @media (max-width: 700px) {
   .navigation-schedule { width: 100%; box-sizing: border-box; font-size: 11.5px; }
+}
+
+.navigation-schedule-time,
+.navigation-schedule-eta {
+  display: block;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.navigation-schedule-eta { margin-top: 2px; font-weight: 700; }
+@media (max-width: 700px) {
+  .navigation-schedule { font-size: 12px; line-height: 1.35; padding: 7px 10px; }
 }

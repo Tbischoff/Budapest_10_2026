@@ -1,4 +1,4 @@
-# Budapest Travel Planner v1.14.0
+# Budapest Travel Planner v1.14.1
 
 ## Navigation Persistence & Wake Lock
 
@@ -195,3 +195,8 @@ Die Navigation arbeitet die kombinierte Tagesreihenfolge aus Orten und Aktivitä
 - Auf schmalen Displays werden die Aktionsbuttons zusätzlich in ein kompaktes Raster umgebrochen.
 - Bestehende Navigation, Pausenfunktion und „Stopps überspringen“ bleiben unverändert.
 - Keine Datenbankänderung erforderlich.
+
+
+## v1.14.1 – Bugfix intelligente Tagesnavigation
+- Puffer wird aus geplanter Uhrzeit und prognostizierter Ankunfts-Uhrzeit berechnet; zukünftige Reisetage werden in der Vorschau nicht mehr als tausende Puffer-Minuten gezählt.
+- Zeitfenster und Ankunft/Puffer werden in zwei Zeilen dargestellt und sind auf kleinen Displays vollständig lesbar.
