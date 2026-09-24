@@ -1,4 +1,10 @@
-# Budapest Travel Planner v1.27.1
+# Budapest Travel Planner v1.27.2
+
+## v1.27.2 – Reiseübersicht vor Tagesplanung
+
+- Die Reiseübersicht steht im Plan jetzt direkt oberhalb der Tagesauswahl.
+- Dadurch beginnt der Plan mit dem Gesamtüberblick; anschließend folgt die Auswahl und Bearbeitung des einzelnen Reisetags.
+- Keine Datenbankmigration erforderlich.
 
 ## v1.27.1 – Reiseübersicht in „Plan“
 
