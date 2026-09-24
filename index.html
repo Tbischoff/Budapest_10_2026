@@ -14,7 +14,7 @@
 <body>
   <div id="authGate" class="auth-gate">
     <form id="loginForm" class="auth-card">
-      <div class="eyebrow">Travel Planner · <span id="loginVersion">v1.19.2</span></div>
+      <div class="eyebrow">Travel Planner · <span id="loginVersion">v1.19.3</span></div>
       <h1>Budapest Map</h1>
       <p>Bitte anmelden, um den gemeinsamen Reisestand zu laden.</p>
       <label class="form-field"><span>E-Mail</span><input id="loginEmail" type="email" autocomplete="username" required></label>
@@ -30,7 +30,7 @@
         <div>
           <div class="eyebrow">Budapest · 03.–07.10.2026</div>
           <h1>Budapest Map</h1>
-        <div class="app-version">v1.19.2</div>
+        <div class="app-version">v1.19.3</div>
 
         <div class="app-connectivity" data-app-connectivity>🟢 Online</div>
         </div>
@@ -115,7 +115,12 @@
             </button>
           </div>
           <div class="route-hint">
-            Die Route wird über die Google Routes API als echte Fußroute entlang von Straßen und Wegen berechnet.
+            Online wird die Route über Google Routes berechnet. Vorbereitete Tagesrouten können anschließend auch offline angezeigt werden.
+          </div>
+          <div class="offline-route-panel">
+            <div class="offline-route-title">📱 Offline-Reisemodus</div>
+            <button id="prepareOfflineRoutesBtn" class="route-button offline-prepare-button" type="button">📥 Offline-Daten vorbereiten</button>
+            <div id="offlineRouteStatus" class="offline-route-status">Noch keine Offline-Routen vorbereitet.</div>
           </div>
           <div class="navigation-actions">
             <button id="navigationStartBtn" class="route-button navigation-start-button" type="button">🧭 Navigation starten</button>
