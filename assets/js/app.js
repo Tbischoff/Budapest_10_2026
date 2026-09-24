@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.14.13";
+const APP_VERSION = "v1.14.14";
 
 function syncVersionLabels() {
   document.querySelectorAll(".app-version").forEach(el => { el.textContent = APP_VERSION; });
@@ -747,7 +747,7 @@ function centerMapOnCurrentLocation({ silent = false, highAccuracy = true, recen
     () => {
       if (!silent) setStatus("Standort nicht verfügbar. Karte bleibt auf Budapest.");
     },
-    { enableHighAccuracy, timeout: highAccuracy ? 8000 : 2500, maximumAge: highAccuracy ? 60000 : 300000 }
+    { enableHighAccuracy: highAccuracy, timeout: highAccuracy ? 8000 : 2500, maximumAge: highAccuracy ? 60000 : 300000 }
   );
 }
 
