@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.20.2";
+const APP_VERSION = "v1.21.0";
 
 function syncVersionLabels() {
   document.querySelectorAll(".app-version").forEach(el => { el.textContent = APP_VERSION; });
@@ -4633,7 +4633,7 @@ async function showNextPlace() {
 
 async function loadBudapestWeather() {
   try {
-    const url = "https://api.open-meteo.com/v1/forecast?latitude=47.4979&longitude=19.0402&hourly=temperature_2m,precipitation_probability,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=Europe%2FBudapest&forecast_days=16";
+    const url = "https://api.open-meteo.com/v1/forecast?latitude=47.4979&longitude=19.0402&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m&hourly=temperature_2m,apparent_temperature,precipitation_probability,weather_code,wind_speed_10m&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=Europe%2FBudapest&forecast_days=16";
     const response = await fetch(url);
     if (!response.ok) throw new Error(`Wetterdienst: HTTP ${response.status}`);
     weatherForecast = await response.json();
@@ -4681,8 +4681,26 @@ function hourlyWeatherFor(dayId, time) {
   return {
     code: weatherForecast.hourly.weather_code?.[index],
     temp: weatherForecast.hourly.temperature_2m?.[index],
-    rain: weatherForecast.hourly.precipitation_probability?.[index]
+    rain: weatherForecast.hourly.precipitation_probability?.[index],
+    feels: weatherForecast.hourly.apparent_temperature?.[index],
+    wind: weatherForecast.hourly.wind_speed_10m?.[index]
   };
+}
+
+
+function currentBudapestWeatherHtml() {
+  const current = weatherForecast?.current;
+  if (!current) return '<div class="weather-now-card muted">Aktuelles Wetter wird geladen …</div>';
+  const today = dailyWeatherFor(weatherForecast?.daily?.time?.[0]);
+  return `<div class="weather-now-card"><div class="weather-now-icon">${weatherIcon(current.weather_code)}</div><div class="weather-now-main"><span>Budapest · aktuell</span><strong>${Math.round(Number(current.temperature_2m))} °C</strong><small>Gefühlt ${Math.round(Number(current.apparent_temperature))} °C · 💨 ${Math.round(Number(current.wind_speed_10m))} km/h${today ? ` · 💧 ${Math.round(Number(today.rain))}%` : ""}</small></div></div>`;
+}
+function weatherPeriodsHtml(dayId) {
+  const periods=[["09:00","Morgens"],["13:00","Mittags"],["18:00","Abends"]];
+  const rows=periods.map(([time,label])=>{ const w=hourlyWeatherFor(dayId,time); if(!w)return ""; return `<div class="weather-period"><span>${label}<small>${time.slice(0,2)} Uhr</small></span><strong>${weatherIcon(w.code)} ${Math.round(Number(w.temp))}°</strong><span>💧 ${Math.round(Number(w.rain))}% · gefühlt ${Math.round(Number(w.feels))}°</span></div>`; }).join("");
+  return rows ? `<div class="weather-periods">${rows}</div>` : "";
+}
+function tripForecastStripHtml() {
+  return `<div class="trip-weather-strip">${TRIP_DAYS.map(day=>{ const w=dailyWeatherFor(day.id); return w ? `<div class="trip-weather-day"><strong>${escapeHtml(day.short||day.label)}</strong><span>${weatherIcon(w.code)} ${Math.round(Number(w.max))}° / ${Math.round(Number(w.min))}°</span><small>💧 ${Math.round(Number(w.rain))}%</small></div>` : `<div class="trip-weather-day muted"><strong>${escapeHtml(day.short||day.label)}</strong><span>–</span><small>noch keine Prognose</small></div>`; }).join("")}</div>`;
 }
 
 function weatherBadge(dayId, time) {
@@ -4807,7 +4825,7 @@ function renderTodayView() {
     <div class="today-complete-card">✓ ${dayPlaces.length ? "Tagesplan abgeschlossen – alle Orte besucht." : "Für diesen Tag sind noch keine Orte geplant."}</div>`;
 
   container.innerHTML = `
-    ${preview ? '<div class="today-preview-note">Vorschau · Die Reise hat noch nicht begonnen</div>' : ''}
+    ${currentBudapestWeatherHtml()}\n    ${tripForecastStripHtml()}\n    ${preview ? '<div class="today-preview-note">Vorschau · Die Reise hat noch nicht begonnen</div>' : ''}
     <div class="today-day-card">
       <div><div class="today-kicker">${preview ? "Erster Reisetag" : "Heute"}</div><h2>${escapeHtml(formatTodayDayTitle(day))}</h2><div class="today-day-label">${escapeHtml(day.label)}</div></div>
       <div class="today-day-side"><span class="today-day-number">Tag ${dayIndex}</span>${dayWeatherHtml}</div>
@@ -5364,7 +5382,7 @@ function renderDayAgenda() {
   const visitedCount = dayPlaces.filter(place => (state.places[place.id] || {}).visited).length;
   const progress = dayPlaces.length ? Math.round((visitedCount / dayPlaces.length) * 100) : 0;
   const { legs, totalDistance, totalMinutes } = getAgendaLegs(stops);
-  const header = `<div class="agenda-day-header"><div><div class="agenda-day-kicker">Tages-Timeline</div><div class="agenda-day-title">${escapeHtml(selectedDay.label)}</div><div class="agenda-day-stats">${dayPlaces.length} Orte · ${dayActivities.length} Aktivitäten${stops.length > 1 ? ` · 🚶 ca. ${formatRouteDistance(totalDistance)} · ${totalMinutes} Min.` : ""}</div></div><div class="agenda-header-actions"><span class="agenda-progress-badge">${progress}%</span><button id="addActivityAgendaBtn" class="mini-action-button activity-add-button" type="button">＋ Aktivität</button></div></div><div class="agenda-progress-track"><div class="agenda-progress-fill" style="width:${progress}%"></div></div>`;
+  const dayWeather = dailyWeatherFor(selectedDay.id);\n  const agendaWeather = dayWeather ? `<div class="agenda-weather-card"><div><strong>${weatherIcon(dayWeather.code)} ${Math.round(Number(dayWeather.max))}° / ${Math.round(Number(dayWeather.min))}°</strong><span>💧 ${Math.round(Number(dayWeather.rain))}% Regen</span></div>${weatherPeriodsHtml(selectedDay.id)}</div>` : '<div class="agenda-weather-card muted">🌦️ Für diesen Tag ist noch keine Prognose verfügbar.</div>';\n  const header = `<div class="agenda-day-header"><div><div class="agenda-day-kicker">Tages-Timeline</div><div class="agenda-day-title">${escapeHtml(selectedDay.label)}</div><div class="agenda-day-stats">${dayPlaces.length} Orte · ${dayActivities.length} Aktivitäten${stops.length > 1 ? ` · 🚶 ca. ${formatRouteDistance(totalDistance)} · ${totalMinutes} Min.` : ""}</div></div><div class="agenda-header-actions"><span class="agenda-progress-badge">${progress}%</span><button id="addActivityAgendaBtn" class="mini-action-button activity-add-button" type="button">＋ Aktivität</button></div></div><div class="agenda-progress-track"><div class="agenda-progress-fill" style="width:${progress}%"></div></div>${agendaWeather}`;
 
   if (!stops.length) {
     container.innerHTML = `${header}<div class="agenda-empty">Für ${escapeHtml(selectedDay.label)} ist noch nichts geplant.</div>`;
