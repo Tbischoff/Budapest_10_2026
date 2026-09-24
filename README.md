@@ -1,4 +1,16 @@
-# Budapest Travel Planner v1.30.0
+# Budapest Travel Planner v1.31.0
+
+## v1.31.0 – UI/UX Refresh: Orte
+
+- Der Orte-Bereich wurde für schnelleres Scannen und die mobile Nutzung neu gestaltet.
+- Die Suche ist prominenter und erhält ein eigenes Suchsymbol sowie den klareren Hinweis „Orte durchsuchen …“.
+- Der Bereich heißt nun „Orte entdecken“ und beschreibt den Inhalt kompakt als gespeicherte Budapest-Ziele.
+- Ortskarten haben jetzt ein einheitliches Kategorie-Symbol, klar getrennten Titel und Metadaten sowie einen visuellen Öffnungs-Pfeil.
+- Planungsstatus, Besuchsstatus, Local-Tipp und eigene Orte werden als kompakte Status-Chips dargestellt.
+- Ungeplante Ziele sind direkt als „Noch offen“ erkennbar.
+- Entfernung und Kategorie bleiben auf einen Blick sichtbar.
+- Längere Notizen werden in der Liste auf zwei Zeilen begrenzt, damit einzelne Orte die Ansicht nicht unnötig verlängern.
+- Keine Datenbankmigration erforderlich.
 
 ## v1.30.0 – Globaler UI/UX Refresh
 
