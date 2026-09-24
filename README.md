@@ -1,4 +1,4 @@
-# Budapest Travel Planner v1.22.5
+# Budapest Travel Planner v1.22.6
 
 ## Navigation Persistence & Wake Lock
 
@@ -423,3 +423,10 @@ Die Navigation arbeitet die kombinierte Tagesreihenfolge aus Orten und Aktivitä
 ### v1.22.5
 - „Stopp/Ort auf Karte anzeigen“ verwendet offline MapLibre statt Google Maps und verursacht keinen google-is-not-defined-Fehler mehr.
 - Aktivitäten können ebenfalls auf der Offline-Karte fokussiert werden.
+
+
+### v1.22.6
+- Offline-Karte zeigt nun Marker für gespeicherte Orte und Aktivitäten.
+- Aktivitäten werden als violette Ticket-Marker dargestellt, Orte anhand ihrer Kategorie.
+- Besuchte Orte werden dezenter dargestellt.
+- „Auf Karte anzeigen“ hebt den ausgewählten Offline-Marker mit einem Ring hervor.
