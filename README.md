@@ -177,3 +177,11 @@ Die Navigation arbeitet die kombinierte Tagesreihenfolge aus Orten und Aktivitä
 - Übersprungene Orte werden nicht automatisch als besucht markiert und Aktivitäten bleiben unverändert.
 - Testnavigation ist von der Funktion ausgenommen.
 - Keine Datenbankänderung erforderlich.
+
+
+## v1.13.4 – Mobile Navigationsleiste
+- Die Statusinformationen im aufgeklappten Navigationspanel und die Navigationsaktionen liegen auf Mobilgeräten jetzt in getrennten Zeilen.
+- Restzeit, GPS-Status, Online-Status, „Stopp“ und „Richtung“ überlagern sich dadurch nicht mehr.
+- Auf schmalen Displays werden die Aktionsbuttons zusätzlich in ein kompaktes Raster umgebrochen.
+- Bestehende Navigation, Pausenfunktion und „Stopps überspringen“ bleiben unverändert.
+- Keine Datenbankänderung erforderlich.
