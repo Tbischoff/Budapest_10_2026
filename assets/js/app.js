@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.14.12";
+const APP_VERSION = "v1.14.13";
 
 function syncVersionLabels() {
   document.querySelectorAll(".app-version").forEach(el => { el.textContent = APP_VERSION; });
@@ -137,6 +137,7 @@ let startupLocationPromise = null;
 let googleMapsLoadPromise = null;
 let startupLocationCentered = false;
 let startupLocationRefineStarted = false;
+let startupAutoCenterCancelled = false;
 
 let map;
 let geocoder;
@@ -709,6 +710,10 @@ function loadGoogleMaps() {
 
 function centerMapOnBudapest() {
   if (!map) return;
+  // v1.14.13: Eine bewusste Kartenauswahl darf nicht durch einen noch
+  // laufenden Standort-Fix des App-Starts wieder überschrieben werden.
+  startupAutoCenterCancelled = true;
+  startupLocationCentered = true;
   map.setCenter(CONFIG.initialCenter);
   map.setZoom(CONFIG.initialZoom);
   setStatus("Karte auf Budapest zentriert.");
@@ -730,7 +735,7 @@ function centerMapOnCurrentLocation({ silent = false, highAccuracy = true, recen
       applyFilters();
       // Beim App-Start muss der erste erfolgreiche GPS-Fix die Karte auch dann
       // zentrieren, wenn die schnelle Vorab-Abfrage auf Android leer blieb.
-      const shouldRecenter = recenter || (startupFix && !startupLocationCentered);
+      const shouldRecenter = !startupAutoCenterCancelled && (recenter || (startupFix && !startupLocationCentered));
       if (shouldRecenter) {
         map.panTo(userPosition);
         if (map.getZoom() < 14) map.setZoom(14);
