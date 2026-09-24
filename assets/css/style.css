@@ -3160,3 +3160,12 @@ body.agenda-dragging {
 /* v1.19.0 – PWA / Offline-Basis */
 .app-connectivity { display:inline-flex; align-items:center; width:max-content; margin-top:5px; padding:3px 7px; border-radius:999px; background:#eaf6ef; color:#286344; font-size:10px; font-weight:800; }
 .app-connectivity.offline { background:#fff1e8; color:#9a4d19; }
+
+
+/* v1.19.3 – Offline-Routen */
+.offline-route-panel { margin-top:10px; padding:10px; border:1px solid #dce5e2; border-radius:12px; background:#f8fbfa; }
+.offline-route-title { margin-bottom:8px; font-size:12px; font-weight:800; color:#355e59; }
+.offline-prepare-button { width:100%; }
+.offline-route-status { display:grid; gap:3px; margin-top:8px; color:#596562; font-size:10px; line-height:1.35; }
+.offline-route-status small { margin-top:4px; color:#78817f; }
+@media (max-width:820px) { .offline-route-status { font-size:11px; } }
