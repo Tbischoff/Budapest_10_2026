@@ -1,4 +1,15 @@
-# Budapest Travel Planner v1.23.0
+# Budapest Travel Planner v1.24.0
+
+## v1.24.0 – „In meiner Nähe“
+
+- Neue Karte in der mobilen Heute-Ansicht mit den drei nächstgelegenen offenen Orten.
+- Berücksichtigt Orte des aktuellen Reisetags und noch ungeplante spontane Optionen; fest für andere Tage geplante Orte werden nicht vorgeschlagen.
+- Zeigt Kategorie, Luftlinienentfernung und kompakte Gehzeit-Schätzung.
+- Antippen eines Eintrags öffnet den Ort direkt auf der Karte.
+- Standort kann direkt in der Karte angefordert bzw. aktualisiert werden.
+- „Alle nach Nähe anzeigen“ wechselt zur Orte-Ansicht und sortiert den gesamten Bestand nach Entfernung.
+- Besuchte Orte verschwinden automatisch aus den Nähe-Vorschlägen.
+- Keine Datenbankmigration erforderlich.
 
 ## v1.23.0 – „Was jetzt?“ 2.0
 
