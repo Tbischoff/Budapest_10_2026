@@ -1,4 +1,16 @@
-# Budapest Travel Planner v1.27.3
+# Budapest Travel Planner v1.28.0
+
+## v1.28.0 – UI/UX Refresh: Plan
+
+- Der Plan-Bereich wurde kompakter und klarer hierarchisiert, ohne die bestehende Funktionalität zu verändern.
+- Die vier großen Statistik-Kacheln der Reiseübersicht wurden zu einer platzsparenden Kennzahlenzeile zusammengeführt.
+- Tageszeilen und Abstände der Reiseübersicht wurden reduziert, damit mehr Inhalt ohne Scrollen sichtbar bleibt.
+- Die Tagesauswahl ist jetzt eine einzeilige, horizontal scrollbare Chip-Leiste statt eines mehrzeiligen Button-Rasters.
+- Tageslabels wurden in der Auswahl verkürzt und „Noch offen“ zu „Offen“ komprimiert.
+- Die aktive Tagesauswahl bleibt deutlich hervorgehoben.
+- „Tagesplanung“, „Heute“ und „Nächster Ort“ wurden optisch kompakter gestaltet und stärker von der Reiseübersicht getrennt.
+- Agenda und Routenbereich erhalten konsistentere Rundungen.
+- Keine Datenbankmigration erforderlich.
 
 ## v1.27.3 – Klare Hierarchie im Plan
 
