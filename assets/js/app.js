@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.19.3";
+const APP_VERSION = "v1.20.0";
 
 function syncVersionLabels() {
   document.querySelectorAll(".app-version").forEach(el => { el.textContent = APP_VERSION; });
@@ -2308,6 +2308,115 @@ function buildRouteRequestPoints(routeStops) {
 }
 
 const OFFLINE_ROUTES_STORAGE_KEY = "budapestOfflineDayRoutesV1";
+const OFFLINE_MAP_URL = "./assets/maps/budapest.pmtiles";
+const OFFLINE_MAP_CACHE = "budapest-offline-map-v1.20.0";
+let offlineMap = null;
+let offlineMapReady = false;
+
+
+async function cacheBudapestOfflineMap() {
+  const cache = await caches.open(OFFLINE_MAP_CACHE);
+  const response = await fetch(OFFLINE_MAP_URL, { cache: "no-store" });
+  if (!response.ok) throw new Error(`Offline-Karte: HTTP ${response.status}`);
+  await cache.put(OFFLINE_MAP_URL, response.clone());
+  localStorage.setItem("budapestOfflineMapReady", JSON.stringify({ savedAt: new Date().toISOString() }));
+  return true;
+}
+
+function offlineMapIsPrepared() {
+  return Boolean(localStorage.getItem("budapestOfflineMapReady"));
+}
+
+function offlineBaseStyle() {
+  return {
+    version: 8,
+    sources: {
+      budapest: { type: "vector", url: `pmtiles://${new URL(OFFLINE_MAP_URL, location.href).href}` }
+    },
+    layers: [
+      { id:"background", type:"background", paint:{ "background-color":"#f5f1e8" } },
+      { id:"landuse", type:"fill", source:"budapest", "source-layer":"landuse", paint:{ "fill-color":"#e7eee3", "fill-opacity":0.7 } },
+      { id:"water", type:"fill", source:"budapest", "source-layer":"water", paint:{ "fill-color":"#b9d9e8" } },
+      { id:"buildings", type:"fill", source:"budapest", "source-layer":"buildings", minzoom:13, paint:{ "fill-color":"#ddd5c9", "fill-outline-color":"#c9c0b3" } },
+      { id:"roads-casing", type:"line", source:"budapest", "source-layer":"roads", minzoom:10, paint:{ "line-color":"#d2cbc0", "line-width":["interpolate",["linear"],["zoom"],10,1,15,5] } },
+      { id:"roads", type:"line", source:"budapest", "source-layer":"roads", minzoom:10, paint:{ "line-color":"#ffffff", "line-width":["interpolate",["linear"],["zoom"],10,0.5,15,3] } }
+    ]
+  };
+}
+
+async function ensureOfflineMap() {
+  if (offlineMapReady && offlineMap) return offlineMap;
+  if (!window.maplibregl || !window.pmtiles) throw new Error("Offline-Kartenbibliothek ist nicht geladen.");
+  const offlineEl = document.getElementById("offlineMap");
+  if (!offlineEl) throw new Error("Offline-Kartencontainer fehlt.");
+  const protocol = new pmtiles.Protocol();
+  try { maplibregl.addProtocol("pmtiles", protocol.tile); } catch {}
+  offlineMap = new maplibregl.Map({
+    container: offlineEl,
+    style: offlineBaseStyle(),
+    center: [19.0402, 47.4979],
+    zoom: 12,
+    attributionControl: true
+  });
+  await new Promise((resolve, reject) => {
+    offlineMap.once("load", resolve);
+    offlineMap.once("error", event => reject(event?.error || new Error("Offline-Karte konnte nicht geladen werden.")));
+  });
+  offlineMapReady = true;
+  return offlineMap;
+}
+
+async function activateOfflineMap() {
+  if (!offlineMapIsPrepared()) return false;
+  const googleEl = document.getElementById("map");
+  const offlineEl = document.getElementById("offlineMap");
+  if (!offlineEl) return false;
+  try {
+    await ensureOfflineMap();
+    googleEl?.classList.add("map-hidden");
+    offlineEl.classList.add("offline-map-active");
+    setTimeout(() => offlineMap?.resize(), 0);
+    return true;
+  } catch (error) {
+    console.warn("Offline-Karte:", error);
+    return false;
+  }
+}
+
+function deactivateOfflineMap() {
+  document.getElementById("map")?.classList.remove("map-hidden");
+  document.getElementById("offlineMap")?.classList.remove("offline-map-active");
+}
+
+function renderOfflineRouteOnMapLibre(cached) {
+  if (!offlineMapReady || !offlineMap || !cached?.path?.length) return false;
+  const routeGeoJson = {
+    type:"Feature",
+    geometry:{ type:"LineString", coordinates:cached.path.map(p => [p.lng, p.lat]) },
+    properties:{}
+  };
+  const stopGeoJson = {
+    type:"FeatureCollection",
+    features:(cached.stops || []).filter(s=>s.position).map((s,index)=>({
+      type:"Feature", geometry:{type:"Point",coordinates:[s.position.lng,s.position.lat]},
+      properties:{number:index+1,name:s.name||""}
+    }))
+  };
+  if (offlineMap.getSource("saved-route")) offlineMap.getSource("saved-route").setData(routeGeoJson);
+  else {
+    offlineMap.addSource("saved-route",{type:"geojson",data:routeGeoJson});
+    offlineMap.addLayer({id:"saved-route-line",type:"line",source:"saved-route",paint:{"line-color":"#2f625d","line-width":6,"line-opacity":0.95}});
+  }
+  if (offlineMap.getSource("saved-stops")) offlineMap.getSource("saved-stops").setData(stopGeoJson);
+  else {
+    offlineMap.addSource("saved-stops",{type:"geojson",data:stopGeoJson});
+    offlineMap.addLayer({id:"saved-stops-circles",type:"circle",source:"saved-stops",paint:{"circle-radius":9,"circle-color":"#ffffff","circle-stroke-color":"#2f625d","circle-stroke-width":3}});
+  }
+  const bounds = new maplibregl.LngLatBounds();
+  cached.path.forEach(p=>bounds.extend([p.lng,p.lat]));
+  offlineMap.fitBounds(bounds,{padding:60,maxZoom:15});
+  return true;
+}
 
 function loadOfflineDayRoutes() {
   try { return JSON.parse(localStorage.getItem(OFFLINE_ROUTES_STORAGE_KEY)) || {}; }
@@ -2332,7 +2441,15 @@ function saveOfflineDayRoute(dayId, route, routeStops) {
 }
 
 function drawOfflineDayRoute(dayId, cached) {
-  if (!cached?.path?.length || !map || !window.google?.maps) return false;
+  if (!cached?.path?.length) return false;
+  if (navigator.onLine === false && offlineMapReady) {
+    activeRouteDay = dayId;
+    activeRouteSummary = { distanceMeters: cached.distanceMeters, durationMillis: cached.durationMillis, placeCount: cached.stops?.length || 0 };
+    renderOfflineRouteOnMapLibre(cached);
+    updateRouteControls();
+    return true;
+  }
+  if (!map || !window.google?.maps) return false;
   clearRenderedRoute();
   const polyline = new google.maps.Polyline({
     path: cached.path,
@@ -2370,7 +2487,8 @@ function renderOfflineRouteStatus() {
   }).join("");
   const times = Object.values(saved).map(item => new Date(item.savedAt).getTime()).filter(Number.isFinite);
   const updated = times.length ? new Date(Math.max(...times)).toLocaleString("de-DE", { dateStyle:"short", timeStyle:"short" }) : "";
-  box.innerHTML = rows + (updated ? `<small>Zuletzt aktualisiert: ${escapeHtml(updated)}</small>` : "");
+  const mapReady = offlineMapIsPrepared();
+  box.innerHTML = `<div>${mapReady ? "✅" : "⚪"} Budapest-Karte – ${mapReady ? "gespeichert" : "nicht vorbereitet"}</div>` + rows + (updated ? `<small>Zuletzt aktualisiert: ${escapeHtml(updated)}</small>` : "");
 }
 
 async function prepareOfflineRoutes() {
@@ -2382,6 +2500,8 @@ async function prepareOfflineRoutes() {
   if (button) { button.disabled = true; button.textContent = "⏳ Routen werden gespeichert …"; }
   let savedCount = 0, skippedCount = 0, failedCount = 0;
   try {
+    setStatus("Budapest-Offline-Karte wird gespeichert …");
+    await cacheBudapestOfflineMap();
     const Route = await ensureRoutesLibrary();
     for (const day of TRIP_DAYS) {
       const stops = getRouteStopsForDay(day.id);
@@ -6425,13 +6545,22 @@ function initPwaOfflineMode() {
     });
   }
 
-  const refreshOfflineUi = () => {
+  const refreshOfflineUi = async () => {
     const offline = navigator.onLine === false;
     document.documentElement.classList.toggle("app-offline", offline);
     document.querySelectorAll("[data-app-connectivity]").forEach(el => {
       el.textContent = offline ? "🟠 Offline · lokale Daten" : "🟢 Online";
       el.classList.toggle("offline", offline);
     });
+    if (offline) {
+      const activated = await activateOfflineMap();
+      if (activated) {
+        const cached = loadOfflineDayRoutes()[selectedDayFilter];
+        if (cached) renderOfflineRouteOnMapLibre(cached);
+      }
+    } else {
+      deactivateOfflineMap();
+    }
   };
   window.addEventListener("online", refreshOfflineUi);
   window.addEventListener("offline", refreshOfflineUi);
