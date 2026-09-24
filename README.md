@@ -1,4 +1,4 @@
-# Budapest Travel Planner v1.21.5
+# Budapest Travel Planner v1.22.0
 
 ## Navigation Persistence & Wake Lock
 
@@ -387,3 +387,10 @@ Die Navigation arbeitet die kombinierte Tagesreihenfolge aus Orten und Aktivitä
 
 ### v1.21.5
 - Race Condition beim parallelen Wetterstart behoben: Wetterdaten werden früh geladen, die Ansichten aber erst nach Initialisierung der Reisedaten gerendert.
+
+
+## v1.22.0 – Offline-Reise
+- „Offline-Daten vorbereiten“ speichert jetzt zusätzlich Orte, Tagesplanung, Aktivitäten und den letzten Wetterstand.
+- App kann im Flugmodus aus dem vorbereiteten Reise-Snapshot starten, ohne Supabase oder Google Maps abzuwarten.
+- Offline-Status zeigt Karte, Reisedaten, Aktivitäten, Wetter und Tagesrouten sowie den letzten Synchronisationszeitpunkt.
+- Online wird nach erfolgreicher Synchronisation automatisch ein aktueller Reise-Snapshot gespeichert.
