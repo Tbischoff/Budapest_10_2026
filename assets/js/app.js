@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.14.9";
+const APP_VERSION = "v1.14.10";
 
 function syncVersionLabels() {
   document.querySelectorAll(".app-version").forEach(el => { el.textContent = APP_VERSION; });
@@ -133,6 +133,8 @@ let activeInfoPlaceId = null;
 let searchDebounceTimer = null;
 let startupLocationPromise = null;
 let googleMapsLoadPromise = null;
+let startupLocationCentered = false;
+let startupLocationRefineStarted = false;
 
 let map;
 let geocoder;
@@ -173,8 +175,9 @@ function requestStartupLocation() {
     navigator.geolocation.getCurrentPosition(
       position => resolve(position),
       () => resolve(null),
-      // Schneller Erst-Fix: Browser-/OS-Cache bevorzugen, hohe Genauigkeit folgt im Hintergrund.
-      { enableHighAccuracy: false, timeout: 2500, maximumAge: 300000 }
+      // v1.14.10: Mobile Browser benötigen für den ersten Fix häufig länger.
+      // Cache bleibt erlaubt, aber die Abfrage wird nicht mehr nach 2,5 s verworfen.
+      { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 }
     );
   });
 }
@@ -670,7 +673,7 @@ function centerMapOnBudapest() {
   setStatus("Karte auf Budapest zentriert.");
 }
 
-function centerMapOnCurrentLocation({ silent = false, highAccuracy = true, recenter = true } = {}) {
+function centerMapOnCurrentLocation({ silent = false, highAccuracy = true, recenter = true, startupFix = false } = {}) {
   if (!navigator.geolocation) {
     if (!silent) setStatus("Standortbestimmung wird von diesem Browser nicht unterstützt.");
     return;
@@ -684,9 +687,13 @@ function centerMapOnCurrentLocation({ silent = false, highAccuracy = true, recen
       updateDistanceControls();
       updateRouteControls();
       applyFilters();
-      if (recenter) {
-        map.setCenter(userPosition);
-        map.setZoom(14);
+      // Beim App-Start muss der erste erfolgreiche GPS-Fix die Karte auch dann
+      // zentrieren, wenn die schnelle Vorab-Abfrage auf Android leer blieb.
+      const shouldRecenter = recenter || (startupFix && !startupLocationCentered);
+      if (shouldRecenter) {
+        map.panTo(userPosition);
+        if (map.getZoom() < 14) map.setZoom(14);
+        if (startupFix) startupLocationCentered = true;
       }
 
       if (!silent) setStatus("Karte auf deinen aktuellen Standort zentriert.");
@@ -972,8 +979,8 @@ function initMap() {
     infoWindow.close();
   });
 
-  // v1.14.8: Bereits parallel ermittelte Startposition sofort verwenden.
-  // Danach GPS im Hintergrund präzisieren, ohne den Kartenstart zu blockieren.
+  // v1.14.10: Auf Mobilgeräten den ersten erfolgreichen Standort-Fix
+  // garantiert zum Zentrieren verwenden. Danach nur noch präzisieren.
   Promise.resolve(startupLocationPromise).then(position => {
     if (position) {
       const start = storeKnownPosition(position);
@@ -982,11 +989,20 @@ function initMap() {
         updateDistanceControls();
         updateRouteControls();
         applyFilters();
-        map.setCenter(start);
-        map.setZoom(14);
+        map.panTo(start);
+        if (map.getZoom() < 14) map.setZoom(14);
+        startupLocationCentered = true;
       }
     }
-    centerMapOnCurrentLocation({ silent: true, highAccuracy: true, recenter: !position });
+    if (!startupLocationRefineStarted) {
+      startupLocationRefineStarted = true;
+      centerMapOnCurrentLocation({
+        silent: true,
+        highAccuracy: true,
+        recenter: !startupLocationCentered,
+        startupFix: true
+      });
+    }
   });
   initGooglePlaceAutocomplete();
   initActivityPlaceAutocomplete();
