@@ -1,4 +1,4 @@
-# Budapest Travel Planner v1.22.9
+# Budapest Travel Planner v1.22.10
 
 ## Navigation Persistence & Wake Lock
 
@@ -448,3 +448,9 @@ Die Navigation arbeitet die kombinierte Tagesreihenfolge aus Orten und Aktivitä
 - Offline-Kartenstil ohne externe Glyph-Abhängigkeit stabilisiert.
 - Text-Symbol-Layer, die MapLibre-Glyphs benötigen, vorerst entfernt; damit startet die Offline-Karte wieder vollständig ohne Internet.
 - Straßen-, Wasser-, Gebäude- und Marker-Layer bleiben erhalten.
+
+
+### v1.22.10
+- MapLibre GL JS auf 5.11.0 aktualisiert, damit Kartenbeschriftungen lokale Systemschriften ohne Glyph-Server verwenden können.
+- Straßennamen und Ortsbezeichnungen wieder aktiviert; bevorzugt deutsch, sonst lokaler OSM-Name.
+- Beschriftungen verwenden lokale Roboto/Arial-Fallbacks und bleiben damit ohne Internet verfügbar.
