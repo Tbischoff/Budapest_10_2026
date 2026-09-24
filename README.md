@@ -1,4 +1,4 @@
-# Budapest Travel Planner v1.14.1
+# Budapest Travel Planner v1.14.2
 
 ## Navigation Persistence & Wake Lock
 
@@ -178,6 +178,14 @@ Die Navigation arbeitet die kombinierte Tagesreihenfolge aus Orten und Aktivitä
 - Testnavigation ist von der Funktion ausgenommen.
 - Keine Datenbankänderung erforderlich.
 
+
+
+## v1.14.2 – Navigation Design-Fix
+- Navigationskarte auf Mobilgeräten luftiger gestaltet und Abstände vergrößert.
+- Online/GPS und die Aktionen „Stopp“/„Richtung“ in einem ruhigen 2×2-Raster angeordnet.
+- Zeitplan-Hinweis optisch weicher und besser lesbar gestaltet.
+- Auf-/Zuklappen nutzt einen eigenen Chevron statt eines Textzeichens.
+- Cache-Busting für CSS und JavaScript auf v1.14.2 aktualisiert.
 
 ## v1.14.0 – Intelligente Tagesnavigation
 - Geplante Uhrzeiten von Orten und Aktivitäten werden in die laufende Tagesnavigation übernommen.

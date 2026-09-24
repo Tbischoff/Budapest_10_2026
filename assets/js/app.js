@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.14.1";
+const APP_VERSION = "v1.14.2";
 
 function syncVersionLabels() {
   document.querySelectorAll(".app-version").forEach(el => { el.textContent = APP_VERSION; });
@@ -2498,7 +2498,6 @@ function setNavigationExpanded(expanded) {
   const button = document.getElementById("navigationExpandBtn");
   if (panel) panel.classList.toggle("expanded", navigationExpanded);
   if (button) {
-    button.textContent = navigationExpanded ? "⌃" : "⌄";
     button.setAttribute("aria-expanded", String(navigationExpanded));
     button.setAttribute("aria-label", navigationExpanded ? "Navigationsdetails ausblenden" : "Navigationsdetails anzeigen");
   }
