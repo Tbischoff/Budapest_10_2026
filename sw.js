@@ -1,6 +1,6 @@
-const CACHE_NAME = "budapest-travel-v1.21.3";
-const OFFLINE_MAP_CACHE = "budapest-offline-map-v1.21.3";
-const APP_SHELL = ["./","./index.html","./assets/css/style.css?v=1.21.3","./assets/js/app.js?v=1.21.3","./data/places.js","./assets/icons/favicon.svg","./manifest.webmanifest?v=1.21.3",
+const CACHE_NAME = "budapest-travel-v1.21.4";
+const OFFLINE_MAP_CACHE = "budapest-offline-map-v1.21.4";
+const APP_SHELL = ["./","./index.html","./assets/css/style.css?v=1.21.4","./assets/js/app.js?v=1.21.4","./data/places.js","./assets/icons/favicon.svg","./manifest.webmanifest?v=1.21.4",
   "https://cdn.jsdelivr.net/npm/maplibre-gl@5.7.3/dist/maplibre-gl.css",
   "https://cdn.jsdelivr.net/npm/maplibre-gl@5.7.3/dist/maplibre-gl.js",
   "https://cdn.jsdelivr.net/npm/pmtiles@4.3.0/dist/pmtiles.js"];
