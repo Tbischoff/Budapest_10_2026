@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.20.1";
+const APP_VERSION = "v1.20.2";
 
 function syncVersionLabels() {
   document.querySelectorAll(".app-version").forEach(el => { el.textContent = APP_VERSION; });
@@ -2309,7 +2309,7 @@ function buildRouteRequestPoints(routeStops) {
 
 const OFFLINE_ROUTES_STORAGE_KEY = "budapestOfflineDayRoutesV1";
 const OFFLINE_MAP_URL = "./assets/maps/budapest.pmtiles";
-const OFFLINE_MAP_CACHE = "budapest-offline-map-v1.20.1";
+const OFFLINE_MAP_CACHE = "budapest-offline-map-v1.20.2";
 let offlineMap = null;
 let offlineMapReady = false;
 
