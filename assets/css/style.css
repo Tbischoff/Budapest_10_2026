@@ -3093,3 +3093,23 @@ body.agenda-dragging {
   .agenda-leg { font-size: 11px; min-height: 32px; }
   .agenda-estimate-note { font-size: 10px; }
 }
+
+
+/* v1.16.0 – „Was jetzt?“ */
+.today-what-now-card {
+  background: linear-gradient(135deg, #f3f9f7 0%, #ffffff 72%);
+  border: 1px solid #cfe1dc;
+  border-radius: 16px;
+  padding: 14px;
+  box-shadow: 0 6px 18px rgba(47, 98, 93, .07);
+}
+.today-what-now-head { display:flex; align-items:flex-start; justify-content:space-between; gap:10px; }
+.today-what-now-subtitle { margin-top:3px; color:#68716f; font-size:11px; }
+.today-what-now-main {
+  width:100%; display:grid; grid-template-columns:44px minmax(0,1fr) auto;
+  gap:10px; align-items:center; border:0; background:transparent; padding:13px 0;
+  text-align:left; color:inherit; cursor:pointer;
+}
+.today-what-now-main strong { display:block; font-size:17px; line-height:1.2; }
+.today-what-now-main small { display:block; margin-top:4px; color:#68716f; font-size:12px; line-height:1.35; }
+.today-what-now-actions { display:grid; grid-template-columns:1.2fr .8fr; gap:8px; }
