@@ -2667,3 +2667,44 @@ body.agenda-dragging {
   .navigation-panel:not(.expanded) .navigation-gps-quality { display:none; }
   .navigation-summary { gap:5px; }
 }
+
+/* v1.12.1 – Zielbildschirm mit Konfetti */
+.navigation-success[hidden] { display:none !important; }
+.navigation-success {
+  position:fixed; inset:0; z-index:120; display:grid; place-items:center;
+  padding:20px; background:rgba(18,27,32,.46); backdrop-filter:blur(5px);
+  overflow:hidden;
+}
+.navigation-success-card {
+  position:relative; z-index:2; width:min(420px, calc(100vw - 32px)); box-sizing:border-box;
+  padding:30px 24px 24px; text-align:center; background:rgba(255,255,255,.98);
+  border:1px solid var(--border); border-radius:24px; box-shadow:0 20px 60px rgba(20,28,31,.28);
+  animation:navigation-success-pop .42s cubic-bezier(.2,.9,.25,1.2) both;
+}
+.navigation-success-icon { font-size:3rem; line-height:1; margin-bottom:12px; }
+.navigation-success-card h2 { margin:0; font-size:1.55rem; line-height:1.15; }
+.navigation-success-name { display:block; margin-top:12px; font-size:1.1rem; }
+.navigation-success-note { margin:7px 0 20px; opacity:.72; }
+.navigation-success-button {
+  width:100%; border:0; border-radius:14px; padding:12px 16px; cursor:pointer;
+  background:#1769e0; color:#fff; font:inherit; font-weight:800;
+}
+.navigation-confetti { position:absolute; inset:0; z-index:1; pointer-events:none; overflow:hidden; }
+.navigation-confetti-piece {
+  position:absolute; top:-24px; width:9px; height:16px; border-radius:2px;
+  background:var(--confetti-color); opacity:0;
+  animation:navigation-confetti-fall var(--confetti-duration) ease-in var(--confetti-delay) forwards;
+}
+@keyframes navigation-success-pop {
+  from { opacity:0; transform:translateY(18px) scale(.94); }
+  to { opacity:1; transform:translateY(0) scale(1); }
+}
+@keyframes navigation-confetti-fall {
+  0% { opacity:0; transform:translate3d(0,-20px,0) rotate(0deg); }
+  10% { opacity:1; }
+  100% { opacity:0; transform:translate3d(var(--confetti-drift),105vh,0) rotate(var(--confetti-rotate)); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .navigation-success-card { animation:none; }
+  .navigation-confetti-piece { animation:none; display:none; }
+}

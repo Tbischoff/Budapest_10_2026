@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.12.0";
+const APP_VERSION = "v1.12.1";
 
 function syncVersionLabels() {
   document.querySelectorAll(".app-version").forEach(el => { el.textContent = APP_VERSION; });
@@ -2640,6 +2640,7 @@ function stopOrientationTracking() {
 }
 
 function stopNavigation(message = "Navigation beendet.") {
+  hideNavigationSuccess();
   if (navigationWatchId != null && navigator.geolocation) navigator.geolocation.clearWatch(navigationWatchId);
   navigationWatchId = null;
   navigationActive = false;
@@ -2771,6 +2772,49 @@ function updateNavigationDynamicZoom(metersToManeuver) {
   }
 }
 
+function hideNavigationSuccess() {
+  const overlay = document.getElementById("navigationSuccess");
+  if (!overlay) return;
+  overlay.hidden = true;
+  const confetti = document.getElementById("navigationConfetti");
+  if (confetti) confetti.replaceChildren();
+}
+
+function launchNavigationConfetti() {
+  const layer = document.getElementById("navigationConfetti");
+  if (!layer) return;
+  layer.replaceChildren();
+  const colors = ["#1769e0", "#ffb300", "#e84d8a", "#2e9d55", "#8e5bd9", "#ff7043"];
+  for (let i = 0; i < 54; i += 1) {
+    const piece = document.createElement("i");
+    piece.className = "navigation-confetti-piece";
+    piece.style.left = `${Math.random() * 100}%`;
+    piece.style.setProperty("--confetti-color", colors[i % colors.length]);
+    piece.style.setProperty("--confetti-delay", `${(Math.random() * 0.55).toFixed(2)}s`);
+    piece.style.setProperty("--confetti-duration", `${(1.8 + Math.random() * 1.4).toFixed(2)}s`);
+    piece.style.setProperty("--confetti-drift", `${Math.round((Math.random() - 0.5) * 150)}px`);
+    piece.style.setProperty("--confetti-rotate", `${Math.round(360 + Math.random() * 720)}deg`);
+    layer.appendChild(piece);
+  }
+  window.setTimeout(() => layer.replaceChildren(), 3600);
+}
+
+function showNavigationSuccess(stop) {
+  const overlay = document.getElementById("navigationSuccess");
+  if (!overlay) return;
+  const icon = document.getElementById("navigationSuccessIcon");
+  const title = document.getElementById("navigationSuccessTitle");
+  const name = document.getElementById("navigationSuccessName");
+  const note = document.getElementById("navigationSuccessNote");
+  const isActivity = stop?.type === "activity";
+  if (icon) icon.textContent = isActivity ? "🎟️" : "📍";
+  if (title) title.textContent = "Du hast dein Ziel erreicht!";
+  if (name) name.textContent = navigationTestMode ? "Testziel" : (stop?.name || "Ziel");
+  if (note) note.textContent = navigationTestMode ? "Testnavigation erfolgreich abgeschlossen." : (isActivity ? "Viel Spaß!" : "Tagesnavigation erfolgreich abgeschlossen.");
+  overlay.hidden = false;
+  launchNavigationConfetti();
+}
+
 function setNavigationArrivalActions(stop = null) {
   const box = document.getElementById("navigationArrivalActions");
   const visitedBtn = document.getElementById("navigationMarkVisitedBtn");
@@ -2813,6 +2857,12 @@ function arriveAtNavigationStop(stop) {
   if (metaEl) metaEl.textContent = navigationTestMode ? "Du bist am Testziel angekommen." : (next ? `Nächster Stopp: ${next.name}` : "Tagesroute abgeschlossen.");
   if (progressEl) progressEl.textContent = navigationTestMode ? "🧪 Testnavigation" : `Stopp ${navigationCompletedStops} von ${navigationTotalStops}`;
   setNavigationArrivalActions(stop);
+  const finalDestinationReached = navigationTestMode || navigationCompletedStops >= navigationTotalStops;
+  if (finalDestinationReached) {
+    if (navigationWatchId != null && navigator.geolocation) navigator.geolocation.clearWatch(navigationWatchId);
+    navigationWatchId = null;
+    showNavigationSuccess(stop);
+  }
 }
 
 function markNavigationArrivalVisited() {
@@ -5015,6 +5065,7 @@ function wireControls() {
   });
   document.getElementById("navigationTestBtn")?.addEventListener("click", chooseNavigationTestTarget);
   document.getElementById("navigationStopBtn")?.addEventListener("click", () => stopNavigation());
+  document.getElementById("navigationSuccessCloseBtn")?.addEventListener("click", () => stopNavigation("Ziel erreicht – Navigation beendet."));
 document.getElementById("navigationExpandBtn")?.addEventListener("click", () => setNavigationExpanded(!navigationExpanded));
   document.getElementById("navigationRecenterBtn")?.addEventListener("click", () => setNavigationFollowMode(true));
   document.getElementById("navigationHeadingBtn")?.addEventListener("click", () => setNavigationHeadingMode(!navigationHeadingUp));
