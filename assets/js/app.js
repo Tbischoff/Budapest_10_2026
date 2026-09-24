@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.24.0";
+const APP_VERSION = "v1.24.1";
 
 
 function syncVersionLabels() {
@@ -4964,19 +4964,49 @@ function whatNowRecommendation(day, stops, preview = false) {
   return { stop, status: stop.type === "activity" ? "Nächster Termin" : "Nächster offener Stopp", tone: "info" };
 }
 
+function openingStatusNow(place, dayId) {
+  const hours = openingHoursForTripDay(place, dayId);
+  if (!hours) return { rank: 2, kind: "unknown", label: "⚪ Öffnungszeit unbekannt", detail: "" };
+  if (hours.closed) return { rank: 3, kind: "closed", label: "🔴 Heute geschlossen", detail: hours.text };
+
+  const now = getBudapestClockMinutes();
+  const ranges = [...hours.text.matchAll(/(\d{1,2}):(\d{2})\s*[–-]\s*(\d{1,2}):(\d{2})/g)]
+    .map(m => [Number(m[1]) * 60 + Number(m[2]), Number(m[3]) * 60 + Number(m[4])]);
+
+  if (!ranges.length) return { rank: 2, kind: "unknown", label: `⚪ ${hours.text}`, detail: hours.text };
+
+  const openRange = ranges.find(([start, end]) => now >= start && now <= end);
+  if (openRange) {
+    const close = `${String(Math.floor(openRange[1] / 60)).padStart(2, "0")}:${String(openRange[1] % 60).padStart(2, "0")}`;
+    return { rank: 0, kind: "open", label: `🟢 Geöffnet · bis ${close}`, detail: hours.text };
+  }
+
+  const nextRange = ranges.find(([start]) => start > now);
+  if (nextRange) {
+    const delta = nextRange[0] - now;
+    const opens = `${String(Math.floor(nextRange[0] / 60)).padStart(2, "0")}:${String(nextRange[0] % 60).padStart(2, "0")}`;
+    if (delta <= 90) return { rank: 1, kind: "soon", label: `🟡 Öffnet um ${opens} · in ${delta} Min.`, detail: hours.text };
+    return { rank: 3, kind: "closed", label: `🔴 Öffnet um ${opens}`, detail: hours.text };
+  }
+
+  return { rank: 3, kind: "closed", label: "🔴 Für heute geschlossen", detail: hours.text };
+}
+
 function nearbyPlacesForToday(dayId, limit = 3) {
   if (!userPosition) return [];
   return placesData.places
     .filter(place => {
       const saved = state.places[place.id] || {};
       if (saved.visited) return false;
-      // Am Reisetag zuerst Orte des Tages bzw. noch ungeplante spontane Optionen
-      // anbieten; Orte eines anderen festen Tages bleiben außen vor.
       return !saved.plannedDay || saved.plannedDay === dayId;
     })
-    .map(place => ({ place, distanceKm: distanceToPlace(place) }))
+    .map(place => ({
+      place,
+      distanceKm: distanceToPlace(place),
+      opening: openingStatusNow(place, dayId)
+    }))
     .filter(item => item.distanceKm != null && Number.isFinite(item.distanceKm))
-    .sort((a, b) => a.distanceKm - b.distanceKm)
+    .sort((a, b) => a.opening.rank - b.opening.rank || a.distanceKm - b.distanceKm)
     .slice(0, limit);
 }
 
@@ -4990,12 +5020,12 @@ function nearbyTodayCardHtml(dayId) {
   }
 
   const nearby = nearbyPlacesForToday(dayId);
-  const rows = nearby.map(({ place, distanceKm }) => {
+  const rows = nearby.map(({ place, distanceKm, opening }) => {
     const minutes = estimatedWalkingMinutes(distanceKm * 1000);
     const planned = (state.places[place.id] || {}).plannedDay === dayId;
     return `<button class="today-nearby-row" type="button" data-nearby-place="${escapeHtml(place.id)}">
       <span class="today-nearby-icon">${CATEGORY_ICONS[place.category] || "📍"}</span>
-      <span class="today-nearby-copy"><strong>${escapeHtml(place.name)}</strong><small>${escapeHtml(categoryLabel(place.category))}${planned ? " · heute geplant" : " · spontan"} · 📍 ${escapeHtml(formatDistance(distanceKm))} · 🚶 ca. ${minutes} Min.</small></span>
+      <span class="today-nearby-copy"><strong>${escapeHtml(place.name)}</strong><small>${escapeHtml(categoryLabel(place.category))}${planned ? " · heute geplant" : " · spontan"} · 📍 ${escapeHtml(formatDistance(distanceKm))} · 🚶 ca. ${minutes} Min.</small><span class="today-nearby-opening ${escapeHtml(opening.kind)}" title="${escapeHtml(opening.detail)}">${escapeHtml(opening.label)}</span></span>
       <span class="today-chevron">›</span>
     </button>`;
   }).join("");
