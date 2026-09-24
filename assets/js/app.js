@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.22.12";
+const APP_VERSION = "v1.22.13";
 
 const MOBILE_DEBUG_STORAGE_KEY = "budapestMobileDebugV1";
 function debugLog(message, detail = "") {
@@ -2899,7 +2899,8 @@ async function showDayRoute(dayId = selectedDayFilter) {
 async function toggleDayRoute() {
   if (routeLoading) return;
 
-  if (activeRouteDay === selectedDayFilter && dayRoutePolylines.length) {
+  const offlineRouteActive = navigator.onLine === false && offlineMapReady && activeRouteDay === selectedDayFilter;
+  if (activeRouteDay === selectedDayFilter && (dayRoutePolylines.length || offlineRouteActive)) {
     clearDayRoute();
     setStatus("Tagesroute ausgeblendet.");
 
