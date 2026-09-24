@@ -3146,3 +3146,12 @@ body.agenda-dragging {
   .weather-badge { font-size:11px; }
   .today-weather-summary { font-size:11px; }
 }
+
+
+/* v1.19.0 – PWA / Offline-Basis */
+.app-connectivity {
+  display:inline-flex; align-items:center; width:max-content;
+  margin-top:5px; padding:3px 7px; border-radius:999px;
+  background:#eaf6ef; color:#286344; font-size:10px; font-weight:800;
+}
+.app-connectivity.offline { background:#fff1e8; color:#9a4d19; }
