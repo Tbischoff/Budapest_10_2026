@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.21.5";
+const APP_VERSION = "v1.22.0";
 
 function syncVersionLabels() {
   document.querySelectorAll(".app-version").forEach(el => { el.textContent = APP_VERSION; });
@@ -639,7 +639,33 @@ async function bootstrap() {
       throw new Error("Lokale Metadaten konnten nicht geladen werden.");
     }
 
-    // Wetter unabhängig von Supabase/Google Maps direkt beim App-Start laden.
+    // Offline zuerst aus dem letzten vorbereiteten Reisestand starten.
+    if (navigator.onLine === false) {
+      const snapshot = loadOfflineTripSnapshot();
+      if (!snapshot) throw new Error("Keine Offline-Reisedaten vorbereitet. Bitte einmal online „Offline-Daten vorbereiten“ ausführen.");
+      currentTripId = snapshot.currentTripId || null;
+      currentTripDays = snapshot.currentTripDays || [];
+      state = snapshot.state || state;
+      tryItems = snapshot.tryItems || [];
+      activities = snapshot.activities || [];
+      const cachedWeather = loadOfflineWeatherSnapshot();
+      weatherForecast = cachedWeather?.data || null;
+      placesData = {
+        meta: JSON.parse(JSON.stringify(window.BUDAPEST_PLACES_DATA.meta)),
+        tryInBudapest: JSON.parse(JSON.stringify(window.BUDAPEST_PLACES_DATA.tryInBudapest || [])),
+        places: snapshot.places || []
+      };
+      placesData.meta.categoriesCount = Object.keys(placesData.meta.categories || {}).length;
+      ensureDayOrders();
+      renderCategoryFilters(); renderDayFilters(); renderTryList(); wireControls();
+      await activateOfflineMap();
+      applyFilters();
+      renderTodayView(); renderDayAgenda(); renderOfflineRouteStatus();
+      suppressSupabaseSync = false;
+      setStatus("🟠 Offline-Reise · letzter vorbereiteter Stand geladen.");
+      return;
+    }
+
     weatherLoadPromise = loadBudapestWeather();
     const remote = await loadSupabaseTripData();
     tryItems = await loadTryItemsFromSupabase();
@@ -670,6 +696,8 @@ async function bootstrap() {
     if (savedNavigation) await resumeNavigationSession(savedNavigation, { announce: false });
 
     suppressSupabaseSync = false;
+    saveOfflineTripSnapshot();
+    renderOfflineRouteStatus();
     setStatus(`☁️ ${placesData.places.length} Orte aus Supabase geladen · Synchronisation aktiv.`);
   } catch (err) {
     console.error(err);
@@ -2310,6 +2338,36 @@ function buildRouteRequestPoints(routeStops) {
 }
 
 const OFFLINE_ROUTES_STORAGE_KEY = "budapestOfflineDayRoutesV1";
+const OFFLINE_TRIP_STORAGE_KEY = "budapestOfflineTripV1";
+const OFFLINE_WEATHER_STORAGE_KEY = "budapestOfflineWeatherV1";
+
+function saveOfflineTripSnapshot() {
+  if (!placesData?.places) return false;
+  const snapshot = {
+    savedAt: new Date().toISOString(),
+    currentTripId,
+    currentTripDays,
+    places: placesData.places,
+    state,
+    activities,
+    tryItems
+  };
+  localStorage.setItem(OFFLINE_TRIP_STORAGE_KEY, JSON.stringify(snapshot));
+  if (weatherForecast) localStorage.setItem(OFFLINE_WEATHER_STORAGE_KEY, JSON.stringify({savedAt:new Date().toISOString(),data:weatherForecast}));
+  return true;
+}
+
+function loadOfflineTripSnapshot() {
+  try { return JSON.parse(localStorage.getItem(OFFLINE_TRIP_STORAGE_KEY)) || null; } catch { return null; }
+}
+function loadOfflineWeatherSnapshot() {
+  try { return JSON.parse(localStorage.getItem(OFFLINE_WEATHER_STORAGE_KEY)) || null; } catch { return null; }
+}
+function offlineSnapshotTime() {
+  const trip = loadOfflineTripSnapshot();
+  return trip?.savedAt || null;
+}
+
 const OFFLINE_MAP_URL = "./assets/maps/budapest.pmtiles";
 const OFFLINE_MAP_CACHE = "budapest-offline-map-v1.20.2";
 let offlineMap = null;
@@ -2491,7 +2549,11 @@ function renderOfflineRouteStatus() {
   const times = Object.values(saved).map(item => new Date(item.savedAt).getTime()).filter(Number.isFinite);
   const updated = times.length ? new Date(Math.max(...times)).toLocaleString("de-DE", { dateStyle:"short", timeStyle:"short" }) : "";
   const mapReady = offlineMapIsPrepared();
-  box.innerHTML = `<div>${mapReady ? "✅" : "⚪"} Budapest-Karte – ${mapReady ? "gespeichert" : "nicht vorbereitet"}</div>` + rows + (updated ? `<small>Zuletzt aktualisiert: ${escapeHtml(updated)}</small>` : "");
+  const tripSnapshot = loadOfflineTripSnapshot();
+  const weatherSnapshot = loadOfflineWeatherSnapshot();
+  const syncText = tripSnapshot?.savedAt ? new Date(tripSnapshot.savedAt).toLocaleString("de-DE",{dateStyle:"short",timeStyle:"short"}) : "";
+  const dataRows = `<div>${tripSnapshot ? "✅" : "⚪"} Orte & Tagesplanung – ${tripSnapshot ? "gespeichert" : "nicht vorbereitet"}</div><div>${tripSnapshot?.activities ? "✅" : "⚪"} Aktivitäten – ${tripSnapshot?.activities ? "gespeichert" : "nicht vorbereitet"}</div><div>${weatherSnapshot ? "✅" : "⚪"} Wetter – ${weatherSnapshot ? "letzter Stand gespeichert" : "nicht gespeichert"}</div>`;
+  box.innerHTML = dataRows +  `<div>${mapReady ? "✅" : "⚪"} Budapest-Karte – ${mapReady ? "gespeichert" : "nicht vorbereitet"}</div>` + rows + (syncText ? `<small>Reisedaten zuletzt synchronisiert: ${escapeHtml(syncText)}</small>` : (updated ? `<small>Routen zuletzt aktualisiert: ${escapeHtml(updated)}</small>` : ""));
 }
 
 async function prepareOfflineRoutes() {
@@ -2505,6 +2567,8 @@ async function prepareOfflineRoutes() {
   try {
     setStatus("Budapest-Offline-Karte wird gespeichert …");
     await cacheBudapestOfflineMap();
+    saveOfflineTripSnapshot();
+    if (weatherForecast) localStorage.setItem(OFFLINE_WEATHER_STORAGE_KEY, JSON.stringify({savedAt:new Date().toISOString(),data:weatherForecast}));
     const Route = await ensureRoutesLibrary();
     for (const day of TRIP_DAYS) {
       const stops = getRouteStopsForDay(day.id);
@@ -2526,8 +2590,9 @@ async function prepareOfflineRoutes() {
         console.warn(`Offline-Vorbereitung ${day.id}:`, error);
       }
     }
+    saveOfflineTripSnapshot();
     renderOfflineRouteStatus();
-    setStatus(`Offline-Vorbereitung abgeschlossen: ${savedCount} Route(n) gespeichert${skippedCount ? ` · ${skippedCount} ohne Route` : ""}${failedCount ? ` · ${failedCount} fehlgeschlagen` : ""}.`);
+    setStatus(`Offline-Reise vorbereitet: ${savedCount} Route(n) gespeichert${skippedCount ? ` · ${skippedCount} ohne Route` : ""}${failedCount ? ` · ${failedCount} fehlgeschlagen` : ""}.`);
   } finally {
     if (button) { button.disabled = false; button.textContent = "📥 Offline-Daten vorbereiten"; }
   }
@@ -4650,7 +4715,8 @@ async function loadBudapestWeather() {
     return weatherForecast;
   } catch (error) {
     console.warn("Budapest-Wetter konnte nicht geladen werden:", error);
-    weatherForecast = null;
+    const cachedWeather = loadOfflineWeatherSnapshot();
+    weatherForecast = cachedWeather?.data || null;
     return null;
   }
 }
