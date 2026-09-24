@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.22.14";
+const APP_VERSION = "v1.23.0";
 
 
 function syncVersionLabels() {
@@ -4911,6 +4911,59 @@ function formatTodayDayTitle(day) {
   }).format(date);
 }
 
+function getBudapestClockMinutes(date = new Date()) {
+  const parts = new Intl.DateTimeFormat("de-DE", {
+    timeZone: "Europe/Budapest", hour: "2-digit", minute: "2-digit", hourCycle: "h23"
+  }).formatToParts(date);
+  const hour = Number(parts.find(part => part.type === "hour")?.value || 0);
+  const minute = Number(parts.find(part => part.type === "minute")?.value || 0);
+  return hour * 60 + minute;
+}
+
+function whatNowRecommendation(day, stops, preview = false) {
+  if (!stops.length) return { stop: null, status: "", tone: "ok" };
+  if (preview) {
+    const stop = stops.find(item => item.type === "activity" || !(state.places[item.id] || {}).visited) || null;
+    const time = stop?.plannedStartTime || "";
+    return { stop, status: time ? `Geplant für ${time} Uhr` : "Erster Programmpunkt", tone: "info" };
+  }
+
+  const now = getBudapestClockMinutes();
+  const candidates = stops.filter(stop => {
+    if (stop.type === "place") return !(state.places[stop.id] || {}).visited;
+    const end = minutesFromClock(stop.plannedEndTime);
+    const start = minutesFromClock(stop.plannedStartTime);
+    if (end != null) return end >= now - 10;
+    if (start != null) return start >= now - 30;
+    return true;
+  });
+  if (!candidates.length) return { stop: null, status: "", tone: "ok" };
+
+  // Feste Aktivitäten haben Vorrang, wenn sie bereits laufen oder in spätestens
+  // 45 Minuten beginnen. So schickt „Was jetzt?“ nicht erst zu einem flexiblen
+  // Ort, obwohl gleich ein gebuchter/geplanter Termin ansteht.
+  const urgentActivity = candidates.find(stop => {
+    if (stop.type !== "activity") return false;
+    const start = minutesFromClock(stop.plannedStartTime);
+    const end = minutesFromClock(stop.plannedEndTime);
+    return start != null && start - now <= 45 && (end == null || end >= now - 10);
+  });
+  const stop = urgentActivity || candidates[0];
+  const start = minutesFromClock(stop.plannedStartTime);
+  const end = minutesFromClock(stop.plannedEndTime);
+
+  if (stop.type === "activity" && start != null && start <= now && (end == null || end >= now)) {
+    return { stop, status: "Jetzt · Termin läuft", tone: "urgent" };
+  }
+  if (start != null) {
+    const delta = start - now;
+    if (delta > 0 && delta <= 90) return { stop, status: `In ${delta} Min. geplant`, tone: delta <= 30 ? "urgent" : "info" };
+    if (delta > 90) return { stop, status: `Um ${stop.plannedStartTime} Uhr geplant`, tone: "info" };
+    if (delta <= 0 && stop.type === "place") return { stop, status: `Seit ${Math.abs(delta)} Min. geplant`, tone: "warning" };
+  }
+  return { stop, status: stop.type === "activity" ? "Nächster Termin" : "Nächster offener Stopp", tone: "info" };
+}
+
 function renderTodayView() {
   const container = document.getElementById("todayOverview");
   if (!container) return;
@@ -4925,7 +4978,8 @@ function renderTodayView() {
   const openPlaces = dayPlaces.filter(place => !(state.places[place.id] || {}).visited);
   const nextPlace = openPlaces[0] || null;
   const dayStops = getRouteStopsForDay(day.id);
-  const nextStop = dayStops.find(stop => stop.type === "activity" || !(state.places[stop.id] || {}).visited) || null;
+  const whatNow = whatNowRecommendation(day, dayStops, preview);
+  const nextStop = whatNow.stop;
   const visitedCount = dayPlaces.length - openPlaces.length;
   const progress = dayPlaces.length ? Math.round((visitedCount / dayPlaces.length) * 100) : 0;
   const dayIndex = Math.max(0, TRIP_DAYS.findIndex(item => item.id === day.id)) + 1;
@@ -4969,9 +5023,10 @@ function renderTodayView() {
   const whatNowCard = nextStop ? `
     <div class="today-what-now-card">
       <div class="today-what-now-head">
-        <div><div class="today-card-label">Was jetzt?</div><div class="today-what-now-subtitle">${preview ? "Nächster Programmpunkt der Reise" : "Als Nächstes in deinem Tagesplan"}</div></div>
+        <div><div class="today-card-label">Was jetzt?</div><div class="today-what-now-subtitle">${preview ? "Vorschau auf den ersten Reisetag" : "Situative Empfehlung aus deinem Tagesplan"}</div></div>
         ${whatNowTime ? `<span class="today-next-time">🕒 ${escapeHtml(whatNowTime)}</span>` : ""}
       </div>
+      ${whatNow.status ? `<div class="what-now-status ${escapeHtml(whatNow.tone)}">${escapeHtml(whatNow.status)}</div>` : ""}
       <button class="today-what-now-main" type="button" data-what-now-focus>
         <span class="today-next-icon">${whatNowIcon}</span>
         <span><strong>${escapeHtml(nextStop.name)}</strong><small>${escapeHtml(whatNowMeta)}${whatNowDistance != null ? ` · 📍 ${escapeHtml(formatDistance(whatNowDistance))}` : ""}${whatNowMinutes != null ? ` · 🚶 ca. ${whatNowMinutes} Min.` : ""}</small><span class="today-status-row">${whatNowOpeningHtml}${whatNowWeatherHtml}</span></span>
@@ -4981,6 +5036,7 @@ function renderTodayView() {
         <button id="whatNowNavigateBtn" class="primary-button today-action-button" type="button">🧭 Navigation starten</button>
         <button id="whatNowMapBtn" class="secondary-button today-action-button" type="button">🗺️ Auf Karte</button>
       </div>
+      ${nextStop.type === "place" ? `<button class="what-now-done" type="button" data-what-now-complete="${escapeHtml(nextStop.id)}">✓ Als besucht markieren</button>` : ""}
       ${userPosition ? "" : '<div class="today-location-hint">📍 Sobald dein Standort verfügbar ist, werden Entfernung und Gehzeit ergänzt.</div>'}
     </div>` : '<div class="today-complete-card">✓ Für heute sind keine offenen Programmpunkte mehr vorhanden.</div>';
 
@@ -5068,6 +5124,12 @@ function renderTodayView() {
     // „Nächster Ort“ wechseln ohne zusätzlichen Klick auf den nächsten Eintrag.
     renderTodayView();
   };
+
+  container.querySelector("[data-what-now-complete]")?.addEventListener("click", event => {
+    event.stopPropagation();
+    setTodayVisited(event.currentTarget.dataset.whatNowComplete, true);
+    setStatus("✓ Stopp als besucht markiert · nächste Empfehlung aktualisiert.");
+  });
 
   container.querySelectorAll("[data-today-toggle]").forEach(button => {
     button.addEventListener("click", event => {
