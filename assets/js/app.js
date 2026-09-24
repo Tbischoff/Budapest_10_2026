@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.22.1";
+const APP_VERSION = "v1.22.2";
 
 function syncVersionLabels() {
   document.querySelectorAll(".app-version").forEach(el => { el.textContent = APP_VERSION; });
@@ -154,8 +154,8 @@ document.addEventListener("DOMContentLoaded", () => {
   // v1.14.8: Standort parallel zum restlichen App-Start anfordern.
   // Eine schnelle/gecachte Position kann dadurch schon vor der Karte vorliegen.
   startupLocationPromise = requestStartupLocation();
-  // v1.14.9: Google Maps sofort parallel zu Auth/Supabase laden.
-  googleMapsLoadPromise = loadGoogleMaps();
+  // Offline niemals Google Maps anfordern: die lokale MapLibre/PMTiles-Karte übernimmt.
+  if (navigator.onLine !== false) googleMapsLoadPromise = loadGoogleMaps();
   bootstrapAuth();
 });
 document.addEventListener("visibilitychange", handleNavigationVisibilityChange);
@@ -228,6 +228,13 @@ function requestStartupLocation() {
 
 async function bootstrapAuth() {
   try {
+    // Ein vorbereiteter Offline-Trip darf nicht von Supabase-Auth abhängen.
+    if (navigator.onLine === false && loadOfflineTripSnapshot()) {
+      currentUser = { id: "offline", email: "offline@local" };
+      document.getElementById("authGate").classList.add("is-hidden");
+      await bootstrap();
+      return;
+    }
     if (!window.supabase?.createClient) throw new Error("Supabase-Bibliothek konnte nicht geladen werden.");
     supabaseClient = window.supabase.createClient(SUPABASE_CONFIG.url, SUPABASE_CONFIG.publishableKey);
 
