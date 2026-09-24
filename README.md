@@ -1,4 +1,4 @@
-# Budapest Travel Planner v1.14.13
+# Budapest Travel Planner v1.14.14
 
 ## Navigation Persistence & Wake Lock
 
@@ -286,3 +286,9 @@ Die Navigation arbeitet die kombinierte Tagesreihenfolge aus Orten und Aktivitä
 - Ein noch laufender GPS-Fix darf die bewusst gewählte Budapest-Ansicht anschließend nicht mehr überschreiben.
 - Die Standortdaten selbst werden weiterhin im Hintergrund aktualisiert und gespeichert.
 - „Mein Standort“ kann danach weiterhin jederzeit manuell verwendet werden.
+
+
+## v1.14.14 – Geolocation ReferenceError behoben
+- In centerMapOnCurrentLocation wurde die Geolocation-Option korrekt auf enableHighAccuracy: highAccuracy gesetzt.
+- Der ReferenceError beim automatischen Standort-Fix tritt damit nicht mehr auf.
+- Die mobile Startzentrierung und der Schutz der Budapest-Ansicht bleiben unverändert erhalten.
