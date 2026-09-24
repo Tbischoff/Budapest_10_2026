@@ -3296,3 +3296,58 @@ body.agenda-dragging {
 /* v1.27.1 – Reiseübersicht in den Plan integriert */
 .plan-trip-overview { margin:8px 0 12px; }
 .plan-trip-overview .trip-status-card { margin-top:0; }
+
+
+/* v1.28.0 – UI/UX Refresh: Plan */
+.plan-trip-overview { margin:0 0 18px; }
+.plan-trip-overview .trip-status-card { padding:13px 14px 10px; border-radius:16px; }
+.trip-status-summary { display:flex; gap:7px 14px; align-items:center; flex-wrap:wrap; margin-top:10px; padding:9px 0 7px; color:#68716f; font-size:11px; line-height:1.25; }
+.trip-status-summary span { white-space:nowrap; }
+.trip-status-summary strong { color:#252b2a; font-size:12px; }
+.plan-trip-overview .trip-status-progress { margin:3px 0 7px; height:4px; }
+.plan-trip-overview .trip-status-day { padding:8px 2px; }
+.plan-trip-overview .trip-status-day-number { width:24px; height:24px; font-size:10px; }
+.plan-trip-overview .trip-status-day-copy strong { font-size:12px; }
+.plan-trip-overview .trip-status-day-copy small { font-size:9.5px; }
+
+.desktop-plan-section .plan-title-row { margin-top:2px; padding-top:14px; border-top:1px solid #e6e9e7; align-items:center; }
+.desktop-plan-section .plan-title-row h2 { margin:0; font-size:17px; }
+.desktop-plan-section .plan-header-actions { gap:6px; }
+.desktop-plan-section .mini-action-button { min-height:34px; padding:6px 10px; border-radius:999px; font-size:11px; }
+
+.desktop-plan-section .day-filter-list {
+  display:flex;
+  flex-wrap:nowrap;
+  gap:7px;
+  margin:10px -2px 14px;
+  padding:2px 2px 6px;
+  overflow-x:auto;
+  overscroll-behavior-x:contain;
+  scrollbar-width:none;
+  -webkit-overflow-scrolling:touch;
+}
+.desktop-plan-section .day-filter-list::-webkit-scrollbar { display:none; }
+.desktop-plan-section .day-filter-button {
+  flex:0 0 auto;
+  min-width:auto;
+  min-height:38px;
+  padding:7px 12px;
+  border-radius:999px;
+  white-space:nowrap;
+  font-size:12px;
+}
+.desktop-plan-section .day-filter-button.active { box-shadow:0 2px 8px rgba(47,98,93,.16); }
+
+.desktop-plan-section .agenda-panel,
+.desktop-plan-section .route-panel { border-radius:16px; }
+.desktop-plan-section .agenda-heading { font-size:12px; letter-spacing:.02em; }
+
+@media (max-width:700px) {
+  .plan-trip-overview .trip-status-card { padding:12px; }
+  .plan-trip-overview .trip-status-head { align-items:center; }
+  .plan-trip-overview .trip-status-total { font-size:9.5px; }
+  .trip-status-summary { gap:6px 12px; font-size:10.5px; }
+  .desktop-plan-section .plan-title-row { display:flex; gap:8px; }
+  .desktop-plan-section .plan-header-actions { margin-left:auto; flex-wrap:nowrap; }
+  .desktop-plan-section .mini-action-button { padding:6px 9px; }
+}
