@@ -1,4 +1,4 @@
-# Budapest Travel Planner v1.14.11
+# Budapest Travel Planner v1.14.12
 
 ## Navigation Persistence & Wake Lock
 
@@ -274,3 +274,8 @@ Die Navigation arbeitet die kombinierte Tagesreihenfolge aus Orten und Aktivitä
 - Gespeicherte Positionen werden maximal 30 Minuten wiederverwendet.
 - Die aktuelle Browser-/GPS-Abfrage läuft weiterhin parallel und aktualisiert Position und Genauigkeit im Hintergrund.
 - Dadurch entfällt beim wiederholten Öffnen der App das Warten auf Androids ersten GPS-Fix, sofern ein ausreichend frischer Standort gespeichert ist.
+
+
+## v1.14.12 – Syntaxfehler im Standort-Cache behoben
+- Doppelte Deklaration der Konstanten für den lokalen Standort-Cache entfernt.
+- Dadurch wird app.js wieder vollständig ausgeführt; die Standort-Optimierung aus v1.14.11 bleibt erhalten.
