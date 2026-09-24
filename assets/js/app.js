@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.24.1";
+const APP_VERSION = "v1.25.0";
 
 
 function syncVersionLabels() {
@@ -4595,6 +4595,62 @@ function getAgendaLegs(dayPlaces) {
 }
 
 
+function analyzeDayFeasibility(dayId, stops = getRouteStopsForDay(dayId)) {
+  const { legs } = getAgendaLegs(stops);
+  const issues = [];
+  let checkedConnections = 0;
+
+  stops.forEach((stop, index) => {
+    if (stop.type === "place") {
+      const opening = plannedOpeningStatus(stop.place, dayId, stop.plannedStartTime);
+      if (opening?.kind === "warning") {
+        issues.push({ kind: "warning", icon: "🕒", text: `${stop.name}: ${opening.label.replace(/^⚠️\s*/, "")} (${opening.detail})` });
+      }
+    }
+
+    if (index >= stops.length - 1) return;
+    const next = stops[index + 1];
+    const leg = legs[index];
+    if (!leg) return;
+
+    const leave = minutesFromClock(stop.plannedEndTime || stop.plannedStartTime);
+    const arriveBy = minutesFromClock(next.plannedStartTime);
+    if (leave == null || arriveBy == null) return;
+
+    checkedConnections += 1;
+    const available = arriveBy - leave;
+    if (available < 0) {
+      issues.push({ kind: "danger", icon: "⛔", text: `${stop.name} und ${next.name} überschneiden sich um ${Math.abs(available)} Min.` });
+    } else if (available < leg.minutes) {
+      issues.push({ kind: "danger", icon: "🚶", text: `${next.name}: ca. ${leg.minutes} Min. Weg, aber nur ${available} Min. eingeplant.` });
+    } else if (available - leg.minutes < 15) {
+      issues.push({ kind: "warning", icon: "⚠️", text: `${next.name}: nur ca. ${available - leg.minutes} Min. Puffer nach dem Weg.` });
+    }
+  });
+
+  const dangerCount = issues.filter(item => item.kind === "danger").length;
+  const warningCount = issues.filter(item => item.kind === "warning").length;
+  let status = { kind: "ok", icon: "✓", title: "Tagesplan wirkt machbar", text: "Keine offensichtlichen Zeitkonflikte erkannt." };
+  if (dangerCount) status = { kind: "danger", icon: "!", title: "Zeitkonflikte im Tagesplan", text: `${dangerCount} kritische ${dangerCount === 1 ? "Stelle" : "Stellen"} gefunden.` };
+  else if (warningCount) status = { kind: "warning", icon: "!", title: "Tagesplan ist knapp", text: `${warningCount} ${warningCount === 1 ? "Hinweis" : "Hinweise"} prüfen.` };
+  else if (!checkedConnections && stops.length > 1) status = { kind: "info", icon: "i", title: "Teilweise prüfbar", text: "Für eine genaue Prüfung fehlen bei einigen Stopps Start- oder Endzeiten." };
+
+  return { status, issues, checkedConnections };
+}
+
+function feasibilityCardHtml(dayId, stops) {
+  const result = analyzeDayFeasibility(dayId, stops);
+  const issueHtml = result.issues.slice(0, 4).map(item =>
+    `<div class="feasibility-issue ${item.kind}"><span>${item.icon}</span><span>${escapeHtml(item.text)}</span></div>`
+  ).join("");
+  const more = result.issues.length > 4 ? `<div class="feasibility-more">+${result.issues.length - 4} weitere Hinweise im Tagesplan</div>` : "";
+  return `<div class="feasibility-card ${result.status.kind}">
+    <div class="feasibility-head"><span class="feasibility-icon">${result.status.icon}</span><div><strong>${escapeHtml(result.status.title)}</strong><small>${escapeHtml(result.status.text)}</small></div></div>
+    ${issueHtml ? `<div class="feasibility-issues">${issueHtml}${more}</div>` : ""}
+    <div class="feasibility-note">🚶 Wege sind konservative Luftlinien-Gehzeitschätzungen. Die echte Navigation kann abweichen.</div>
+  </div>`;
+}
+
 function getTripDayForDate(date = new Date()) {
   const localIso = [
     date.getFullYear(),
@@ -5149,6 +5205,7 @@ function renderTodayView() {
     </div>
     ${whatNowCard}
     ${nearbyTodayCardHtml(day.id)}
+    ${feasibilityCardHtml(day.id, dayStops)}
     <div class="today-plan-card">
       <div class="today-plan-head"><strong>${preview ? "Planung" : "Heutige Planung"}</strong><span>${visitedCount} von ${dayPlaces.length} erledigt</span></div>
       <div class="today-progress"><span style="width:${progress}%"></span></div>
@@ -5750,7 +5807,7 @@ function renderDayAgenda() {
   const { legs, totalDistance, totalMinutes } = getAgendaLegs(stops);
   const dayWeather = dailyWeatherFor(selectedDay.id);
   const agendaWeather = dayWeather ? `<div class="agenda-weather-card"><div><strong>${weatherIcon(dayWeather.code)} ${Math.round(Number(dayWeather.max))}° / ${Math.round(Number(dayWeather.min))}°</strong><span>💧 ${Math.round(Number(dayWeather.rain))}% Regen</span></div>${weatherPeriodsHtml(selectedDay.id)}</div>` : '<div class="agenda-weather-card muted">🌦️ Für diesen Tag ist noch keine Prognose verfügbar.</div>';
-  const header = `<div class="agenda-day-header"><div><div class="agenda-day-kicker">Tages-Timeline</div><div class="agenda-day-title">${escapeHtml(selectedDay.label)}</div><div class="agenda-day-stats">${dayPlaces.length} Orte · ${dayActivities.length} Aktivitäten${stops.length > 1 ? ` · 🚶 ca. ${formatRouteDistance(totalDistance)} · ${totalMinutes} Min.` : ""}</div></div><div class="agenda-header-actions"><span class="agenda-progress-badge">${progress}%</span><button id="addActivityAgendaBtn" class="mini-action-button activity-add-button" type="button">＋ Aktivität</button></div></div><div class="agenda-progress-track"><div class="agenda-progress-fill" style="width:${progress}%"></div></div>${agendaWeather}`;
+  const header = `<div class="agenda-day-header"><div><div class="agenda-day-kicker">Tages-Timeline</div><div class="agenda-day-title">${escapeHtml(selectedDay.label)}</div><div class="agenda-day-stats">${dayPlaces.length} Orte · ${dayActivities.length} Aktivitäten${stops.length > 1 ? ` · 🚶 ca. ${formatRouteDistance(totalDistance)} · ${totalMinutes} Min.` : ""}</div></div><div class="agenda-header-actions"><span class="agenda-progress-badge">${progress}%</span><button id="addActivityAgendaBtn" class="mini-action-button activity-add-button" type="button">＋ Aktivität</button></div></div><div class="agenda-progress-track"><div class="agenda-progress-fill" style="width:${progress}%"></div></div>${agendaWeather}${feasibilityCardHtml(selectedDay.id, stops)}`;
 
   if (!stops.length) {
     container.innerHTML = `${header}<div class="agenda-empty">Für ${escapeHtml(selectedDay.label)} ist noch nichts geplant.</div>`;
