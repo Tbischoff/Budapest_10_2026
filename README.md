@@ -1,4 +1,10 @@
-# Budapest Travel Planner v1.32.1
+# Budapest Travel Planner v1.32.2
+
+## v1.32.2 – Standort-Button rechts oben versetzt
+
+- Der mobile Standort-Button sitzt wieder am rechten Kartenrand, jetzt jedoch oberhalb der unteren Google-Maps-Steuerung.
+- Dadurch bleibt die Kartenmitte frei und der Button überlagert weder die native Kartenaktion noch den Statushinweis.
+- Standort- und Navigationslogik bleiben unverändert.
 
 ## v1.32.1 – Standort-Button ohne Überlagerung
 
