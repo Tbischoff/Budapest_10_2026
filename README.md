@@ -1,4 +1,4 @@
-# Budapest Travel Planner v1.22.7
+# Budapest Travel Planner v1.22.8
 
 ## Navigation Persistence & Wake Lock
 
@@ -437,3 +437,8 @@ Die Navigation arbeitet die kombinierte Tagesreihenfolge aus Orten und Aktivitä
 - Straßennamen und Ortsbezeichnungen aus den PMTiles-Daten werden ab passenden Zoomstufen eingeblendet.
 - Beschriftungen erhalten helle Konturen für bessere Lesbarkeit über der Karte.
 - Straßen werden mit abgerundeten Linien und zoomabhängiger Breite dargestellt.
+
+
+### v1.22.8
+- MapLibre-Stylefehler in der Straßenumrandung behoben.
+- Zoomabhängige Breite der Straßenumrandung verwendet nun eine gültige top-level interpolate-Expression.
