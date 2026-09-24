@@ -1,4 +1,4 @@
-# Budapest Travel Planner v1.19.0
+# Budapest Travel Planner v1.19.3
 
 ## Navigation Persistence & Wake Lock
 
@@ -337,3 +337,12 @@ Die Navigation arbeitet die kombinierte Tagesreihenfolge aus Orten und Aktivitä
 - Sichtbarer Online-/Offline-Indikator.
 - Bereits lokal gespeicherte Planungs-, Standort- und Geocache-Daten bleiben verfügbar.
 - Google Maps, Supabase-Synchronisation, Wetter und Google Places benötigen weiterhin Internet; die Offline-Basis ersetzt diese externen Dienste nicht.
+
+
+## v1.19.3 – Offline-Tagesrouten
+- Neuer Button „Offline-Daten vorbereiten“ berechnet online alle Tagesrouten mit mindestens zwei Stopps.
+- Routenverlauf, Entfernung, Gehzeit und Stoppliste werden lokal im Browser gespeichert.
+- „Fußroute anzeigen“ verwendet ohne Internet automatisch die gespeicherte Tagesroute.
+- Auch normal online angezeigte Tagesrouten aktualisieren automatisch ihren lokalen Offline-Stand.
+- Übersicht zeigt für jeden Reisetag, ob eine Offline-Route gespeichert ist, sowie den letzten Aktualisierungszeitpunkt.
+- Eine offline angezeigte Route kann nicht neu berechnet werden; dafür bleibt eine Internetverbindung erforderlich.
