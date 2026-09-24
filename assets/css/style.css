@@ -3291,3 +3291,8 @@ body.agenda-dragging {
 .trip-status-day-copy small { display:block; margin-top:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#747c79; font-size:10px; }
 .trip-status-day-side { display:flex; gap:7px; align-items:center; font-size:11px; white-space:nowrap; }
 @media (max-width:380px) { .trip-status-stats { grid-template-columns:repeat(2,1fr); } .trip-status-day-side > span:first-child { display:none; } }
+
+
+/* v1.27.1 – Reiseübersicht in den Plan integriert */
+.plan-trip-overview { margin:8px 0 12px; }
+.plan-trip-overview .trip-status-card { margin-top:0; }
