@@ -6,10 +6,11 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://*.googleapis.com https://*.gstatic.com https://*.google.com blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.googleusercontent.com https://*.ggpht.com; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' https://cdn.jsdelivr.net https://fjlezfzninkltblcctds.supabase.co wss://fjlezfzninkltblcctds.supabase.co https://*.googleapis.com https://*.gstatic.com https://*.google.com data: blob:; frame-src https://*.google.com; worker-src 'self' blob:; manifest-src 'self'; form-action 'self'" />
   <title>Budapest Map 2026</title>
   <link rel="icon" href="assets/icons/favicon.svg" type="image/svg+xml" />
-  <link rel="manifest" href="manifest.webmanifest?v=1.19.3" />
+  <link rel="manifest" href="manifest.webmanifest?v=1.20.0" />
+  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.7.3/dist/maplibre-gl.css" />
   <meta name="theme-color" content="#2f625d" />
   <meta name="mobile-web-app-capable" content="yes" />
-  <link rel="stylesheet" href="assets/css/style.css?v=1.19.3" />
+  <link rel="stylesheet" href="assets/css/style.css?v=1.20.0" />
 </head>
 <body>
   <div id="authGate" class="auth-gate">
@@ -166,6 +167,7 @@
 
     <main class="map-wrap">
       <div id="map"></div>
+      <div id="offlineMap" aria-label="Offline-Karte Budapest"></div>
       <div id="offlineMap" aria-label="Offline-Karte Budapest"></div>
 
       <button id="mobileLocateBtn" class="mobile-locate-fab mobile-only" type="button"
@@ -380,8 +382,10 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0"></script>
   <script src="https://unpkg.com/maplibre-gl@5.7.3/dist/maplibre-gl.js"></script>
   <script src="https://unpkg.com/pmtiles@4.3.0/dist/pmtiles.js"></script>
+  <script src="https://unpkg.com/maplibre-gl@5.7.3/dist/maplibre-gl.js"></script>
+  <script src="https://unpkg.com/pmtiles@4.3.0/dist/pmtiles.js"></script>
   <script src="data/places.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@googlemaps/markerclusterer@2.6.2/dist/index.min.js"></script>
-  <script src="assets/js/app.js?v=1.19.3"></script>
+  <script src="assets/js/app.js?v=1.20.0"></script>
 </body>
 </html>
