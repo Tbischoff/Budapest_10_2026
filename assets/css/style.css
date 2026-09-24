@@ -3229,3 +3229,10 @@ body.agenda-dragging {
 .today-nearby-copy small { display:block; margin-top:3px; color:#68716f; font-size:11px; line-height:1.35; }
 .today-nearby-empty { padding:12px 0 8px; color:#68716f; font-size:12px; line-height:1.4; }
 .today-nearby-all, .today-nearby-locate { margin-top:8px; }
+
+/* v1.24.1 – Öffnungszeiten in „In meiner Nähe“ */
+.today-nearby-opening { display:block; margin-top:4px; font-size:11px; font-weight:800; }
+.today-nearby-opening.open { color:#28714c; }
+.today-nearby-opening.soon { color:#946300; }
+.today-nearby-opening.unknown { color:#737b79; font-weight:700; }
+.today-nearby-opening.closed { color:#a14d4d; font-weight:700; }
