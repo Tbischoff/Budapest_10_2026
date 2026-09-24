@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.21.0";
+const APP_VERSION = "v1.21.1";
 
 function syncVersionLabels() {
   document.querySelectorAll(".app-version").forEach(el => { el.textContent = APP_VERSION; });
@@ -4825,7 +4825,9 @@ function renderTodayView() {
     <div class="today-complete-card">✓ ${dayPlaces.length ? "Tagesplan abgeschlossen – alle Orte besucht." : "Für diesen Tag sind noch keine Orte geplant."}</div>`;
 
   container.innerHTML = `
-    ${currentBudapestWeatherHtml()}\n    ${tripForecastStripHtml()}\n    ${preview ? '<div class="today-preview-note">Vorschau · Die Reise hat noch nicht begonnen</div>' : ''}
+    ${currentBudapestWeatherHtml()}
+    ${tripForecastStripHtml()}
+    ${preview ? '<div class="today-preview-note">Vorschau · Die Reise hat noch nicht begonnen</div>' : ''}
     <div class="today-day-card">
       <div><div class="today-kicker">${preview ? "Erster Reisetag" : "Heute"}</div><h2>${escapeHtml(formatTodayDayTitle(day))}</h2><div class="today-day-label">${escapeHtml(day.label)}</div></div>
       <div class="today-day-side"><span class="today-day-number">Tag ${dayIndex}</span>${dayWeatherHtml}</div>
@@ -5382,7 +5384,9 @@ function renderDayAgenda() {
   const visitedCount = dayPlaces.filter(place => (state.places[place.id] || {}).visited).length;
   const progress = dayPlaces.length ? Math.round((visitedCount / dayPlaces.length) * 100) : 0;
   const { legs, totalDistance, totalMinutes } = getAgendaLegs(stops);
-  const dayWeather = dailyWeatherFor(selectedDay.id);\n  const agendaWeather = dayWeather ? `<div class="agenda-weather-card"><div><strong>${weatherIcon(dayWeather.code)} ${Math.round(Number(dayWeather.max))}° / ${Math.round(Number(dayWeather.min))}°</strong><span>💧 ${Math.round(Number(dayWeather.rain))}% Regen</span></div>${weatherPeriodsHtml(selectedDay.id)}</div>` : '<div class="agenda-weather-card muted">🌦️ Für diesen Tag ist noch keine Prognose verfügbar.</div>';\n  const header = `<div class="agenda-day-header"><div><div class="agenda-day-kicker">Tages-Timeline</div><div class="agenda-day-title">${escapeHtml(selectedDay.label)}</div><div class="agenda-day-stats">${dayPlaces.length} Orte · ${dayActivities.length} Aktivitäten${stops.length > 1 ? ` · 🚶 ca. ${formatRouteDistance(totalDistance)} · ${totalMinutes} Min.` : ""}</div></div><div class="agenda-header-actions"><span class="agenda-progress-badge">${progress}%</span><button id="addActivityAgendaBtn" class="mini-action-button activity-add-button" type="button">＋ Aktivität</button></div></div><div class="agenda-progress-track"><div class="agenda-progress-fill" style="width:${progress}%"></div></div>${agendaWeather}`;
+  const dayWeather = dailyWeatherFor(selectedDay.id);
+  const agendaWeather = dayWeather ? `<div class="agenda-weather-card"><div><strong>${weatherIcon(dayWeather.code)} ${Math.round(Number(dayWeather.max))}° / ${Math.round(Number(dayWeather.min))}°</strong><span>💧 ${Math.round(Number(dayWeather.rain))}% Regen</span></div>${weatherPeriodsHtml(selectedDay.id)}</div>` : '<div class="agenda-weather-card muted">🌦️ Für diesen Tag ist noch keine Prognose verfügbar.</div>';
+  const header = `<div class="agenda-day-header"><div><div class="agenda-day-kicker">Tages-Timeline</div><div class="agenda-day-title">${escapeHtml(selectedDay.label)}</div><div class="agenda-day-stats">${dayPlaces.length} Orte · ${dayActivities.length} Aktivitäten${stops.length > 1 ? ` · 🚶 ca. ${formatRouteDistance(totalDistance)} · ${totalMinutes} Min.` : ""}</div></div><div class="agenda-header-actions"><span class="agenda-progress-badge">${progress}%</span><button id="addActivityAgendaBtn" class="mini-action-button activity-add-button" type="button">＋ Aktivität</button></div></div><div class="agenda-progress-track"><div class="agenda-progress-fill" style="width:${progress}%"></div></div>${agendaWeather}`;
 
   if (!stops.length) {
     container.innerHTML = `${header}<div class="agenda-empty">Für ${escapeHtml(selectedDay.label)} ist noch nichts geplant.</div>`;
