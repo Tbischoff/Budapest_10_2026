@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.18.0";
+const APP_VERSION = "v1.19.0";
 
 function syncVersionLabels() {
   document.querySelectorAll(".app-version").forEach(el => { el.textContent = APP_VERSION; });
@@ -6300,3 +6300,25 @@ function initMobileTryToggle() {
 
 document.addEventListener("DOMContentLoaded", initMobileTryToggle);
 
+
+
+function initPwaOfflineMode() {
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("./sw.js").catch(error => {
+      console.warn("Service Worker konnte nicht registriert werden:", error);
+    });
+  }
+
+  const refreshOfflineUi = () => {
+    const offline = navigator.onLine === false;
+    document.documentElement.classList.toggle("app-offline", offline);
+    document.querySelectorAll("[data-app-connectivity]").forEach(el => {
+      el.textContent = offline ? "🟠 Offline · lokale Daten" : "🟢 Online";
+      el.classList.toggle("offline", offline);
+    });
+  };
+  window.addEventListener("online", refreshOfflineUi);
+  window.addEventListener("offline", refreshOfflineUi);
+  refreshOfflineUi();
+}
+document.addEventListener("DOMContentLoaded", initPwaOfflineMode);
