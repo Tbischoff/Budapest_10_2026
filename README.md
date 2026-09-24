@@ -1,4 +1,10 @@
-# Budapest Travel Planner v1.27.2
+# Budapest Travel Planner v1.27.3
+
+## v1.27.3 – Klare Hierarchie im Plan
+
+- Die komplette Tagesplanung inklusive Überschrift sowie „Heute“ und „Nächster Ort“ wurde unter die Reiseübersicht verschoben.
+- Der Plan beginnt damit konsequent mit dem Gesamtüberblick und wechselt anschließend in die Tagesplanung.
+- Keine Datenbankmigration erforderlich.
 
 ## v1.27.2 – Reiseübersicht vor Tagesplanung
 
