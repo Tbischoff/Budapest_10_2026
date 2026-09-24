@@ -1,4 +1,4 @@
-# Budapest Travel Planner v1.16.0
+# Budapest Travel Planner v1.17.0
 
 ## Navigation Persistence & Wake Lock
 
@@ -311,3 +311,12 @@ Die Navigation arbeitet die kombinierte Tagesreihenfolge aus Orten und Aktivitä
 - „Navigation starten“ führt direkt vom aktuellen Standort zum nächsten Programmpunkt.
 - „Auf Karte“ öffnet den nächsten Ort bzw. die nächste Aktivität direkt auf der Karte.
 - Die Funktion nutzt die bestehende Tagesreihenfolge und Standortlogik, ohne den Plan automatisch umzusortieren.
+
+
+## v1.17.0 – Öffnungszeiten im Tagesplan
+- Gespeicherte Google-Öffnungszeiten werden passend zum jeweiligen Reisetag ausgewertet.
+- Bei Orten mit geplanter Uhrzeit zeigt die Timeline, ob der Besuch innerhalb der gespeicherten Öffnungszeit liegt.
+- Warnungen erscheinen bei geschlossenen Orten, Besuchen außerhalb der Öffnungszeit und bei einer Schließung innerhalb der nächsten 60 Minuten.
+- Die „Was jetzt?“-Karte zeigt den Öffnungsstatus des nächsten Ortes ebenfalls direkt an.
+- Bei Orten ohne geplante Uhrzeit wird die Öffnungszeit des Reisetags informativ angezeigt.
+- Orte ohne gespeicherte Öffnungszeiten bleiben unverändert; es werden keine Öffnungszeiten erfunden.
