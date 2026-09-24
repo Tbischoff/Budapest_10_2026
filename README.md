@@ -1,4 +1,4 @@
-# Budapest Travel Planner v1.14.10
+# Budapest Travel Planner v1.14.11
 
 ## Navigation Persistence & Wake Lock
 
@@ -267,3 +267,10 @@ Die Navigation arbeitet die kombinierte Tagesreihenfolge aus Orten und Aktivitä
 - Die Zentrierung verwendet wie der funktionierende Standort-Button panTo und mindestens Zoom 14.
 - Ein nachfolgender hochgenauer GPS-Fix aktualisiert die Position im Hintergrund, ohne die Karte nach einer bereits erfolgreichen Startzentrierung erneut unnötig zu verschieben.
 - Falls die schnelle Cache-Abfrage keinen Standort liefert, übernimmt der hochgenaue GPS-Fix automatisch die erstmalige Zentrierung.
+
+
+## v1.14.11 – Sofortiger Standort beim mobilen App-Start
+- Der zuletzt erfolgreich ermittelte Standort wird lokal gespeichert und beim nächsten App-Start sofort verwendet.
+- Gespeicherte Positionen werden maximal 30 Minuten wiederverwendet.
+- Die aktuelle Browser-/GPS-Abfrage läuft weiterhin parallel und aktualisiert Position und Genauigkeit im Hintergrund.
+- Dadurch entfällt beim wiederholten Öffnen der App das Warten auf Androids ersten GPS-Fix, sofern ein ausreichend frischer Standort gespeichert ist.
