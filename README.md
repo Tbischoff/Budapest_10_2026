@@ -1,4 +1,13 @@
-# Budapest Travel Planner v1.26.0
+# Budapest Travel Planner v1.27.0
+
+## v1.27.0 – Reise-/Statusübersicht
+
+- Neue kompakte Reiseübersicht in der Heute-Ansicht.
+- Zeigt geplante Orte, Aktivitäten, noch ungeplante Orte und den Besuchsfortschritt der Reise.
+- Jeder Reisetag erhält eine eigene Zeile mit Anzahl der Orte/Aktivitäten, Besuchsstand, Wetter und Machbarkeitsstatus.
+- Grün/Gelb/Rot visualisiert den aktuellen Stand der Machbarkeitsprüfung je Reisetag; Tage mit unvollständigen Zeitangaben werden neutral dargestellt.
+- Ein Tipp auf einen Reisetag öffnet direkt dessen vollständigen Tagesplan.
+- Die Übersicht nutzt ausschließlich bereits vorhandene Reise-, Wetter- und Planungsdaten; keine Datenbankmigration erforderlich.
 
 ## v1.26.0 – „Freie Zeit nutzen“
 
