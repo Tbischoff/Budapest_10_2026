@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.27.0";
+const APP_VERSION = "v1.27.1";
 
 
 function syncVersionLabels() {
@@ -5291,7 +5291,6 @@ function renderTodayView() {
   container.innerHTML = `
     ${currentBudapestWeatherHtml()}
     ${tripForecastStripHtml()}
-    ${tripStatusOverviewHtml()}
     ${preview ? '<div class="today-preview-note">Vorschau · Die Reise hat noch nicht begonnen</div>' : ''}
     <div class="today-day-card">
       <div><div class="today-kicker">${preview ? "Erster Reisetag" : "Heute"}</div><h2>${escapeHtml(formatTodayDayTitle(day))}</h2><div class="today-day-label">${escapeHtml(day.label)}</div></div>
@@ -5307,17 +5306,6 @@ function renderTodayView() {
       <div class="today-timeline">${timeline || '<div class="today-empty">Noch keine Programmpunkte geplant.</div>'}</div>
       <button id="todayOpenPlanButton" class="secondary-button today-open-plan" type="button">☷ Gesamten Tagesplan öffnen</button>
     </div>`;
-
-  container.querySelectorAll("[data-trip-status-day]").forEach(button => {
-    button.addEventListener("click", () => {
-      selectedDayFilter = button.dataset.tripStatusDay;
-      applyFilters();
-      renderDayFilters();
-      renderDayAgenda();
-      if (isMobileLayout()) setMobileView("plan");
-      setStatus(`${dayLongLabel(selectedDayFilter)} im Tagesplan geöffnet.`);
-    });
-  });
 
   container.querySelector("[data-free-time-place]")?.addEventListener("click", event => {
     const place = placesData.places.find(item => item.id === event.currentTarget.dataset.freeTimePlace);
@@ -5905,6 +5893,19 @@ function plannedOpeningStatus(place, dayId, plannedStartTime) {
 function renderDayAgenda() {
   renderTodayView();
   const container = document.getElementById("dayAgenda");
+  const tripOverview = document.getElementById("tripStatusOverview");
+  if (tripOverview) {
+    tripOverview.innerHTML = tripStatusOverviewHtml();
+    tripOverview.querySelectorAll("[data-trip-status-day]").forEach(button => {
+      button.addEventListener("click", () => {
+        selectedDayFilter = button.dataset.tripStatusDay;
+        applyFilters();
+        renderDayFilters();
+        renderDayAgenda();
+        setStatus(`${dayLongLabel(selectedDayFilter)} im Tagesplan geöffnet.`);
+      });
+    });
+  }
   if (!container) return;
   const selectedDay = TRIP_DAYS.find(day => day.id === selectedDayFilter);
   if (!selectedDay) {
