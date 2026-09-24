@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.14.6";
+const APP_VERSION = "v1.14.7";
 
 function syncVersionLabels() {
   document.querySelectorAll(".app-version").forEach(el => { el.textContent = APP_VERSION; });
@@ -3430,13 +3430,18 @@ async function getNavigationStartPosition() {
 
 async function requestNavigationRoute(stops, origin) {
   if (!navigationOnline) throw new Error("Keine Internetverbindung – Route kann momentan nicht berechnet werden.");
+  if (!stops?.length) throw new Error("Kein Navigationsziel vorhanden.");
   const Route = await ensureRoutesLibrary();
-  const destination = stops[stops.length - 1].position;
-  const intermediates = stops.slice(0, -1).map(stop => ({ location: stop.position }));
+
+  // v1.14.7: Für die Live-Navigation immer nur den aktuell nächsten Stopp
+  // berechnen. Der restliche Tagesplan bleibt in navigationStops erhalten und
+  // wird erst nach Erreichen/Überspringen des aktuellen Stopps geroutet.
+  // Das vermeidet besonders bei Tests außerhalb Budapests eine teure Route
+  // vom aktuellen Standort über sämtliche Tagesstopps.
+  const destination = stops[0].position;
   const { routes } = await Route.computeRoutes({
     origin,
     destination,
-    intermediates,
     travelMode: "WALKING",
     language: "de",
     units: google.maps.UnitSystem.METRIC,
