@@ -3202,3 +3202,30 @@ body.agenda-dragging {
   width:100%; margin-top:8px; border:0; background:transparent;
   color:var(--accent); font-size:12px; font-weight:800; padding:7px; cursor:pointer;
 }
+
+
+/* v1.24.0 – In meiner Nähe */
+.today-nearby-card {
+  margin-top:10px; padding:14px; border:1px solid var(--border);
+  border-radius:16px; background:#fff;
+}
+.today-nearby-head { display:flex; align-items:flex-start; justify-content:space-between; gap:10px; }
+.today-nearby-refresh {
+  flex:0 0 34px; width:34px; height:34px; border:1px solid var(--border);
+  border-radius:50%; background:var(--surface-soft); color:var(--accent);
+  font-size:20px; line-height:1; cursor:pointer;
+}
+.today-nearby-list { display:grid; margin-top:8px; }
+.today-nearby-row {
+  width:100%; display:grid; grid-template-columns:38px minmax(0,1fr) auto;
+  gap:9px; align-items:center; padding:10px 2px; border:0;
+  border-bottom:1px solid #edf0ee; background:transparent; color:inherit;
+  text-align:left; cursor:pointer;
+}
+.today-nearby-row:last-child { border-bottom:0; }
+.today-nearby-icon { display:grid; place-items:center; width:34px; height:34px; border-radius:50%; background:#eef4f2; font-size:18px; }
+.today-nearby-copy { min-width:0; }
+.today-nearby-copy strong { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:13px; }
+.today-nearby-copy small { display:block; margin-top:3px; color:#68716f; font-size:11px; line-height:1.35; }
+.today-nearby-empty { padding:12px 0 8px; color:#68716f; font-size:12px; line-height:1.4; }
+.today-nearby-all, .today-nearby-locate { margin-top:8px; }
