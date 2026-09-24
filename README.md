@@ -1,4 +1,4 @@
-# Budapest Travel Planner v1.22.0
+# Budapest Travel Planner v1.22.1
 
 ## Navigation Persistence & Wake Lock
 
@@ -394,3 +394,10 @@ Die Navigation arbeitet die kombinierte Tagesreihenfolge aus Orten und Aktivitä
 - App kann im Flugmodus aus dem vorbereiteten Reise-Snapshot starten, ohne Supabase oder Google Maps abzuwarten.
 - Offline-Status zeigt Karte, Reisedaten, Aktivitäten, Wetter und Tagesrouten sowie den letzten Synchronisationszeitpunkt.
 - Online wird nach erfolgreicher Synchronisation automatisch ein aktueller Reise-Snapshot gespeichert.
+
+
+### v1.22.1
+- CDN-Bibliotheken werden vom Service Worker auch offline aus dem App-Cache ausgeliefert.
+- Supabase- und MarkerClusterer-Bibliothek werden für einen echten Offline-Neustart vorgeladen.
+- Doppelte MapLibre-/PMTiles-Script-Tags entfernt.
+- PMTiles-Range-Auswertung im Service Worker korrigiert.
