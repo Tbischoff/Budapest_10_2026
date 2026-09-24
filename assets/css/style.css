@@ -3270,3 +3270,24 @@ body.agenda-dragging {
 .free-time-opening.open { color:#28714c; } .free-time-opening.soon { color:#946300; } .free-time-opening.unknown { color:#737b79; }
 .free-time-next, .free-time-main, .free-time-advice { margin-top:7px; color:#5f6966; font-size:11px; line-height:1.45; }
 .free-time-map { margin-top:10px; width:100%; }
+
+
+/* v1.27.0 – Reise-/Statusübersicht */
+.trip-status-card { margin-top:10px; padding:14px; border:1px solid var(--border); border-radius:18px; background:#fff; }
+.trip-status-head { display:flex; justify-content:space-between; align-items:flex-start; gap:10px; }
+.trip-status-total { padding:5px 8px; border-radius:999px; background:#eef4f2; color:#42635d; font-size:10px; font-weight:800; white-space:nowrap; }
+.trip-status-stats { display:grid; grid-template-columns:repeat(4,1fr); gap:6px; margin-top:12px; }
+.trip-status-stats > div { padding:8px 4px; border-radius:11px; background:var(--surface-soft); text-align:center; }
+.trip-status-stats strong { display:block; font-size:15px; }
+.trip-status-stats span { display:block; margin-top:2px; color:#727a78; font-size:9px; line-height:1.2; }
+.trip-status-progress { height:5px; margin:10px 1px 6px; overflow:hidden; border-radius:999px; background:#e8ecea; }
+.trip-status-progress span { display:block; height:100%; border-radius:inherit; background:#4e756e; }
+.trip-status-days { display:grid; margin-top:4px; }
+.trip-status-day { display:grid; grid-template-columns:28px minmax(0,1fr) auto auto; gap:8px; align-items:center; width:100%; padding:9px 2px; border:0; border-bottom:1px solid #edf0ee; background:transparent; color:inherit; text-align:left; cursor:pointer; }
+.trip-status-day:last-child { border-bottom:0; }
+.trip-status-day-number { display:grid; place-items:center; width:26px; height:26px; border-radius:50%; background:#eef4f2; color:#42635d; font-size:11px; font-weight:900; }
+.trip-status-day-copy { min-width:0; }
+.trip-status-day-copy strong { display:block; font-size:12px; }
+.trip-status-day-copy small { display:block; margin-top:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#747c79; font-size:10px; }
+.trip-status-day-side { display:flex; gap:7px; align-items:center; font-size:11px; white-space:nowrap; }
+@media (max-width:380px) { .trip-status-stats { grid-template-columns:repeat(2,1fr); } .trip-status-day-side > span:first-child { display:none; } }
