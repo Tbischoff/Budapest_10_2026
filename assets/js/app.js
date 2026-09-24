@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.21.4";
+const APP_VERSION = "v1.21.5";
 
 function syncVersionLabels() {
   document.querySelectorAll(".app-version").forEach(el => { el.textContent = APP_VERSION; });
@@ -4641,8 +4641,12 @@ async function loadBudapestWeather() {
     const response = await fetch(url);
     if (!response.ok) throw new Error(`Wetterdienst: HTTP ${response.status}`);
     weatherForecast = await response.json();
-    renderTodayView();
-    renderDayAgenda();
+    // Beim sehr frühen parallelen Wetterabruf können die Supabase-Reisedaten
+    // noch nicht initialisiert sein. Erst rendern, wenn die App-Daten bereit sind.
+    if (placesData?.places) {
+      renderTodayView();
+      renderDayAgenda();
+    }
     return weatherForecast;
   } catch (error) {
     console.warn("Budapest-Wetter konnte nicht geladen werden:", error);
