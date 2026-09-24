@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.17.0";
+const APP_VERSION = "v1.18.0";
 
 function syncVersionLabels() {
   document.querySelectorAll(".app-version").forEach(el => { el.textContent = APP_VERSION; });
@@ -138,6 +138,8 @@ let googleMapsLoadPromise = null;
 let startupLocationCentered = false;
 let startupLocationRefineStarted = false;
 let startupAutoCenterCancelled = false;
+let weatherForecast = null;
+let weatherLoadPromise = null;
 
 let map;
 let geocoder;
@@ -325,6 +327,7 @@ function subscribeToTripRealtime() {
 async function refreshTripPlacesFromSupabase() {
   try {
     suppressSupabaseSync = true;
+    weatherLoadPromise = loadBudapestWeather();
     const remote = await loadSupabaseTripData();
     for (const marker of markers.values()) marker.map = null;
     markers.clear();
@@ -4391,6 +4394,68 @@ async function showNextPlace() {
 }
 
 
+async function loadBudapestWeather() {
+  try {
+    const url = "https://api.open-meteo.com/v1/forecast?latitude=47.4979&longitude=19.0402&hourly=temperature_2m,precipitation_probability,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=Europe%2FBudapest&forecast_days=16";
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`Wetterdienst: HTTP ${response.status}`);
+    weatherForecast = await response.json();
+    renderTodayView();
+    renderDayAgenda();
+    return weatherForecast;
+  } catch (error) {
+    console.warn("Budapest-Wetter konnte nicht geladen werden:", error);
+    weatherForecast = null;
+    return null;
+  }
+}
+
+function weatherIcon(code) {
+  const c = Number(code);
+  if (c === 0) return "☀️";
+  if ([1,2].includes(c)) return "🌤️";
+  if (c === 3) return "☁️";
+  if ([45,48].includes(c)) return "🌫️";
+  if ([51,53,55,56,57].includes(c)) return "🌦️";
+  if ([61,63,65,66,67,80,81,82].includes(c)) return "🌧️";
+  if ([71,73,75,77,85,86].includes(c)) return "🌨️";
+  if ([95,96,99].includes(c)) return "⛈️";
+  return "🌤️";
+}
+
+function dailyWeatherFor(dayId) {
+  const daily = weatherForecast?.daily;
+  const index = daily?.time?.indexOf(dayId) ?? -1;
+  if (index < 0) return null;
+  return {
+    code: daily.weather_code?.[index],
+    max: daily.temperature_2m_max?.[index],
+    min: daily.temperature_2m_min?.[index],
+    rain: daily.precipitation_probability_max?.[index]
+  };
+}
+
+function hourlyWeatherFor(dayId, time) {
+  if (!weatherForecast?.hourly?.time?.length || !dayId) return null;
+  const hour = String(time || "12:00").slice(0,2).padStart(2,"0");
+  const target = `${dayId}T${hour}:00`;
+  const index = weatherForecast.hourly.time.indexOf(target);
+  if (index < 0) return null;
+  return {
+    code: weatherForecast.hourly.weather_code?.[index],
+    temp: weatherForecast.hourly.temperature_2m?.[index],
+    rain: weatherForecast.hourly.precipitation_probability?.[index]
+  };
+}
+
+function weatherBadge(dayId, time) {
+  const w = hourlyWeatherFor(dayId, time);
+  if (!w) return "";
+  const temp = Number.isFinite(Number(w.temp)) ? `${Math.round(Number(w.temp))} °C` : "";
+  const rain = Number.isFinite(Number(w.rain)) ? `${Math.round(Number(w.rain))} % Regen` : "";
+  return `<span class="weather-badge">${weatherIcon(w.code)} ${escapeHtml([temp, rain].filter(Boolean).join(" · "))}</span>`;
+}
+
 function getTodayOverviewDay() {
   const actualToday = getTripDayForDate();
   if (actualToday) return { day: actualToday, preview: false };
@@ -4426,6 +4491,10 @@ function renderTodayView() {
   const visitedCount = dayPlaces.length - openPlaces.length;
   const progress = dayPlaces.length ? Math.round((visitedCount / dayPlaces.length) * 100) : 0;
   const dayIndex = Math.max(0, TRIP_DAYS.findIndex(item => item.id === day.id)) + 1;
+  const dayWeather = dailyWeatherFor(day.id);
+  const dayWeatherHtml = dayWeather
+    ? `<div class="today-weather-summary">${weatherIcon(dayWeather.code)} <strong>${Math.round(Number(dayWeather.max))}°</strong> / ${Math.round(Number(dayWeather.min))}° · 💧 ${Math.round(Number(dayWeather.rain))}%</div>`
+    : '<div class="today-weather-summary muted">🌦️ Prognose noch nicht verfügbar</div>';
 
   const timeline = dayPlaces.map(place => {
     const saved = state.places[place.id] || {};
@@ -4458,6 +4527,7 @@ function renderTodayView() {
   const whatNowOpeningHtml = whatNowOpening
     ? `<span class="today-opening-status ${whatNowOpening.kind}" title="${escapeHtml(whatNowOpening.detail)}">${escapeHtml(whatNowOpening.label)}</span>`
     : "";
+  const whatNowWeatherHtml = nextStop ? weatherBadge(day.id, nextStop.plannedStartTime) : "";
   const whatNowCard = nextStop ? `
     <div class="today-what-now-card">
       <div class="today-what-now-head">
@@ -4466,7 +4536,7 @@ function renderTodayView() {
       </div>
       <button class="today-what-now-main" type="button" data-what-now-focus>
         <span class="today-next-icon">${whatNowIcon}</span>
-        <span><strong>${escapeHtml(nextStop.name)}</strong><small>${escapeHtml(whatNowMeta)}${whatNowDistance != null ? ` · 📍 ${escapeHtml(formatDistance(whatNowDistance))}` : ""}${whatNowMinutes != null ? ` · 🚶 ca. ${whatNowMinutes} Min.` : ""}</small>${whatNowOpeningHtml}</span>
+        <span><strong>${escapeHtml(nextStop.name)}</strong><small>${escapeHtml(whatNowMeta)}${whatNowDistance != null ? ` · 📍 ${escapeHtml(formatDistance(whatNowDistance))}` : ""}${whatNowMinutes != null ? ` · 🚶 ca. ${whatNowMinutes} Min.` : ""}</small><span class="today-status-row">${whatNowOpeningHtml}${whatNowWeatherHtml}</span></span>
         <span class="today-chevron">›</span>
       </button>
       <div class="today-what-now-actions">
@@ -4503,7 +4573,7 @@ function renderTodayView() {
     ${preview ? '<div class="today-preview-note">Vorschau · Die Reise hat noch nicht begonnen</div>' : ''}
     <div class="today-day-card">
       <div><div class="today-kicker">${preview ? "Erster Reisetag" : "Heute"}</div><h2>${escapeHtml(formatTodayDayTitle(day))}</h2><div class="today-day-label">${escapeHtml(day.label)}</div></div>
-      <span class="today-day-number">Tag ${dayIndex}</span>
+      <div class="today-day-side"><span class="today-day-number">Tag ${dayIndex}</span>${dayWeatherHtml}</div>
     </div>
     ${whatNowCard}
     <div class="today-plan-card">
@@ -5067,12 +5137,13 @@ function renderDayAgenda() {
 
   const rows = stops.map((stop, index) => {
     const nextLeg = legs[index] || null;
+    const stopWeatherHtml = weatherBadge(selectedDay.id, stop.plannedStartTime);
     const legHtml = nextLeg ? `<div class="agenda-leg"><span>🚶</span><span>ca. ${escapeHtml(formatRouteDistance(nextLeg.distanceMeters))} · ${nextLeg.minutes} Min. zum nächsten Punkt</span></div>` : "";
 
     if (stop.type === "activity") {
       const a = stop.activity;
       const time = [stop.plannedStartTime, stop.plannedEndTime].filter(Boolean).join("–") || "Termin";
-      return `<div class="agenda-place-wrap agenda-activity-wrap" data-agenda-key="activity:${a.id}"><div class="agenda-timeline-row"><div class="agenda-time-column"><div class="agenda-time">${escapeHtml(time)}</div><div class="agenda-timeline-dot activity">🎟</div>${index < stops.length - 1 ? '<div class="agenda-timeline-line"></div>' : ""}</div><div class="agenda-content-column"><div class="agenda-item agenda-activity-item" data-activity-id="${a.id}"><button type="button" class="agenda-drag-handle" aria-label="Aktivität verschieben">⋮⋮</button><div class="agenda-main"><div class="agenda-title">🎟️ ${escapeHtml(a.name)}</div><div class="agenda-meta"><span class="activity-status ${a.status}">${a.status === "booked" ? "Gebucht" : "Geplant"}</span> · 📍 ${escapeHtml(a.meeting_place_name || a.address || "Treffpunkt")}</div>${a.note ? `<div class="agenda-activity-note">${escapeHtml(a.note)}</div>` : ""}</div><button type="button" class="agenda-activity-menu" data-action="edit-activity" data-activity-id="${a.id}" title="Aktivität bearbeiten">✎</button></div>${legHtml}</div></div></div>`;
+      return `<div class="agenda-place-wrap agenda-activity-wrap" data-agenda-key="activity:${a.id}"><div class="agenda-timeline-row"><div class="agenda-time-column"><div class="agenda-time">${escapeHtml(time)}</div><div class="agenda-timeline-dot activity">🎟</div>${index < stops.length - 1 ? '<div class="agenda-timeline-line"></div>' : ""}</div><div class="agenda-content-column"><div class="agenda-item agenda-activity-item" data-activity-id="${a.id}"><button type="button" class="agenda-drag-handle" aria-label="Aktivität verschieben">⋮⋮</button><div class="agenda-main"><div class="agenda-title">🎟️ ${escapeHtml(a.name)}</div><div class="agenda-meta"><span class="activity-status ${a.status}">${a.status === "booked" ? "Gebucht" : "Geplant"}</span> · 📍 ${escapeHtml(a.meeting_place_name || a.address || "Treffpunkt")}</div>${a.note ? `<div class="agenda-activity-note">${escapeHtml(a.note)}</div>` : ""}${stopWeatherHtml}</div><button type="button" class="agenda-activity-menu" data-action="edit-activity" data-activity-id="${a.id}" title="Aktivität bearbeiten">✎</button></div>${legHtml}</div></div></div>`;
     }
 
     const place = stop.place;
@@ -5081,7 +5152,7 @@ function renderDayAgenda() {
     const distance = userPosition ? distanceToPlace(place) : null;
     const opening = plannedOpeningStatus(place, selectedDay.id, stop.plannedStartTime);
     const openingHtml = opening ? `<div class="agenda-opening-status ${opening.kind}" title="${escapeHtml(opening.detail)}">${escapeHtml(opening.label)}</div>` : "";
-    return `<div class="agenda-place-wrap" data-agenda-key="place:${escapeHtml(place.id)}"><div class="agenda-timeline-row"><div class="agenda-time-column"><div class="agenda-time ${time ? "" : "agenda-time-open"}">${time ? escapeHtml(time) : "offen"}</div><div class="agenda-timeline-dot ${saved.visited ? "visited" : ""}">${saved.visited ? "✓" : index + 1}</div>${index < stops.length - 1 ? '<div class="agenda-timeline-line"></div>' : ""}</div><div class="agenda-content-column"><div class="agenda-item ${saved.visited ? "agenda-item-visited" : ""}" data-place-id="${place.id}"><button type="button" class="agenda-drag-handle" aria-label="${escapeHtml(place.name)} verschieben">⋮⋮</button><div class="agenda-main"><div class="agenda-title">${CATEGORY_ICONS[place.category] || "•"} ${escapeHtml(place.name)}</div><div class="agenda-meta">${escapeHtml(categoryLabel(place.category))}${distance != null ? ` · 📍 ${escapeHtml(formatDistance(distance))} entfernt` : ""}${saved.visited ? " · ✓ besucht" : ""}</div>${openingHtml}</div><button type="button" class="agenda-visited-button ${saved.visited ? "visited" : ""}" data-action="toggle-visited" data-place-id="${place.id}">${saved.visited ? "✓" : "○"}</button></div>${legHtml}</div></div></div>`;
+    return `<div class="agenda-place-wrap" data-agenda-key="place:${escapeHtml(place.id)}"><div class="agenda-timeline-row"><div class="agenda-time-column"><div class="agenda-time ${time ? "" : "agenda-time-open"}">${time ? escapeHtml(time) : "offen"}</div><div class="agenda-timeline-dot ${saved.visited ? "visited" : ""}">${saved.visited ? "✓" : index + 1}</div>${index < stops.length - 1 ? '<div class="agenda-timeline-line"></div>' : ""}</div><div class="agenda-content-column"><div class="agenda-item ${saved.visited ? "agenda-item-visited" : ""}" data-place-id="${place.id}"><button type="button" class="agenda-drag-handle" aria-label="${escapeHtml(place.name)} verschieben">⋮⋮</button><div class="agenda-main"><div class="agenda-title">${CATEGORY_ICONS[place.category] || "•"} ${escapeHtml(place.name)}</div><div class="agenda-meta">${escapeHtml(categoryLabel(place.category))}${distance != null ? ` · 📍 ${escapeHtml(formatDistance(distance))} entfernt` : ""}${saved.visited ? " · ✓ besucht" : ""}</div>${openingHtml}${stopWeatherHtml}</div><button type="button" class="agenda-visited-button ${saved.visited ? "visited" : ""}" data-action="toggle-visited" data-place-id="${place.id}">${saved.visited ? "✓" : "○"}</button></div>${legHtml}</div></div></div>`;
   }).join("");
 
   container.innerHTML = `${header}<div class="agenda-timeline">${rows}</div><div class="agenda-estimate-note">🚶 Gehzeiten sind kompakte Luftlinien-Schätzungen. Die Navigation verwendet weiterhin die echte Google-Fußroute.</div>`;
