@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.14.10";
+const APP_VERSION = "v1.14.11";
 
 function syncVersionLabels() {
   document.querySelectorAll(".app-version").forEach(el => { el.textContent = APP_VERSION; });
@@ -116,6 +116,8 @@ let navigationLastAccuracy = Infinity;
 const NAV_CACHED_POSITION_MAX_AGE_MS = 60000;
 const NAV_CACHED_POSITION_MAX_ACCURACY = 50;
 const NAV_SESSION_STORAGE_KEY = "budapestActiveNavigation";
+const LAST_LOCATION_STORAGE_KEY = "budapestLastKnownLocation";
+const LAST_LOCATION_MAX_AGE_MS = 30 * 60 * 1000;
 const NAV_OFF_ROUTE_METERS = 45;
 const NAV_OFF_ROUTE_SAMPLES = 3;
 const NAV_REROUTE_COOLDOWN_MS = 15000;
@@ -166,7 +168,44 @@ function storeKnownPosition(position) {
   navigationLastPositionAt = Date.now();
   navigationLastAccuracy = Number(position.coords.accuracy) || Infinity;
   window.__navigationLastAccuracy = Number(position.coords.accuracy) || 0;
+  try {
+    localStorage.setItem(LAST_LOCATION_STORAGE_KEY, JSON.stringify({
+      lat: userPosition.lat,
+      lng: userPosition.lng,
+      accuracy: Number(position.coords.accuracy) || null,
+      timestamp: Number(position.timestamp) || Date.now()
+    }));
+  } catch (_) {}
   return userPosition;
+}
+
+function loadLastKnownLocation() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(LAST_LOCATION_STORAGE_KEY) || "null");
+    if (!saved || !Number.isFinite(saved.lat) || !Number.isFinite(saved.lng)) return null;
+    const timestamp = Number(saved.timestamp) || 0;
+    if (!timestamp || Date.now() - timestamp > LAST_LOCATION_MAX_AGE_MS) return null;
+    return saved;
+  } catch (_) {
+    return null;
+  }
+}
+
+function applySavedStartupLocation() {
+  const saved = loadLastKnownLocation();
+  if (!saved || !map) return false;
+  userPosition = { lat: saved.lat, lng: saved.lng };
+  navigationLastPositionAt = Number(saved.timestamp) || Date.now();
+  navigationLastAccuracy = Number(saved.accuracy) || Infinity;
+  window.__navigationLastAccuracy = Number(saved.accuracy) || 0;
+  updateUserLocationMarker();
+  updateDistanceControls();
+  updateRouteControls();
+  applyFilters();
+  map.setCenter(userPosition);
+  if (map.getZoom() < 14) map.setZoom(14);
+  startupLocationCentered = true;
+  return true;
 }
 
 function requestStartupLocation() {
@@ -979,8 +1018,10 @@ function initMap() {
     infoWindow.close();
   });
 
-  // v1.14.10: Auf Mobilgeräten den ersten erfolgreichen Standort-Fix
-  // garantiert zum Zentrieren verwenden. Danach nur noch präzisieren.
+  // v1.14.11: Zuerst den zuletzt bekannten Standort ohne Wartezeit anzeigen.
+  // Der echte Browser-/GPS-Fix läuft parallel und korrigiert ihn anschließend.
+  applySavedStartupLocation();
+
   Promise.resolve(startupLocationPromise).then(position => {
     if (position) {
       const start = storeKnownPosition(position);
@@ -989,8 +1030,13 @@ function initMap() {
         updateDistanceControls();
         updateRouteControls();
         applyFilters();
-        map.panTo(start);
-        if (map.getZoom() < 14) map.setZoom(14);
+        const distanceFromShown = haversineDistanceMeters(map.getCenter()
+          ? { lat: map.getCenter().lat(), lng: map.getCenter().lng() }
+          : start, start);
+        if (!startupLocationCentered || distanceFromShown > 250) {
+          map.panTo(start);
+          if (map.getZoom() < 14) map.setZoom(14);
+        }
         startupLocationCentered = true;
       }
     }
