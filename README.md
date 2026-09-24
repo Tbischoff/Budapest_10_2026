@@ -1,4 +1,4 @@
-# Budapest Travel Planner v1.14.12
+# Budapest Travel Planner v1.14.13
 
 ## Navigation Persistence & Wake Lock
 
@@ -279,3 +279,10 @@ Die Navigation arbeitet die kombinierte Tagesreihenfolge aus Orten und Aktivitä
 ## v1.14.12 – Syntaxfehler im Standort-Cache behoben
 - Doppelte Deklaration der Konstanten für den lokalen Standort-Cache entfernt.
 - Dadurch wird app.js wieder vollständig ausgeführt; die Standort-Optimierung aus v1.14.11 bleibt erhalten.
+
+
+## v1.14.13 – Budapest-Ansicht vor spätem GPS-Fix schützen
+- Ein Klick auf „Budapest“ beendet jetzt die automatische Start-Zentrierung auf den aktuellen Standort.
+- Ein noch laufender GPS-Fix darf die bewusst gewählte Budapest-Ansicht anschließend nicht mehr überschreiben.
+- Die Standortdaten selbst werden weiterhin im Hintergrund aktualisiert und gespeichert.
+- „Mein Standort“ kann danach weiterhin jederzeit manuell verwendet werden.
