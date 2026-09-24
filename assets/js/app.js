@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.12.2";
+const APP_VERSION = "v1.13.0";
 
 function syncVersionLabels() {
   document.querySelectorAll(".app-version").forEach(el => { el.textContent = APP_VERSION; });
@@ -107,6 +107,9 @@ let navigationLastOffRouteDistance = null;
 let navigationMovingAwaySamples = 0;
 let navigationProgrammaticZoom = false;
 let navigationExpanded = false;
+let navigationWakeLock = null;
+let navigationResumeInProgress = false;
+const NAV_SESSION_STORAGE_KEY = "budapestActiveNavigation";
 const NAV_OFF_ROUTE_METERS = 45;
 const NAV_OFF_ROUTE_SAMPLES = 3;
 const NAV_REROUTE_COOLDOWN_MS = 15000;
@@ -133,6 +136,8 @@ let activeCategories = new Set();
 let state = loadState();
 
 document.addEventListener("DOMContentLoaded", bootstrapAuth);
+document.addEventListener("visibilitychange", handleNavigationVisibilityChange);
+window.addEventListener("pagehide", () => { if (navigationActive) saveNavigationSession(); });
 
 
 async function bootstrapAuth() {
@@ -569,6 +574,11 @@ async function bootstrap() {
     await createMarkers();
     createActivityMarkers();
     applyFilters();
+
+    // Eine aktive Navigation kann einen App-/Tab-Wechsel oder ein erneutes
+    // Laden überstehen. Erst nach geladener Karte/Routes Library fortsetzen.
+    const savedNavigation = loadNavigationSession();
+    if (savedNavigation) await resumeNavigationSession(savedNavigation, { announce: false });
 
     suppressSupabaseSync = false;
     setStatus(`☁️ ${placesData.places.length} Orte aus Supabase geladen · Synchronisation aktiv.`);
@@ -2639,8 +2649,141 @@ function stopOrientationTracking() {
   navigationOrientationHandler = null;
 }
 
+function serializeNavigationStop(stop) {
+  const position = normalizeLatLng(stop?.position);
+  if (!stop || !position) return null;
+  return {
+    type: stop.type || "place",
+    id: stop.id || null,
+    name: stop.name || "Ziel",
+    position,
+    tripDayId: stop.tripDayId || stop.trip_day_id || null
+  };
+}
+
+function saveNavigationSession() {
+  if (!navigationActive || !navigationStops.length) return;
+  try {
+    const stops = remainingNavigationStops().map(serializeNavigationStop).filter(Boolean);
+    if (!stops.length) return;
+    localStorage.setItem(NAV_SESSION_STORAGE_KEY, JSON.stringify({
+      version: 1,
+      savedAt: Date.now(),
+      testMode: navigationTestMode,
+      stops,
+      headingUp: navigationHeadingUp,
+      expanded: navigationExpanded
+    }));
+  } catch (error) {
+    console.warn("Navigationszustand konnte nicht gespeichert werden:", error);
+  }
+}
+
+function clearNavigationSession() {
+  try { localStorage.removeItem(NAV_SESSION_STORAGE_KEY); } catch (_) {}
+}
+
+function loadNavigationSession() {
+  try {
+    const data = JSON.parse(localStorage.getItem(NAV_SESSION_STORAGE_KEY) || "null");
+    if (!data || !Array.isArray(data.stops) || !data.stops.length) return null;
+    data.stops = data.stops.map(stop => ({ ...stop, position: normalizeLatLng(stop.position) })).filter(stop => stop.position);
+    return data.stops.length ? data : null;
+  } catch (_) { return null; }
+}
+
+async function requestNavigationWakeLock() {
+  if (!navigationActive || !navigator.wakeLock?.request || document.visibilityState !== "visible") return;
+  try {
+    if (navigationWakeLock && !navigationWakeLock.released) return;
+    navigationWakeLock = await navigator.wakeLock.request("screen");
+    navigationWakeLock.addEventListener("release", () => { navigationWakeLock = null; }, { once: true });
+  } catch (error) {
+    console.info("Wake Lock nicht verfügbar:", error?.message || error);
+  }
+}
+
+async function releaseNavigationWakeLock() {
+  const lock = navigationWakeLock;
+  navigationWakeLock = null;
+  if (lock && !lock.released) {
+    try { await lock.release(); } catch (_) {}
+  }
+}
+
+function startNavigationPositionWatch() {
+  if (!navigator.geolocation) return;
+  if (navigationWatchId != null) navigator.geolocation.clearWatch(navigationWatchId);
+  navigationWatchId = navigator.geolocation.watchPosition(processNavigationPosition, error => {
+    console.warn("Navigation GPS:", error);
+    setStatus("GPS-Signal für die Navigation ist momentan nicht verfügbar.");
+  }, { enableHighAccuracy: true, maximumAge: 1500, timeout: 10000 });
+}
+
+async function resumeNavigationSession(session = loadNavigationSession(), { announce = true } = {}) {
+  if (!session || navigationResumeInProgress || navigationActive) return false;
+  navigationResumeInProgress = true;
+  try {
+    if (announce) setStatus("Navigation wird fortgesetzt … Position wird aktualisiert.");
+    const origin = await getFreshCurrentPosition();
+    const route = await requestNavigationRoute(session.stops, origin);
+    applyNavigationRoute(route, session.stops, { testMode: Boolean(session.testMode), fit: true });
+    navigationActive = true;
+    navigationFollowMode = true;
+    navigationHeadingUp = session.headingUp !== false;
+    navigationLastPosition = origin;
+    updateNavigationStartButton();
+    setNavigationPanelVisible(true);
+    setNavigationExpanded(Boolean(session.expanded));
+    if (isMobileLayout()) setMobileView("map");
+    enableNavigationArrow();
+    startOrientationTracking();
+    setNavigationFollowMode(true);
+    setNavigationHeadingMode(navigationHeadingUp);
+    updateNavigationGpsQuality(null);
+    updateNavigationUi(origin);
+    startNavigationPositionWatch();
+    await requestNavigationWakeLock();
+    saveNavigationSession();
+    setStatus("Navigation fortgesetzt · Route ab aktueller Position aktualisiert.");
+    return true;
+  } catch (error) {
+    console.warn("Navigation konnte nicht fortgesetzt werden:", error);
+    setStatus(`Navigation konnte nicht fortgesetzt werden: ${error.message || error}`);
+    return false;
+  } finally {
+    navigationResumeInProgress = false;
+  }
+}
+
+async function handleNavigationVisibilityChange() {
+  if (document.visibilityState === "hidden") {
+    if (navigationActive) saveNavigationSession();
+    return;
+  }
+  if (navigationActive) {
+    await requestNavigationWakeLock();
+    // Browser können Geolocation-Watches im Hintergrund pausieren. Beim
+    // Zurückkehren wird der Watch deshalb frisch gestartet und die Route bei
+    // Bedarf von der aktuellen Position weitergeführt.
+    startNavigationPositionWatch();
+    try {
+      const position = await getFreshCurrentPosition();
+      userPosition = position;
+      processNavigationPosition({ coords: { latitude: position.lat, longitude: position.lng, accuracy: 0, heading: null, speed: null } });
+      if (distanceToNavigationRoute(position) > NAV_OFF_ROUTE_METERS) await rerouteNavigation();
+    } catch (_) {}
+    saveNavigationSession();
+  } else {
+    const session = loadNavigationSession();
+    if (session) await resumeNavigationSession(session);
+  }
+}
+
 function stopNavigation(message = "Navigation beendet.") {
   hideNavigationSuccess();
+  clearNavigationSession();
+  releaseNavigationWakeLock();
   if (navigationWatchId != null && navigator.geolocation) navigator.geolocation.clearWatch(navigationWatchId);
   navigationWatchId = null;
   navigationActive = false;
@@ -3030,6 +3173,7 @@ function applyNavigationRoute(route, stops, { testMode = navigationTestMode, fit
   buildNavigationPathMetrics();
   if (userPosition) updateTravelledRoute(userPosition);
   if (fit && route.viewport) map.fitBounds(route.viewport, 55);
+  if (navigationActive) saveNavigationSession();
 }
 
 async function rerouteNavigation() {
@@ -3135,11 +3279,9 @@ async function computeNavigationRoute(stops, { testMode = false } = {}) {
   updateNavigationGpsQuality(null);
   updateNavigationUi(origin);
 
-  if (navigationWatchId != null) navigator.geolocation.clearWatch(navigationWatchId);
-  navigationWatchId = navigator.geolocation.watchPosition(processNavigationPosition, error => {
-    console.warn("Navigation GPS:", error);
-    setStatus("GPS-Signal für die Navigation ist momentan nicht verfügbar.");
-  }, { enableHighAccuracy: true, maximumAge: 1500, timeout: 10000 });
+  startNavigationPositionWatch();
+  saveNavigationSession();
+  await requestNavigationWakeLock();
 }
 
 async function startDayNavigation() {

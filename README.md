@@ -1,3 +1,13 @@
+# Budapest Travel Planner v1.13.0
+
+## Navigation Persistence & Wake Lock
+
+- Screen Wake Lock hält das Display während aktiver Navigation nach Möglichkeit wach.
+- Aktive Navigation wird lokal zwischengespeichert und nach App-/Tab-Wechsel bzw. Reload wieder aufgenommen.
+- Beim Zurückkehren werden GPS-Watch und Wake Lock neu aktiviert; falls nötig wird ab der aktuellen Position neu geroutet.
+- Explizites Beenden über X/Button löscht den gespeicherten Navigationszustand.
+- Keine Datenbankmigration erforderlich.
+
 # Budapest Map v1.12.2
 
 - Tagesfilter zählen Orte und Aktivitäten gemeinsam.
