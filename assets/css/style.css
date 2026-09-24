@@ -3584,3 +3584,15 @@ body.agenda-dragging {
     bottom:84px;
   }
 }
+
+
+/* v1.33.0 – Cleanup & Polish */
+.trip-status-legend {
+  display:flex; flex-wrap:wrap; gap:5px 9px; align-items:center;
+  margin:3px 0 4px; color:#77807d; font-size:9px;
+}
+.trip-status-legend > span:first-child { font-weight:800; color:#606966; }
+@media (max-width:700px) {
+  .desktop-plan-section .plan-header-actions:empty { display:none; }
+  .trip-status-legend { gap:4px 7px; }
+}
