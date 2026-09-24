@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.14.7";
+const APP_VERSION = "v1.14.8";
 
 function syncVersionLabels() {
   document.querySelectorAll(".app-version").forEach(el => { el.textContent = APP_VERSION; });
@@ -131,6 +131,7 @@ let currentMobileView = "map";
 let lastFocusedPlaceId = null;
 let activeInfoPlaceId = null;
 let searchDebounceTimer = null;
+let startupLocationPromise = null;
 
 let map;
 let geocoder;
@@ -141,13 +142,39 @@ let placeMarkerClusterer = null;
 let activeCategories = new Set();
 let state = loadState();
 
-document.addEventListener("DOMContentLoaded", bootstrapAuth);
+document.addEventListener("DOMContentLoaded", () => {
+  // v1.14.8: Standort parallel zum restlichen App-Start anfordern.
+  // Eine schnelle/gecachte Position kann dadurch schon vor der Karte vorliegen.
+  startupLocationPromise = requestStartupLocation();
+  bootstrapAuth();
+});
 document.addEventListener("visibilitychange", handleNavigationVisibilityChange);
 window.addEventListener("online", handleNavigationOnline);
 window.addEventListener("offline", handleNavigationOffline);
 window.setTimeout(updateNavigationConnectivityUi, 0);
 window.addEventListener("pagehide", () => { if (navigationActive) saveNavigationSession(); });
 
+
+function storeKnownPosition(position) {
+  if (!position?.coords) return null;
+  userPosition = { lat: position.coords.latitude, lng: position.coords.longitude };
+  navigationLastPositionAt = Date.now();
+  navigationLastAccuracy = Number(position.coords.accuracy) || Infinity;
+  window.__navigationLastAccuracy = Number(position.coords.accuracy) || 0;
+  return userPosition;
+}
+
+function requestStartupLocation() {
+  if (!navigator.geolocation) return Promise.resolve(null);
+  return new Promise(resolve => {
+    navigator.geolocation.getCurrentPosition(
+      position => resolve(position),
+      () => resolve(null),
+      // Schneller Erst-Fix: Browser-/OS-Cache bevorzugen, hohe Genauigkeit folgt im Hintergrund.
+      { enableHighAccuracy: false, timeout: 2500, maximumAge: 300000 }
+    );
+  });
+}
 
 async function bootstrapAuth() {
   try {
@@ -606,16 +633,12 @@ function loadGoogleMaps() {
 
     window.__initBudapestMap = async () => {
       try {
-        // Load the browser-side libraries through Maps JavaScript API.
-        // Keeping Route on the JS library path avoids the legacy DirectionsService.
-        const [markerLibrary, routesLibrary] = await Promise.all([
-          google.maps.importLibrary("marker"),
-          google.maps.importLibrary("routes")
-        ]);
+        // v1.14.8: Beim normalen App-Start nur die Marker-Bibliothek laden.
+        // Die Routes Library wird erst bei einer tatsächlichen Routenberechnung
+        // über ensureRoutesLibrary() nachgeladen.
+        const markerLibrary = await google.maps.importLibrary("marker");
         AdvancedMarkerElement = markerLibrary.AdvancedMarkerElement;
         PinElement = markerLibrary.PinElement;
-        RouteClass = routesLibrary.Route;
-        if (!RouteClass) throw new Error("Google Routes Library konnte nicht geladen werden.");
         resolve();
       } catch (error) {
         reject(new Error(`Advanced Marker konnten nicht geladen werden: ${error.message}`));
@@ -641,7 +664,7 @@ function centerMapOnBudapest() {
   setStatus("Karte auf Budapest zentriert.");
 }
 
-function centerMapOnCurrentLocation({ silent = false } = {}) {
+function centerMapOnCurrentLocation({ silent = false, highAccuracy = true, recenter = true } = {}) {
   if (!navigator.geolocation) {
     if (!silent) setStatus("Standortbestimmung wird von diesem Browser nicht unterstützt.");
     return;
@@ -649,30 +672,23 @@ function centerMapOnCurrentLocation({ silent = false } = {}) {
 
   navigator.geolocation.getCurrentPosition(
     position => {
-      userPosition = {
-        lat: position.coords.latitude,
-        lng: position.coords.longitude
-      };
-      // v1.14.6: Die ohnehin beim Kartenstart ermittelte Position auch als
-      // Navigations-Startposition wiederverwenden. Zuvor war userPosition zwar
-      // vorhanden, aber ohne Zeitstempel/Genauigkeit für den Navigations-Cache.
-      navigationLastPositionAt = Date.now();
-      navigationLastAccuracy = Number(position.coords.accuracy) || Infinity;
-      window.__navigationLastAccuracy = Number(position.coords.accuracy) || 0;
+      storeKnownPosition(position);
 
       updateUserLocationMarker();
       updateDistanceControls();
       updateRouteControls();
       applyFilters();
-      map.setCenter(userPosition);
-      map.setZoom(14);
+      if (recenter) {
+        map.setCenter(userPosition);
+        map.setZoom(14);
+      }
 
       if (!silent) setStatus("Karte auf deinen aktuellen Standort zentriert.");
     },
     () => {
       if (!silent) setStatus("Standort nicht verfügbar. Karte bleibt auf Budapest.");
     },
-    { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 }
+    { enableHighAccuracy, timeout: highAccuracy ? 8000 : 2500, maximumAge: highAccuracy ? 60000 : 300000 }
   );
 }
 
@@ -950,8 +966,22 @@ function initMap() {
     infoWindow.close();
   });
 
-  // Start möglichst am aktuellen Standort; Budapest bleibt Fallback.
-  centerMapOnCurrentLocation({ silent: true });
+  // v1.14.8: Bereits parallel ermittelte Startposition sofort verwenden.
+  // Danach GPS im Hintergrund präzisieren, ohne den Kartenstart zu blockieren.
+  Promise.resolve(startupLocationPromise).then(position => {
+    if (position) {
+      const start = storeKnownPosition(position);
+      if (start && map) {
+        updateUserLocationMarker();
+        updateDistanceControls();
+        updateRouteControls();
+        applyFilters();
+        map.setCenter(start);
+        map.setZoom(14);
+      }
+    }
+    centerMapOnCurrentLocation({ silent: true, highAccuracy: true, recenter: !position });
+  });
   initGooglePlaceAutocomplete();
   initActivityPlaceAutocomplete();
 }
