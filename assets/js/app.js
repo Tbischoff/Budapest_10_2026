@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.20.0";
+const APP_VERSION = "v1.20.1";
 
 function syncVersionLabels() {
   document.querySelectorAll(".app-version").forEach(el => { el.textContent = APP_VERSION; });
@@ -2309,11 +2309,7 @@ function buildRouteRequestPoints(routeStops) {
 
 const OFFLINE_ROUTES_STORAGE_KEY = "budapestOfflineDayRoutesV1";
 const OFFLINE_MAP_URL = "./assets/maps/budapest.pmtiles";
-const OFFLINE_MAP_CACHE = "budapest-offline-map-v1.20.0";
-let offlineMap = null;
-let offlineMapReady = false;
-const OFFLINE_MAP_URL = "./assets/maps/budapest.pmtiles";
-const OFFLINE_MAP_CACHE = "budapest-offline-map-v1.20.0";
+const OFFLINE_MAP_CACHE = "budapest-offline-map-v1.20.1";
 let offlineMap = null;
 let offlineMapReady = false;
 
@@ -2422,56 +2418,6 @@ function renderOfflineRouteOnMapLibre(cached) {
   return true;
 }
 
-
-async function cacheBudapestOfflineMap() {
-  const cache = await caches.open(OFFLINE_MAP_CACHE);
-  const response = await fetch(OFFLINE_MAP_URL, { cache: "no-store" });
-  if (!response.ok) throw new Error("Offline-Karte konnte nicht geladen werden.");
-  await cache.put(OFFLINE_MAP_URL, response.clone());
-  localStorage.setItem("budapestOfflineMapReady", new Date().toISOString());
-}
-function offlineMapIsPrepared() { return Boolean(localStorage.getItem("budapestOfflineMapReady")); }
-function offlineBaseStyle() {
-  return { version:8, sources:{ budapest:{type:"vector",url:"pmtiles://" + new URL(OFFLINE_MAP_URL,location.href).href} }, layers:[
-    {id:"background",type:"background",paint:{"background-color":"#f5f1e8"}},
-    {id:"landuse",type:"fill",source:"budapest","source-layer":"landuse",paint:{"fill-color":"#e7eee3","fill-opacity":0.7}},
-    {id:"water",type:"fill",source:"budapest","source-layer":"water",paint:{"fill-color":"#b9d9e8"}},
-    {id:"buildings",type:"fill",source:"budapest","source-layer":"buildings",minzoom:13,paint:{"fill-color":"#ddd5c9","fill-outline-color":"#c9c0b3"}},
-    {id:"roads",type:"line",source:"budapest","source-layer":"roads",minzoom:10,paint:{"line-color":"#ffffff","line-width":["interpolate",["linear"],["zoom"],10,1,15,4]}}
-  ]};
-}
-async function ensureOfflineMap() {
-  if (offlineMapReady && offlineMap) return offlineMap;
-  if (!window.maplibregl || !window.pmtiles) throw new Error("Offline-Kartenbibliothek fehlt.");
-  const protocol = new pmtiles.Protocol();
-  try { maplibregl.addProtocol("pmtiles", protocol.tile); } catch {}
-  offlineMap = new maplibregl.Map({container:"offlineMap",style:offlineBaseStyle(),center:[19.0402,47.4979],zoom:12});
-  await new Promise((resolve,reject)=>{ offlineMap.once("load",resolve); offlineMap.once("error",e=>reject(e.error||new Error("Offline-Karte Fehler"))); });
-  offlineMapReady = true;
-  return offlineMap;
-}
-async function activateOfflineMap() {
-  if (!offlineMapIsPrepared()) return false;
-  try {
-    await ensureOfflineMap();
-    document.getElementById("map")?.classList.add("map-hidden");
-    document.getElementById("offlineMap")?.classList.add("offline-map-active");
-    setTimeout(()=>offlineMap?.resize(),0);
-    return true;
-  } catch(error) { console.warn("Offline-Karte:",error); return false; }
-}
-function deactivateOfflineMap() {
-  document.getElementById("map")?.classList.remove("map-hidden");
-  document.getElementById("offlineMap")?.classList.remove("offline-map-active");
-}
-function renderOfflineRouteOnMapLibre(cached) {
-  if (!offlineMapReady || !offlineMap || !cached?.path?.length) return false;
-  const data={type:"Feature",geometry:{type:"LineString",coordinates:cached.path.map(p=>[p.lng,p.lat])},properties:{}};
-  if (offlineMap.getSource("saved-route")) offlineMap.getSource("saved-route").setData(data);
-  else { offlineMap.addSource("saved-route",{type:"geojson",data}); offlineMap.addLayer({id:"saved-route-line",type:"line",source:"saved-route",paint:{"line-color":"#2f625d","line-width":6}}); }
-  const bounds=new maplibregl.LngLatBounds(); cached.path.forEach(p=>bounds.extend([p.lng,p.lat])); offlineMap.fitBounds(bounds,{padding:60,maxZoom:15});
-  return true;
-}
 
 function loadOfflineDayRoutes() {
   try { return JSON.parse(localStorage.getItem(OFFLINE_ROUTES_STORAGE_KEY)) || {}; }
