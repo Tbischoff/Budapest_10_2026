@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.23.0";
+const APP_VERSION = "v1.24.0";
 
 
 function syncVersionLabels() {
@@ -4964,6 +4964,52 @@ function whatNowRecommendation(day, stops, preview = false) {
   return { stop, status: stop.type === "activity" ? "Nächster Termin" : "Nächster offener Stopp", tone: "info" };
 }
 
+function nearbyPlacesForToday(dayId, limit = 3) {
+  if (!userPosition) return [];
+  return placesData.places
+    .filter(place => {
+      const saved = state.places[place.id] || {};
+      if (saved.visited) return false;
+      // Am Reisetag zuerst Orte des Tages bzw. noch ungeplante spontane Optionen
+      // anbieten; Orte eines anderen festen Tages bleiben außen vor.
+      return !saved.plannedDay || saved.plannedDay === dayId;
+    })
+    .map(place => ({ place, distanceKm: distanceToPlace(place) }))
+    .filter(item => item.distanceKm != null && Number.isFinite(item.distanceKm))
+    .sort((a, b) => a.distanceKm - b.distanceKm)
+    .slice(0, limit);
+}
+
+function nearbyTodayCardHtml(dayId) {
+  if (!userPosition) {
+    return `<div class="today-nearby-card">
+      <div class="today-nearby-head"><div><div class="today-card-label">In meiner Nähe</div><div class="today-what-now-subtitle">Spontane Optionen rund um deinen Standort</div></div></div>
+      <div class="today-nearby-empty">📍 Standort aktivieren, um nahe Orte zu sehen.</div>
+      <button id="todayNearbyLocateBtn" class="secondary-button today-nearby-locate" type="button">📍 Standort verwenden</button>
+    </div>`;
+  }
+
+  const nearby = nearbyPlacesForToday(dayId);
+  const rows = nearby.map(({ place, distanceKm }) => {
+    const minutes = estimatedWalkingMinutes(distanceKm * 1000);
+    const planned = (state.places[place.id] || {}).plannedDay === dayId;
+    return `<button class="today-nearby-row" type="button" data-nearby-place="${escapeHtml(place.id)}">
+      <span class="today-nearby-icon">${CATEGORY_ICONS[place.category] || "📍"}</span>
+      <span class="today-nearby-copy"><strong>${escapeHtml(place.name)}</strong><small>${escapeHtml(categoryLabel(place.category))}${planned ? " · heute geplant" : " · spontan"} · 📍 ${escapeHtml(formatDistance(distanceKm))} · 🚶 ca. ${minutes} Min.</small></span>
+      <span class="today-chevron">›</span>
+    </button>`;
+  }).join("");
+
+  return `<div class="today-nearby-card">
+    <div class="today-nearby-head">
+      <div><div class="today-card-label">In meiner Nähe</div><div class="today-what-now-subtitle">Die nächsten offenen Orte an deinem Standort</div></div>
+      <button id="todayNearbyRefreshBtn" class="today-nearby-refresh" type="button" aria-label="Standort aktualisieren" title="Standort aktualisieren">↻</button>
+    </div>
+    <div class="today-nearby-list">${rows || '<div class="today-nearby-empty">✓ Keine offenen Orte in der Nähe gefunden.</div>'}</div>
+    <button id="todayNearbyAllBtn" class="secondary-button today-nearby-all" type="button">📍 Alle nach Nähe anzeigen</button>
+  </div>`;
+}
+
 function renderTodayView() {
   const container = document.getElementById("todayOverview");
   if (!container) return;
@@ -5072,12 +5118,48 @@ function renderTodayView() {
       <div class="today-day-side"><span class="today-day-number">Tag ${dayIndex}</span>${dayWeatherHtml}</div>
     </div>
     ${whatNowCard}
+    ${nearbyTodayCardHtml(day.id)}
     <div class="today-plan-card">
       <div class="today-plan-head"><strong>${preview ? "Planung" : "Heutige Planung"}</strong><span>${visitedCount} von ${dayPlaces.length} erledigt</span></div>
       <div class="today-progress"><span style="width:${progress}%"></span></div>
       <div class="today-timeline">${timeline || '<div class="today-empty">Noch keine Programmpunkte geplant.</div>'}</div>
       <button id="todayOpenPlanButton" class="secondary-button today-open-plan" type="button">☷ Gesamten Tagesplan öffnen</button>
     </div>`;
+
+  const focusNearbyPlace = placeId => {
+    const place = placesData.places.find(item => item.id === placeId);
+    if (!place) return;
+    setMobileView("map");
+    window.setTimeout(() => focusExistingPlaceOnMap(place), 80);
+  };
+
+  container.querySelectorAll("[data-nearby-place]").forEach(button => {
+    button.addEventListener("click", () => focusNearbyPlace(button.dataset.nearbyPlace));
+  });
+
+  const refreshNearbyLocation = async () => {
+    try {
+      await getFreshCurrentPosition({ timeout: 8000, maximumAge: 0 });
+      updateUserLocationMarker();
+      updateDistanceControls();
+      renderTodayView();
+      setStatus("📍 Standort aktualisiert · Orte in deiner Nähe neu sortiert.");
+    } catch (error) {
+      console.error("In meiner Nähe – Standort:", error);
+      setStatus("Standort konnte nicht aktualisiert werden. Bitte Standortfreigabe prüfen.");
+    }
+  };
+  document.getElementById("todayNearbyLocateBtn")?.addEventListener("click", refreshNearbyLocation);
+  document.getElementById("todayNearbyRefreshBtn")?.addEventListener("click", refreshNearbyLocation);
+  document.getElementById("todayNearbyAllBtn")?.addEventListener("click", () => {
+    sortByDistance = true;
+    updateDistanceControls();
+    selectedDayFilter = "all";
+    applyFilters();
+    renderDayFilters();
+    setMobileView("places");
+    setStatus("📍 Alle Orte nach Entfernung sortiert.");
+  });
 
   const focusWhatNowStop = () => {
     if (!nextStop) return;
