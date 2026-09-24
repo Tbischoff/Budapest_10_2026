@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.22.5";
+const APP_VERSION = "v1.22.6";
 
 const MOBILE_DEBUG_STORAGE_KEY = "budapestMobileDebugV1";
 function debugLog(message, detail = "") {
@@ -994,7 +994,11 @@ function focusExistingPlaceOnMap(place, { openInfo = true } = {}) {
   if (navigator.onLine === false || !map) {
     const position = normalizeLatLng({ lat: place.lat, lng: place.lng });
     if (isMobileLayout()) setMobileView("map");
-    if (focusOfflinePosition(position)) setStatus(`📍 „${place.name || "Ort"}“ auf der Offline-Karte angezeigt.`);
+    if (focusOfflinePosition(position)) {
+      syncOfflineMarkers();
+      highlightOfflineMarker(place.id, "place");
+      setStatus(`📍 „${place.name || "Ort"}“ auf der Offline-Karte angezeigt.`);
+    }
     return;
   }
 
@@ -2450,6 +2454,7 @@ const OFFLINE_MAP_URL = "./assets/maps/budapest.pmtiles";
 const OFFLINE_MAP_CACHE = "budapest-offline-map-v1";
 let offlineMap = null;
 let offlineMapReady = false;
+let offlineSelectedMarker = null;
 
 
 async function cacheBudapestOfflineMap() {
@@ -2482,6 +2487,44 @@ function offlineBaseStyle() {
   };
 }
 
+
+function offlineMarkerFeatures() {
+  const placeFeatures = (placesData?.places || []).map(place => {
+    const p = normalizeLatLng({lat:place.lat,lng:place.lng});
+    if (!p) return null;
+    const saved = state?.places?.[place.id] || {};
+    return {type:"Feature",geometry:{type:"Point",coordinates:[p.lng,p.lat]},properties:{id:String(place.id),kind:"place",name:place.name||"",icon:CATEGORY_ICONS[place.category]||"📍",visited:Boolean(saved.visited)}};
+  }).filter(Boolean);
+  const activityFeatures = (activities || []).map(activity => {
+    const p=normalizeLatLng({lat:activity.latitude,lng:activity.longitude});
+    if(!p) return null;
+    return {type:"Feature",geometry:{type:"Point",coordinates:[p.lng,p.lat]},properties:{id:String(activity.id),kind:"activity",name:activity.name||"",icon:"🎟",visited:false}};
+  }).filter(Boolean);
+  return {type:"FeatureCollection",features:[...placeFeatures,...activityFeatures]};
+}
+function syncOfflineMarkers() {
+  if(!offlineMapReady || !offlineMap) return;
+  const data=offlineMarkerFeatures();
+  const src=offlineMap.getSource("trip-markers");
+  if(src) src.setData(data);
+  else {
+    offlineMap.addSource("trip-markers",{type:"geojson",data});
+    offlineMap.addLayer({id:"trip-marker-halo",type:"circle",source:"trip-markers",paint:{"circle-radius":["case",["==",["get","kind"],"activity"],15,13],"circle-color":["case",["==",["get","kind"],"activity"],"#7c3aed","#2f625d"],"circle-opacity":["case",["==",["get","visited"],true],0.45,0.95],"circle-stroke-color":"#ffffff","circle-stroke-width":3}});
+    offlineMap.addLayer({id:"trip-marker-icon",type:"symbol",source:"trip-markers",layout:{"text-field":["get","icon"],"text-size":16,"text-allow-overlap":true,"text-ignore-placement":true}});
+  }
+}
+function highlightOfflineMarker(id, kind) {
+  if(!offlineMapReady || !offlineMap) return;
+  const data=offlineMarkerFeatures();
+  data.features=data.features.filter(f=>String(f.properties.id)===String(id)&&f.properties.kind===kind);
+  const src=offlineMap.getSource("selected-trip-marker");
+  if(src) src.setData(data);
+  else {
+    offlineMap.addSource("selected-trip-marker",{type:"geojson",data});
+    offlineMap.addLayer({id:"selected-trip-marker-ring",type:"circle",source:"selected-trip-marker",paint:{"circle-radius":21,"circle-color":"rgba(0,0,0,0)","circle-stroke-color":"#f59e0b","circle-stroke-width":4}});
+  }
+}
+
 async function ensureOfflineMap() {
   if (offlineMapReady && offlineMap) return offlineMap;
   if (!window.maplibregl || !window.pmtiles) throw new Error("Offline-Kartenbibliothek ist nicht geladen.");
@@ -2501,6 +2544,7 @@ async function ensureOfflineMap() {
     offlineMap.once("error", event => reject(event?.error || new Error("Offline-Karte konnte nicht geladen werden.")));
   });
   offlineMapReady = true;
+  syncOfflineMarkers();
   return offlineMap;
 }
 
@@ -2515,6 +2559,7 @@ async function activateOfflineMap() {
     debugLog("Offline-Karte geladen");
     googleEl?.classList.add("map-hidden");
     offlineEl.classList.add("offline-map-active");
+    syncOfflineMarkers();
     setTimeout(() => offlineMap?.resize(), 0);
     return true;
   } catch (error) {
@@ -5366,6 +5411,8 @@ function focusActivityOnMap(activity) {
   if (isMobileLayout()) setMobileView("map");
   if (navigator.onLine === false || !map) {
     focusOfflinePosition(position);
+    syncOfflineMarkers();
+    highlightOfflineMarker(activity.id, "activity");
     setStatus(`📍 „${activity.name || "Aktivität"}“ auf der Offline-Karte angezeigt.`);
     return;
   }
@@ -5894,6 +5941,7 @@ function applyFilters() {
   renderPlaceList(filtered);
   renderDayAgenda();
   refreshAllMarkerAppearances();
+  syncOfflineMarkers();
   updateDayCounts();
 }
 
