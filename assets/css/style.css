@@ -3351,3 +3351,58 @@ body.agenda-dragging {
   .desktop-plan-section .plan-header-actions { margin-left:auto; flex-wrap:nowrap; }
   .desktop-plan-section .mini-action-button { padding:6px 9px; }
 }
+
+
+/* v1.29.0 – UI/UX Refresh: Heute */
+.today-overview { display:grid; gap:10px; }
+.today-overview > * { margin-top:0 !important; margin-bottom:0 !important; }
+
+.today-day-card {
+  padding:11px 13px;
+  border-radius:16px;
+  background:linear-gradient(135deg,#f7fbfa,#fff);
+}
+.today-day-card h2 { margin:2px 0 0; font-size:17px; line-height:1.2; }
+.today-day-label { display:none; }
+.today-kicker { font-size:10px; letter-spacing:.05em; }
+.today-day-number { font-size:10px; }
+.today-weather-summary { margin-top:4px; font-size:11px; }
+
+.today-what-now-card {
+  padding:14px;
+  border-radius:18px;
+  border-color:#b9d5ce;
+  box-shadow:0 5px 18px rgba(47,98,93,.08);
+}
+.today-what-now-card .today-card-label { font-size:12px; }
+.today-what-now-subtitle { font-size:10px; }
+.today-what-now-main { padding:11px 0 9px; }
+.today-what-now-main strong { font-size:15px; }
+.today-what-now-main small { margin-top:3px; font-size:10.5px; }
+.today-what-now-actions { grid-template-columns:minmax(0,1.5fr) minmax(0,1fr); gap:7px; }
+.today-what-now-actions .primary-button { font-weight:800; }
+.what-now-done { margin-top:6px; }
+
+.free-time-card { padding:12px 13px; border-radius:15px; }
+.today-nearby-card { padding:12px 13px; border-radius:15px; }
+.today-nearby-list { gap:5px; }
+.today-nearby-item { padding-top:7px; padding-bottom:7px; }
+
+.today-plan-card { padding:12px 13px; border-radius:15px; }
+.today-plan-head { align-items:center; }
+.today-plan-head strong { font-size:12px; }
+.today-plan-head span { font-size:10px; }
+.today-progress { height:4px; margin:7px 0 8px; }
+.today-timeline { max-height:145px; overflow:auto; }
+.today-timeline-item { min-height:34px; padding-top:5px; padding-bottom:5px; }
+.today-open-plan { margin-top:8px; min-height:36px; }
+
+.today-overview .feasibility-card.warning,
+.today-overview .feasibility-card.danger { padding:11px 12px; border-radius:14px; }
+.today-overview .feasibility-note { display:none; }
+
+@media (max-width:700px) {
+  .today-overview-panel { padding-top:0; }
+  .today-day-card { gap:8px; }
+  .today-day-side { min-width:auto; }
+}
