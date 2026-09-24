@@ -3596,3 +3596,35 @@ body.agenda-dragging {
   .desktop-plan-section .plan-header-actions:empty { display:none; }
   .trip-status-legend { gap:4px 7px; }
 }
+
+
+/* v1.33.2 – Orte-Kopfzeile stabil halten */
+.desktop-places-panel .panel-title-row {
+  display:grid;
+  grid-template-columns:minmax(0, 1fr) auto;
+  align-items:center;
+  gap:10px;
+}
+.desktop-places-panel .places-title-actions {
+  display:flex;
+  flex-wrap:nowrap;
+  align-items:center;
+  justify-content:flex-end;
+  gap:7px;
+  margin-left:auto;
+}
+.desktop-places-panel .mobile-distance-sort,
+.desktop-places-panel .count-badge {
+  flex:0 0 auto;
+  white-space:nowrap;
+}
+@media (max-width:700px) {
+  .desktop-places-panel .panel-title-row {
+    grid-template-columns:minmax(0, 1fr) auto;
+  }
+  .desktop-places-panel .places-title-actions {
+    display:flex !important;
+    width:auto;
+    margin-top:0;
+  }
+}
