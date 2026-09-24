@@ -4475,18 +4475,20 @@ function updateUserLocationMarker() {
 function distanceToPlace(place) {
   if (!userPosition) return null;
 
+  const budapestDistance = haversineDistanceKm(userPosition.lat, userPosition.lng, 47.4979, 19.0402);
+  if (!Number.isFinite(budapestDistance) || budapestDistance > 100) return null;
+
+  const lat = Number(place?.lat);
+  const lng = Number(place?.lng);
+  if (Number.isFinite(lat) && Number.isFinite(lng)) {
+    return haversineDistanceKm(userPosition.lat, userPosition.lng, lat, lng);
+  }
+
   const marker = markers.get(place.id);
   if (!marker) return null;
-
   const pos = getMarkerPosition(marker);
   if (!pos) return null;
-
-  return haversineDistanceKm(
-    userPosition.lat,
-    userPosition.lng,
-    pos.lat,
-    pos.lng
-  );
+  return haversineDistanceKm(userPosition.lat, userPosition.lng, pos.lat, pos.lng);
 }
 
 function haversineDistanceKm(lat1, lng1, lat2, lng2) {
