@@ -6,16 +6,16 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://*.googleapis.com https://*.gstatic.com https://*.google.com blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; img-src 'self' data: blob: https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.googleusercontent.com https://*.ggpht.com; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' https://cdn.jsdelivr.net https://api.open-meteo.com https://fjlezfzninkltblcctds.supabase.co wss://fjlezfzninkltblcctds.supabase.co https://*.googleapis.com https://*.gstatic.com https://*.google.com data: blob:; frame-src https://*.google.com; worker-src 'self' blob:; manifest-src 'self'; form-action 'self'" />
   <title>Budapest Map 2026</title>
   <link rel="icon" href="assets/icons/favicon.svg" type="image/svg+xml" />
-  <link rel="manifest" href="manifest.webmanifest?v=1.27.1" />
+  <link rel="manifest" href="manifest.webmanifest?v=1.27.2" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maplibre-gl@5.11.0/dist/maplibre-gl.css" />
   <meta name="theme-color" content="#2f625d" />
   <meta name="mobile-web-app-capable" content="yes" />
-  <link rel="stylesheet" href="assets/css/style.css?v=1.27.1" />
+  <link rel="stylesheet" href="assets/css/style.css?v=1.27.2" />
 </head>
 <body>
   <div id="authGate" class="auth-gate">
     <form id="loginForm" class="auth-card">
-      <div class="eyebrow">Travel Planner · <span id="loginVersion">v1.27.1</span></div>
+      <div class="eyebrow">Travel Planner · <span id="loginVersion">v1.27.2</span></div>
       <h1>Budapest Map</h1>
       <p>Bitte anmelden, um den gemeinsamen Reisestand zu laden.</p>
       <label class="form-field"><span>E-Mail</span><input id="loginEmail" type="email" autocomplete="username" required></label>
@@ -31,7 +31,7 @@
         <div>
           <div class="eyebrow">Budapest · 03.–07.10.2026</div>
           <h1>Budapest Map</h1>
-        <div class="app-version">v1.27.1</div>
+        <div class="app-version">v1.27.2</div>
 
         <div class="app-connectivity" data-app-connectivity>🟢 Online</div>
         </div>
@@ -91,9 +91,9 @@
             <button id="nextPlaceButton" class="mini-action-button" type="button">🧭 Nächster Ort</button>
           </div>
         </div>
-        <div id="dayFilters" class="day-filter-list"></div>
-
         <div id="tripStatusOverview" class="plan-trip-overview"></div>
+
+        <div id="dayFilters" class="day-filter-list"></div>
 
         <div class="agenda-panel">
           <div class="agenda-heading">Tagesagenda</div>
@@ -387,6 +387,6 @@
   
   <script src="data/places.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@googlemaps/markerclusterer@2.6.2/dist/index.min.js"></script>
-  <script src="assets/js/app.js?v=1.27.1"></script>
+  <script src="assets/js/app.js?v=1.27.2"></script>
 </body>
 </html>
