@@ -1,4 +1,4 @@
-# Budapest Travel Planner v1.19.3
+# Budapest Travel Planner v1.20.0
 
 ## Navigation Persistence & Wake Lock
 
@@ -346,3 +346,11 @@ Die Navigation arbeitet die kombinierte Tagesreihenfolge aus Orten und Aktivitä
 - Auch normal online angezeigte Tagesrouten aktualisieren automatisch ihren lokalen Offline-Stand.
 - Übersicht zeigt für jeden Reisetag, ob eine Offline-Route gespeichert ist, sowie den letzten Aktualisierungszeitpunkt.
 - Eine offline angezeigte Route kann nicht neu berechnet werden; dafür bleibt eine Internetverbindung erforderlich.
+
+
+## v1.20.0 – Budapest Offline-Karte
+- Budapest-Kartenausschnitt als PMTiles-Datei aus OpenStreetMap/Protomaps-Daten.
+- „Offline-Daten vorbereiten“ speichert zusätzlich die Budapest-Kartendatei im Browser.
+- Offline schaltet die App automatisch von Google Maps auf MapLibre um.
+- Gespeicherte Tagesrouten werden auf der Offline-Karte dargestellt.
+- Online bleibt Google Maps die primäre Karte.
