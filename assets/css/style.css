@@ -3186,10 +3186,3 @@ body.agenda-dragging {
 .weather-periods{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:10px}.weather-period{display:grid;gap:3px;padding:8px;border-radius:9px;background:#fff;font-size:10px}.weather-period>span:first-child{font-weight:700}.weather-period small{display:block;color:var(--muted);font-weight:400}
 @media(max-width:820px){.trip-weather-strip{grid-template-columns:repeat(5,120px);overflow-x:auto;padding-bottom:4px}.weather-periods{grid-template-columns:repeat(3,1fr)}.weather-period{padding:7px 5px}}
 
-/* v1.22.3 – Mobile Offline-Diagnose */
-.mobile-debug-button{position:fixed;right:14px;bottom:92px;z-index:10050;width:46px;height:46px;border:0;border-radius:50%;background:#263b39;color:#fff;font-size:20px;box-shadow:0 4px 16px #0003}
-.mobile-debug-panel{display:none;position:fixed;z-index:10060;left:10px;right:10px;bottom:10px;max-height:72vh;overflow:auto;background:#fff;border:1px solid #cfd8d5;border-radius:16px;box-shadow:0 10px 35px #0005;padding:12px;color:#202625}
-.mobile-debug-panel.is-open{display:block}.mobile-debug-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}.mobile-debug-head button{border:0;background:transparent;font-size:20px}
-.debug-grid{display:grid;grid-template-columns:1fr 1.25fr;gap:5px 10px;font-size:12px}.debug-grid span{color:#65706e}.debug-grid b{word-break:break-word}
-.debug-log{margin-top:12px;max-height:220px;overflow:auto;background:#f3f5f4;border-radius:9px;padding:8px;font-size:11px}.debug-log>div{padding:5px 0;border-bottom:1px solid #dde2e0}.debug-log code{white-space:normal;word-break:break-word}
-.mobile-debug-actions{display:flex;gap:8px;margin-top:10px}.mobile-debug-actions button{flex:1;padding:8px;border:1px solid #cbd5d2;border-radius:8px;background:#f7f9f8}
