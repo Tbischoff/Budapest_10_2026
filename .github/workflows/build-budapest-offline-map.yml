@@ -1,0 +1,29 @@
+name: Build Budapest offline map
+
+on:
+  push:
+    paths:
+      - ".github/workflows/build-budapest-offline-map.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  build-map:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Extract Budapest PMTiles
+        run: |
+          mkdir -p assets/maps
+          docker run --rm -v "$PWD:/data" ghcr.io/protomaps/go-pmtiles:v1.31.2             extract https://build.protomaps.com/20260924.pmtiles /data/assets/maps/budapest.pmtiles             --bbox=18.94,47.42,19.18,47.60 --maxzoom=15
+          ls -lh assets/maps/budapest.pmtiles
+      - name: Commit offline map
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add assets/maps/budapest.pmtiles
+          git commit -m "v1.20.0 Budapest Offline-Karte hinzufügen"
+          git push
