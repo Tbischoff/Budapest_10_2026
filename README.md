@@ -1,4 +1,4 @@
-# Budapest Travel Planner v1.13.4
+# Budapest Travel Planner v1.14.0
 
 ## Navigation Persistence & Wake Lock
 
@@ -177,6 +177,16 @@ Die Navigation arbeitet die kombinierte Tagesreihenfolge aus Orten und Aktivitä
 - Übersprungene Orte werden nicht automatisch als besucht markiert und Aktivitäten bleiben unverändert.
 - Testnavigation ist von der Funktion ausgenommen.
 - Keine Datenbankänderung erforderlich.
+
+
+## v1.14.0 – Intelligente Tagesnavigation
+- Geplante Uhrzeiten von Orten und Aktivitäten werden in die laufende Tagesnavigation übernommen.
+- Für den jeweils nächsten Stopp zeigt die Navigation eine laufend aktualisierte Ankunftsprognose.
+- Bei einem Zeitpuffer von höchstens 15 Minuten erscheint eine Warnung „Zeitplan knapp“.
+- Liegt die prognostizierte Ankunft nach der geplanten Startzeit, zeigt die Navigation die voraussichtliche Verspätung.
+- Bei ausreichendem Puffer wird die verbleibende Zeit bis zum geplanten Beginn angezeigt.
+- Bei Aktivitäten mit Start- und Endzeit wird der komplette Aktivitätszeitraum angezeigt.
+- Die Zeitprognose wird aus der verbleibenden Gehzeit des aktuellen Routenabschnitts berechnet und während der Navigation aktualisiert.
 
 
 ## v1.13.4 – Mobile Navigationsleiste

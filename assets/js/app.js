@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.13.4";
+const APP_VERSION = "v1.14.0";
 
 function syncVersionLabels() {
   document.querySelectorAll(".app-version").forEach(el => { el.textContent = APP_VERSION; });
@@ -2088,7 +2088,13 @@ function getRouteStopsForDay(dayDate) {
     const marker = markers.get(place.id);
     const position = marker ? getMarkerPosition(marker) : normalizeLatLng({ lat: place.lat, lng: place.lng });
     const order = Number((state.places[place.id] || {}).plannedOrder) || Number.MAX_SAFE_INTEGER;
-    return position ? { type: "place", id: place.id, name: place.name, order, position, place } : null;
+    const saved = state.places[place.id] || {};
+    return position ? {
+      type: "place", id: place.id, name: place.name, order, position, place,
+      plannedDate: normalizedDayDate,
+      plannedStartTime: saved.startTime || null,
+      plannedEndTime: saved.endTime || null
+    } : null;
   }).filter(Boolean);
 
   const activityStops = activities
@@ -2103,7 +2109,10 @@ function getRouteStopsForDay(dayDate) {
         name: activity.name,
         order,
         position,
-        activity
+        activity,
+        plannedDate: normalizedDayDate,
+        plannedStartTime: activity.start_time?.slice(0, 5) || null,
+        plannedEndTime: activity.end_time?.slice(0, 5) || null
       } : null;
     })
     .filter(Boolean);
@@ -2666,7 +2675,10 @@ function serializeNavigationStop(stop) {
     id: stop.id || null,
     name: stop.name || "Ziel",
     position,
-    tripDayId: stop.tripDayId || stop.trip_day_id || null
+    tripDayId: stop.tripDayId || stop.trip_day_id || null,
+    plannedDate: stop.plannedDate || null,
+    plannedStartTime: stop.plannedStartTime || null,
+    plannedEndTime: stop.plannedEndTime || null
   };
 }
 
@@ -2738,6 +2750,8 @@ async function resumeNavigationSession(session = loadNavigationSession(), { anno
     if (announce) setStatus("Navigation wird fortgesetzt … Position wird aktualisiert.");
     const origin = await getFreshCurrentPosition();
     const route = await requestNavigationRoute(session.stops, origin);
+    navigationTotalStops = session.stops.length;
+    navigationCompletedStops = 0;
     applyNavigationRoute(route, session.stops, { testMode: Boolean(session.testMode), fit: true });
     navigationActive = true;
     navigationPaused = Boolean(session.paused);
@@ -3233,6 +3247,71 @@ async function continueDayNavigation() {
   }
 }
 
+function navigationStopSchedule(stop) {
+  if (!stop || navigationTestMode || !stop.plannedStartTime) return null;
+  const date = stop.plannedDate || getSelectedTripDay()?.id;
+  if (!date) return null;
+  const [year, month, day] = String(date).split("-").map(Number);
+  const [hour, minute] = String(stop.plannedStartTime).slice(0, 5).split(":").map(Number);
+  if (![year, month, day, hour, minute].every(Number.isFinite)) return null;
+  const start = new Date(year, month - 1, day, hour, minute, 0, 0);
+  let end = null;
+  if (stop.plannedEndTime) {
+    const [endHour, endMinute] = String(stop.plannedEndTime).slice(0, 5).split(":").map(Number);
+    if ([endHour, endMinute].every(Number.isFinite)) end = new Date(year, month - 1, day, endHour, endMinute, 0, 0);
+  }
+  return { start, end };
+}
+
+function navigationRemainingDurationToLeg(legIndex, metersToManeuver) {
+  const leg = navigationRoute?.legs?.[legIndex];
+  if (!leg) return 0;
+  const currentStepIndex = navigationStepIndex;
+  let remainingDistance = Number.isFinite(metersToManeuver) ? Math.max(0, metersToManeuver) : 0;
+  for (let i = currentStepIndex + 1; i < navigationSteps.length; i += 1) {
+    if (Number(navigationSteps[i]?.legIndex) !== legIndex) break;
+    remainingDistance += Number(navigationSteps[i]?.step?.distanceMeters) || 0;
+  }
+  const legDistance = Number(leg.distanceMeters) || 0;
+  const legDuration = Number(leg.durationMillis) || 0;
+  if (legDistance > 0 && legDuration > 0) return legDuration * Math.min(1, remainingDistance / legDistance);
+  return legDuration;
+}
+
+function formatClockTime(date) {
+  return date.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
+}
+
+function updateNavigationSchedule(stop, legIndex, metersToManeuver) {
+  const el = document.getElementById("navigationSchedule");
+  if (!el) return;
+  const schedule = navigationStopSchedule(stop);
+  if (!schedule) {
+    el.hidden = true;
+    el.className = "navigation-schedule";
+    el.textContent = "";
+    return;
+  }
+  const remainingMillis = navigationRemainingDurationToLeg(legIndex, metersToManeuver);
+  const arrival = new Date(Date.now() + Math.max(0, remainingMillis));
+  const deltaMinutes = Math.round((schedule.start.getTime() - arrival.getTime()) / 60000);
+  const range = stop.plannedEndTime ? `${stop.plannedStartTime}–${stop.plannedEndTime}` : stop.plannedStartTime;
+  let state = "ok";
+  let message = `🕒 ${range} · Ankunft ca. ${formatClockTime(arrival)}`;
+  if (deltaMinutes < 0) {
+    state = "late";
+    message += ` · ⚠️ ca. ${Math.abs(deltaMinutes)} Min. zu spät`;
+  } else if (deltaMinutes <= 15) {
+    state = "tight";
+    message += ` · ⚠️ nur ${deltaMinutes} Min. Puffer`;
+  } else {
+    message += ` · ${deltaMinutes} Min. Puffer`;
+  }
+  el.hidden = false;
+  el.className = `navigation-schedule ${state}`;
+  el.textContent = message;
+}
+
 function updateNavigationUi(position = userPosition) {
   if (!navigationActive || !navigationRoute) return;
   const instructionEl = document.getElementById("navigationInstruction");
@@ -3296,6 +3375,7 @@ function updateNavigationUi(position = userPosition) {
     ? totalDurationMillis * Math.max(0, Math.min(1, remainingMeters / totalRouteMeters))
     : 0;
   if (etaEl) etaEl.textContent = remainingDurationMillis > 0 ? `ca. ${formatRouteDuration(remainingDurationMillis)}` : "";
+  updateNavigationSchedule(navigationStops[Math.min(legIndex, navigationStops.length - 1)], legIndex, metersToManeuver);
   if (progressEl) progressEl.textContent = navigationTestMode ? "🧪 Test" : `Stopp ${Math.min(navigationCompletedStops + legIndex + 1, navigationTotalStops)}/${navigationTotalStops}`;
 }
 
