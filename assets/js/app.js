@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.22.3";
+const APP_VERSION = "v1.22.4";
 
 const MOBILE_DEBUG_STORAGE_KEY = "budapestMobileDebugV1";
 function debugLog(message, detail = "") {
@@ -2441,7 +2441,7 @@ function offlineSnapshotTime() {
 }
 
 const OFFLINE_MAP_URL = "./assets/maps/budapest.pmtiles";
-const OFFLINE_MAP_CACHE = "budapest-offline-map-v1.20.2";
+const OFFLINE_MAP_CACHE = "budapest-offline-map-v1";
 let offlineMap = null;
 let offlineMapReady = false;
 
