@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.25.0";
+const APP_VERSION = "v1.26.0";
 
 
 function syncVersionLabels() {
@@ -5096,6 +5096,62 @@ function nearbyTodayCardHtml(dayId) {
   </div>`;
 }
 
+function freeTimeSuggestion(dayId, stops, preview = false) {
+  if (preview || !userPosition) return null;
+  const now = getBudapestClockMinutes();
+  const nextFixed = stops.find(stop => {
+    const start = minutesFromClock(stop.plannedStartTime);
+    if (start == null || start <= now) return false;
+    return stop.type === "activity" || Boolean(stop.plannedStartTime);
+  });
+  if (!nextFixed) return null;
+
+  const nextStart = minutesFromClock(nextFixed.plannedStartTime);
+  const directWalk = estimatedWalkingMinutes(haversineDistanceMeters(userPosition, nextFixed.position));
+  const buffer = 15;
+  const usableMinutes = nextStart - now - directWalk - buffer;
+  const leaveAt = nextStart - directWalk - buffer;
+  const leaveLabel = `${String(Math.floor(leaveAt / 60)).padStart(2, "0")}:${String(leaveAt % 60).padStart(2, "0")}`;
+
+  if (usableMinutes < 35) {
+    return { mode: "leave", nextFixed, directWalk, usableMinutes, leaveLabel };
+  }
+
+  const candidates = placesData.places
+    .filter(place => {
+      const saved = state.places[place.id] || {};
+      if (saved.visited || saved.plannedDay && saved.plannedDay !== dayId) return false;
+      if (stops.some(stop => stop.type === "place" && stop.id === place.id && minutesFromClock(stop.plannedStartTime) != null && minutesFromClock(stop.plannedStartTime) >= now)) return false;
+      return true;
+    })
+    .map(place => {
+      const position = normalizeLatLng({ lat: place.lat, lng: place.lng });
+      if (!position) return null;
+      const opening = openingStatusNow(place, dayId);
+      if (opening.rank >= 3) return null;
+      const toPlace = estimatedWalkingMinutes(haversineDistanceMeters(userPosition, position));
+      const toFixed = estimatedWalkingMinutes(haversineDistanceMeters(position, nextFixed.position));
+      const stayMinutes = nextStart - now - toPlace - toFixed - buffer;
+      return { place, opening, toPlace, toFixed, stayMinutes };
+    })
+    .filter(Boolean)
+    .filter(item => item.stayMinutes >= 25)
+    .sort((a, b) => a.opening.rank - b.opening.rank || b.stayMinutes - a.stayMinutes || a.toPlace - b.toPlace);
+
+  return { mode: candidates.length ? "stop" : "leave", nextFixed, directWalk, usableMinutes, leaveLabel, suggestion: candidates[0] || null };
+}
+
+function freeTimeCardHtml(dayId, stops, preview) {
+  const free = freeTimeSuggestion(dayId, stops, preview);
+  if (!free) return "";
+  const until = minutesFromClock(free.nextFixed.plannedStartTime) - getBudapestClockMinutes();
+  if (free.mode === "leave" || !free.suggestion) {
+    return `<div class="free-time-card leave"><div class="free-time-kicker">⏱️ Nächster fester Punkt</div><strong>${escapeHtml(free.nextFixed.name)}</strong><div class="free-time-main">Noch ca. ${Math.max(0, until)} Min. · 🚶 etwa ${free.directWalk} Min. Weg</div><div class="free-time-advice">Aufbruch spätestens gegen <strong>${escapeHtml(free.leaveLabel)} Uhr</strong> empfohlen (inkl. 15 Min. Reserve).</div></div>`;
+  }
+  const s = free.suggestion;
+  return `<div class="free-time-card"><div class="free-time-kicker">✨ Freie Zeit nutzen</div><div class="free-time-head"><div><strong>${escapeHtml(s.place.name)}</strong><small>${escapeHtml(categoryLabel(s.place.category))} · 🚶 ca. ${s.toPlace} Min. von hier</small></div><span class="free-time-stay">ca. ${s.stayMinutes} Min. Zeit</span></div><div class="free-time-opening ${escapeHtml(s.opening.kind)}">${escapeHtml(s.opening.label)}</div><div class="free-time-next">Danach 🚶 ca. ${s.toFixed} Min. zu <strong>${escapeHtml(free.nextFixed.name)}</strong> · Termin ${escapeHtml(free.nextFixed.plannedStartTime)} Uhr</div><button class="secondary-button free-time-map" type="button" data-free-time-place="${escapeHtml(s.place.id)}">🗺️ Zwischenstopp auf Karte</button></div>`;
+}
+
 function renderTodayView() {
   const container = document.getElementById("todayOverview");
   if (!container) return;
@@ -5204,6 +5260,7 @@ function renderTodayView() {
       <div class="today-day-side"><span class="today-day-number">Tag ${dayIndex}</span>${dayWeatherHtml}</div>
     </div>
     ${whatNowCard}
+    ${freeTimeCardHtml(day.id, dayStops, preview)}
     ${nearbyTodayCardHtml(day.id)}
     ${feasibilityCardHtml(day.id, dayStops)}
     <div class="today-plan-card">
@@ -5212,6 +5269,13 @@ function renderTodayView() {
       <div class="today-timeline">${timeline || '<div class="today-empty">Noch keine Programmpunkte geplant.</div>'}</div>
       <button id="todayOpenPlanButton" class="secondary-button today-open-plan" type="button">☷ Gesamten Tagesplan öffnen</button>
     </div>`;
+
+  container.querySelector("[data-free-time-place]")?.addEventListener("click", event => {
+    const place = placesData.places.find(item => item.id === event.currentTarget.dataset.freeTimePlace);
+    if (!place) return;
+    setMobileView("map");
+    window.setTimeout(() => focusExistingPlaceOnMap(place), 80);
+  });
 
   const focusNearbyPlace = placeId => {
     const place = placesData.places.find(item => item.id === placeId);
