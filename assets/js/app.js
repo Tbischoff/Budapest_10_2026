@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.21.3";
+const APP_VERSION = "v1.21.4";
 
 function syncVersionLabels() {
   document.querySelectorAll(".app-version").forEach(el => { el.textContent = APP_VERSION; });
@@ -639,6 +639,8 @@ async function bootstrap() {
       throw new Error("Lokale Metadaten konnten nicht geladen werden.");
     }
 
+    // Wetter unabhängig von Supabase/Google Maps direkt beim App-Start laden.
+    weatherLoadPromise = loadBudapestWeather();
     const remote = await loadSupabaseTripData();
     tryItems = await loadTryItemsFromSupabase();
     activities = await loadActivitiesFromSupabase();
