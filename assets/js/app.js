@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.22.8";
+const APP_VERSION = "v1.22.9";
 
 const MOBILE_DEBUG_STORAGE_KEY = "budapestMobileDebugV1";
 function debugLog(message, detail = "") {
@@ -2486,21 +2486,6 @@ function offlineBaseStyle() {
       { id:"buildings", type:"fill", source:"budapest", "source-layer":"buildings", minzoom:13, paint:{ "fill-color":"#e1dbd2", "fill-outline-color":"#cfc7bc" } },
       { id:"roads-casing", type:"line", source:"budapest", "source-layer":"roads", minzoom:10, layout:{"line-cap":"round","line-join":"round"}, paint:{ "line-color":"#c9c4bb", "line-width":roadCasingWidth } },
       { id:"roads", type:"line", source:"budapest", "source-layer":"roads", minzoom:10, layout:{"line-cap":"round","line-join":"round"}, paint:{ "line-color":"#ffffff", "line-width":roadWidth } },
-      { id:"road-labels", type:"symbol", source:"budapest", "source-layer":"roads", minzoom:13, layout:{
-          "symbol-placement":"line",
-          "text-field":["coalesce",["get","name:de"],["get","name"],""],
-          "text-size":["interpolate",["linear"],["zoom"],13,10,16,13],
-          "text-letter-spacing":0.02,
-          "text-max-angle":35,
-          "text-padding":3
-        }, paint:{ "text-color":"#68645e","text-halo-color":"#ffffff","text-halo-width":2 } },
-      { id:"place-labels", type:"symbol", source:"budapest", "source-layer":"places", minzoom:11, layout:{
-          "text-field":["coalesce",["get","name:de"],["get","name"],""],
-          "text-size":["interpolate",["linear"],["zoom"],11,11,15,15],
-          "text-font":["Open Sans Regular"],
-          "text-padding":4,
-          "text-allow-overlap":false
-        }, paint:{ "text-color":"#454b49","text-halo-color":"#f7f5ef","text-halo-width":2 } }
     ]
   };
 }
@@ -2527,7 +2512,7 @@ function syncOfflineMarkers() {
   else {
     offlineMap.addSource("trip-markers",{type:"geojson",data});
     offlineMap.addLayer({id:"trip-marker-halo",type:"circle",source:"trip-markers",paint:{"circle-radius":["case",["==",["get","kind"],"activity"],15,13],"circle-color":["case",["==",["get","kind"],"activity"],"#7c3aed","#2f625d"],"circle-opacity":["case",["==",["get","visited"],true],0.45,0.95],"circle-stroke-color":"#ffffff","circle-stroke-width":3}});
-    offlineMap.addLayer({id:"trip-marker-icon",type:"symbol",source:"trip-markers",layout:{"text-field":["get","icon"],"text-size":16,"text-allow-overlap":true,"text-ignore-placement":true}});
+
   }
 }
 function highlightOfflineMarker(id, kind) {
