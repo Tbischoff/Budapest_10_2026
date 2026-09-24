@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.13.2";
+const APP_VERSION = "v1.13.3";
 
 function syncVersionLabels() {
   document.querySelectorAll(".app-version").forEach(el => { el.textContent = APP_VERSION; });
@@ -2907,6 +2907,7 @@ async function handleNavigationOnline() {
 
 function stopNavigation(message = "Navigation beendet.") {
   hideNavigationSuccess();
+  closeNavigationSkipDialog();
   clearNavigationSession();
   releaseNavigationWakeLock();
   if (navigationWatchId != null && navigator.geolocation) navigator.geolocation.clearWatch(navigationWatchId);
@@ -3146,6 +3147,60 @@ function markNavigationArrivalVisited() {
   }
   setNavigationArrivalActions(stop);
   setStatus(`„${stop.name}“ als besucht markiert.`);
+}
+
+function closeNavigationSkipDialog() {
+  const dialog = document.getElementById("navigationSkipDialog");
+  if (!dialog) return;
+  if (typeof dialog.close === "function" && dialog.open) dialog.close();
+  else dialog.hidden = true;
+}
+
+function openNavigationSkipDialog() {
+  if (!navigationActive || navigationTestMode || navigationPausedAtStop || navigationStops.length < 2) {
+    setStatus("Es gibt aktuell keinen späteren Stopp zum Anspringen.");
+    return;
+  }
+  const dialog = document.getElementById("navigationSkipDialog");
+  const list = document.getElementById("navigationSkipList");
+  if (!dialog || !list) return;
+  list.innerHTML = "";
+  navigationStops.slice(1).forEach((stop, offset) => {
+    const index = offset + 1;
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "navigation-skip-target";
+    button.innerHTML = `<span>${stop.type === "activity" ? "🎟️" : "📍"}</span><span><strong>${escapeHtml(stop.name)}</strong><small>${index === 1 ? "Nächsten Stopp überspringen" : `${index} Stopps überspringen`}</small></span>`;
+    button.addEventListener("click", () => navigateToLaterStop(index));
+    list.appendChild(button);
+  });
+  dialog.hidden = false;
+  if (typeof dialog.showModal === "function" && !dialog.open) dialog.showModal();
+}
+
+async function navigateToLaterStop(index) {
+  if (!navigationActive || navigationTestMode || index < 1 || index >= navigationStops.length) return;
+  const selected = navigationStops[index];
+  const remaining = navigationStops.slice(index);
+  closeNavigationSkipDialog();
+  try {
+    setStatus(`Route zu „${selected.name}“ wird vorbereitet …`);
+    const origin = userPosition || navigationLastPosition || await getFreshCurrentPosition();
+    const route = await requestNavigationRoute(remaining, origin);
+    navigationTotalStops = navigationCompletedStops + remaining.length;
+    navigationPausedAtStop = false;
+    navigationArrived = false;
+    navigationArrivalStop = null;
+    setNavigationArrivalActions(null);
+    applyNavigationRoute(route, remaining, { testMode: false });
+    navigationActive = true;
+    updateNavigationUi(origin);
+    saveNavigationSession();
+    setStatus(index === 1 ? `„${navigationStops[0]?.name || selected.name}“ ist jetzt dein nächster Stopp.` : `Direkte Navigation zu „${selected.name}“ gestartet.`);
+  } catch (error) {
+    console.error("Stopp überspringen:", error);
+    setStatus(`Stopp konnte nicht übersprungen werden: ${error.message || error}`);
+  }
 }
 
 async function continueDayNavigation() {
@@ -5373,6 +5428,8 @@ function wireControls() {
   document.getElementById("navigationTestBtn")?.addEventListener("click", chooseNavigationTestTarget);
   document.getElementById("navigationStopBtn")?.addEventListener("click", () => stopNavigation());
   document.getElementById("navigationPauseBtn")?.addEventListener("click", toggleNavigationPause);
+  document.getElementById("navigationSkipBtn")?.addEventListener("click", openNavigationSkipDialog);
+  document.getElementById("navigationSkipCloseBtn")?.addEventListener("click", closeNavigationSkipDialog);
   document.getElementById("navigationSuccessCloseBtn")?.addEventListener("click", () => stopNavigation("Ziel erreicht – Navigation beendet."));
 document.getElementById("navigationExpandBtn")?.addEventListener("click", () => setNavigationExpanded(!navigationExpanded));
   document.getElementById("navigationRecenterBtn")?.addEventListener("click", () => setNavigationFollowMode(true));

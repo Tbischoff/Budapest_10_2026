@@ -1,4 +1,4 @@
-# Budapest Travel Planner v1.13.2
+# Budapest Travel Planner v1.13.3
 
 ## Navigation Persistence & Wake Lock
 
@@ -169,3 +169,11 @@ Die Navigation arbeitet die kombinierte Tagesreihenfolge aus Orten und Aktivitä
 - Beim Fortsetzen wird die Position neu bestimmt und die Route ab dort aktualisiert.
 - Online-/Offline-Status in der Navigation; offline bleibt die vorhandene Route sichtbar, neue Routenberechnungen werden zurückgehalten.
 - Der pausierte Zustand wird zusammen mit der Navigation lokal gespeichert.
+
+
+## v1.13.3 – Stopps überspringen
+- Während einer laufenden Tagesnavigation kann im erweiterten Navigationspanel ein späterer Stopp ausgewählt werden.
+- Der aktuelle oder mehrere bevorstehende Stopps können übersprungen werden; die Route wird direkt zum gewählten Stopp neu berechnet.
+- Übersprungene Orte werden nicht automatisch als besucht markiert und Aktivitäten bleiben unverändert.
+- Testnavigation ist von der Funktion ausgenommen.
+- Keine Datenbankänderung erforderlich.

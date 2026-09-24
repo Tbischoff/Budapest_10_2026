@@ -2730,3 +2730,22 @@ body.agenda-dragging {
   .navigation-panel:not(.expanded) .navigation-connectivity[data-state="online"] { display:none; }
   .navigation-connectivity { padding:3px 5px; font-size:.64rem; }
 }
+
+
+/* v1.13.3 – Stopps überspringen / direkt zu späterem Tagesstopp */
+.navigation-skip-button { border:1px solid var(--border); background:#fff; color:inherit; border-radius:999px; padding:5px 8px; font-size:.72rem; cursor:pointer; white-space:nowrap; }
+.navigation-panel:not(.expanded) .navigation-skip-button { display:none; }
+.navigation-skip-dialog { width:min(430px, calc(100vw - 24px)); max-height:min(70vh, 560px); border:0; border-radius:18px; padding:0; box-shadow:0 18px 60px rgba(0,0,0,.24); color:inherit; background:var(--surface, #fff); }
+.navigation-skip-dialog[hidden] { display:none !important; }
+.navigation-skip-dialog::backdrop { background:rgba(12,18,22,.32); backdrop-filter:blur(2px); }
+.navigation-skip-head { display:flex; align-items:flex-start; gap:12px; padding:16px 16px 12px; border-bottom:1px solid var(--border); }
+.navigation-skip-head > div { flex:1; min-width:0; }
+.navigation-skip-head strong { display:block; font-size:1rem; }
+.navigation-skip-head small { display:block; margin-top:3px; opacity:.7; line-height:1.3; }
+.navigation-skip-head button { width:34px; height:34px; border:0; border-radius:999px; background:transparent; cursor:pointer; font-size:1rem; }
+.navigation-skip-list { display:grid; gap:8px; padding:12px 14px 16px; overflow:auto; max-height:calc(70vh - 85px); }
+.navigation-skip-target { display:grid; grid-template-columns:32px 1fr; align-items:center; gap:8px; width:100%; text-align:left; border:1px solid var(--border); background:#fff; color:inherit; border-radius:12px; padding:10px 12px; cursor:pointer; }
+.navigation-skip-target:hover { background:rgba(20,28,31,.04); }
+.navigation-skip-target > span:first-child { font-size:1.25rem; }
+.navigation-skip-target strong,.navigation-skip-target small { display:block; }
+.navigation-skip-target small { margin-top:2px; opacity:.65; }
