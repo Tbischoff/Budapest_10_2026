@@ -1,4 +1,4 @@
-# Budapest Travel Planner v1.22.3
+# Budapest Travel Planner v1.22.4
 
 ## Navigation Persistence & Wake Lock
 
@@ -413,3 +413,8 @@ Die Navigation arbeitet die kombinierte Tagesreihenfolge aus Orten und Aktivitä
 - Mobile Offline-Diagnose direkt in der App ergänzt.
 - Zeigt Service Worker, App-Shell, Reise-Snapshot, Wetter, gespeicherte Routen, PMTiles-Cache und geladene Offline-Bibliotheken.
 - JavaScript-/Promise-Fehler sowie Schritte des Offline-Kartenstarts werden lokal protokolliert.
+
+
+### v1.22.4
+- Ursache des Offline-Kartenfehlers behoben: App und Service Worker verwendeten unterschiedliche Cache-Namen für dieselbe PMTiles-Datei.
+- Offline-Karten-Cache erhält nun einen gemeinsamen stabilen Namen und wird nicht mehr bei jeder App-Version auseinandergezogen.
