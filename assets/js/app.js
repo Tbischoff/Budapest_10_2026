@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.14.14";
+const APP_VERSION = "v1.15.0";
 
 function syncVersionLabels() {
   document.querySelectorAll(".app-version").forEach(el => { el.textContent = APP_VERSION; });
@@ -4943,28 +4943,55 @@ function renderDayAgenda() {
   const container = document.getElementById("dayAgenda");
   if (!container) return;
   const selectedDay = TRIP_DAYS.find(day => day.id === selectedDayFilter);
-  if (!selectedDay) { container.innerHTML = `<div class="agenda-empty">Wähle einen Reisetag aus, um die Tagesagenda zu sehen.</div>`; return; }
+  if (!selectedDay) {
+    container.innerHTML = '<div class="agenda-empty">Wähle einen Reisetag aus, um die Tagesagenda zu sehen.</div>';
+    return;
+  }
+
+  const stops = getRouteStopsForDay(selectedDay.id);
   const dayPlaces = getPlacesForDay(selectedDay.id);
   const dayActivities = getActivitiesForDay(selectedDay.id);
-  const entries = [
-    ...dayPlaces.map(place => ({ type:"place", id:place.id, order:Number((state.places[place.id]||{}).plannedOrder)||9999, place })),
-    ...dayActivities.map(activity => ({ type:"activity", id:activity.id, order:Number(activity.planned_order)||9999, activity }))
-  ].sort((a,b) => a.order-b.order);
-  const header = `<div class="agenda-day-header"><div><div class="agenda-day-kicker">Tagesplan</div><div class="agenda-day-title">${escapeHtml(selectedDay.label)}</div><div class="agenda-day-stats">${dayPlaces.length} Orte · ${dayActivities.length} Aktivitäten</div></div><button id="addActivityAgendaBtn" class="mini-action-button activity-add-button" type="button">＋ Aktivität</button></div>`;
-  if (!entries.length) { container.innerHTML = `${header}<div class="agenda-empty">Für ${escapeHtml(selectedDay.label)} ist noch nichts geplant.</div>`; document.getElementById("addActivityAgendaBtn")?.addEventListener("click",()=>openActivityDialog()); return; }
-  const agendaHtml = entries.map((entry,index) => {
-    if (entry.type === "activity") {
-      const a=entry.activity; const time=[a.start_time?.slice(0,5),a.end_time?.slice(0,5)].filter(Boolean).join("–");
-      return `<div class="agenda-place-wrap agenda-activity-wrap" data-agenda-key="activity:${a.id}"><div class="agenda-timeline-row"><div class="agenda-time-column"><div class="agenda-time">${escapeHtml(time||"Termin")}</div><div class="agenda-timeline-dot activity">🎟</div>${index<entries.length-1?'<div class="agenda-timeline-line"></div>':""}</div><div class="agenda-content-column"><div class="agenda-item agenda-activity-item" data-activity-id="${a.id}"><button type="button" class="agenda-drag-handle" aria-label="Aktivität verschieben">⋮⋮</button><div class="agenda-main"><div class="agenda-title">🎟️ ${escapeHtml(a.name)}</div><div class="agenda-meta"><span class="activity-status ${a.status}">${a.status==='booked'?'Gebucht':'Geplant'}</span> · 📍 ${escapeHtml(a.meeting_place_name||a.address||'Treffpunkt')}</div>${a.note?`<div class="agenda-activity-note">${escapeHtml(a.note)}</div>`:""}</div><button type="button" class="agenda-activity-menu" data-action="edit-activity" data-activity-id="${a.id}" title="Aktivität bearbeiten">✎</button></div></div></div></div>`;
+  const visitedCount = dayPlaces.filter(place => (state.places[place.id] || {}).visited).length;
+  const progress = dayPlaces.length ? Math.round((visitedCount / dayPlaces.length) * 100) : 0;
+  const { legs, totalDistance, totalMinutes } = getAgendaLegs(stops);
+  const header = `<div class="agenda-day-header"><div><div class="agenda-day-kicker">Tages-Timeline</div><div class="agenda-day-title">${escapeHtml(selectedDay.label)}</div><div class="agenda-day-stats">${dayPlaces.length} Orte · ${dayActivities.length} Aktivitäten${stops.length > 1 ? ` · 🚶 ca. ${formatRouteDistance(totalDistance)} · ${totalMinutes} Min.` : ""}</div></div><div class="agenda-header-actions"><span class="agenda-progress-badge">${progress}%</span><button id="addActivityAgendaBtn" class="mini-action-button activity-add-button" type="button">＋ Aktivität</button></div></div><div class="agenda-progress-track"><div class="agenda-progress-fill" style="width:${progress}%"></div></div>`;
+
+  if (!stops.length) {
+    container.innerHTML = `${header}<div class="agenda-empty">Für ${escapeHtml(selectedDay.label)} ist noch nichts geplant.</div>`;
+    document.getElementById("addActivityAgendaBtn")?.addEventListener("click", () => openActivityDialog());
+    return;
+  }
+
+  const rows = stops.map((stop, index) => {
+    const nextLeg = legs[index] || null;
+    const legHtml = nextLeg ? `<div class="agenda-leg"><span>🚶</span><span>ca. ${escapeHtml(formatRouteDistance(nextLeg.distanceMeters))} · ${nextLeg.minutes} Min. zum nächsten Punkt</span></div>` : "";
+
+    if (stop.type === "activity") {
+      const a = stop.activity;
+      const time = [stop.plannedStartTime, stop.plannedEndTime].filter(Boolean).join("–") || "Termin";
+      return `<div class="agenda-place-wrap agenda-activity-wrap" data-agenda-key="activity:${a.id}"><div class="agenda-timeline-row"><div class="agenda-time-column"><div class="agenda-time">${escapeHtml(time)}</div><div class="agenda-timeline-dot activity">🎟</div>${index < stops.length - 1 ? '<div class="agenda-timeline-line"></div>' : ""}</div><div class="agenda-content-column"><div class="agenda-item agenda-activity-item" data-activity-id="${a.id}"><button type="button" class="agenda-drag-handle" aria-label="Aktivität verschieben">⋮⋮</button><div class="agenda-main"><div class="agenda-title">🎟️ ${escapeHtml(a.name)}</div><div class="agenda-meta"><span class="activity-status ${a.status}">${a.status === "booked" ? "Gebucht" : "Geplant"}</span> · 📍 ${escapeHtml(a.meeting_place_name || a.address || "Treffpunkt")}</div>${a.note ? `<div class="agenda-activity-note">${escapeHtml(a.note)}</div>` : ""}</div><button type="button" class="agenda-activity-menu" data-action="edit-activity" data-activity-id="${a.id}" title="Aktivität bearbeiten">✎</button></div>${legHtml}</div></div></div>`;
     }
-    const place=entry.place, saved=state.places[place.id]||{}, time=formatPlannedTime(saved), distance=userPosition?distanceToPlace(place):null;
-    return `<div class="agenda-place-wrap" data-agenda-key="place:${escapeHtml(place.id)}"><div class="agenda-timeline-row"><div class="agenda-time-column"><div class="agenda-time ${time?'':'agenda-time-open'}">${time?escapeHtml(time):'offen'}</div><div class="agenda-timeline-dot ${saved.visited?'visited':''}">${saved.visited?'✓':index+1}</div>${index<entries.length-1?'<div class="agenda-timeline-line"></div>':""}</div><div class="agenda-content-column"><div class="agenda-item ${saved.visited?'agenda-item-visited':''}" data-place-id="${place.id}"><button type="button" class="agenda-drag-handle" aria-label="${escapeHtml(place.name)} verschieben">⋮⋮</button><div class="agenda-main"><div class="agenda-title">${CATEGORY_ICONS[place.category]||'•'} ${escapeHtml(place.name)}</div><div class="agenda-meta">${escapeHtml(categoryLabel(place.category))}${distance!=null?` · 📍 ${escapeHtml(formatDistance(distance))} entfernt`:''}${saved.visited?' · ✓ besucht':''}</div></div><button type="button" class="agenda-visited-button ${saved.visited?'visited':''}" data-action="toggle-visited" data-place-id="${place.id}">${saved.visited?'✓':'○'}</button></div></div></div></div>`;
-  }).join('');
-  container.innerHTML = `${header}<div class="agenda-timeline">${agendaHtml}</div><div class="agenda-estimate-note">🎟️ Aktivitäten sind Treffpunkte/Termine und bleiben getrennt von deiner Orte-Liste.</div>`;
-  document.getElementById("addActivityAgendaBtn")?.addEventListener("click",()=>openActivityDialog());
+
+    const place = stop.place;
+    const saved = state.places[place.id] || {};
+    const time = [stop.plannedStartTime, stop.plannedEndTime].filter(Boolean).join("–");
+    const distance = userPosition ? distanceToPlace(place) : null;
+    return `<div class="agenda-place-wrap" data-agenda-key="place:${escapeHtml(place.id)}"><div class="agenda-timeline-row"><div class="agenda-time-column"><div class="agenda-time ${time ? "" : "agenda-time-open"}">${time ? escapeHtml(time) : "offen"}</div><div class="agenda-timeline-dot ${saved.visited ? "visited" : ""}">${saved.visited ? "✓" : index + 1}</div>${index < stops.length - 1 ? '<div class="agenda-timeline-line"></div>' : ""}</div><div class="agenda-content-column"><div class="agenda-item ${saved.visited ? "agenda-item-visited" : ""}" data-place-id="${place.id}"><button type="button" class="agenda-drag-handle" aria-label="${escapeHtml(place.name)} verschieben">⋮⋮</button><div class="agenda-main"><div class="agenda-title">${CATEGORY_ICONS[place.category] || "•"} ${escapeHtml(place.name)}</div><div class="agenda-meta">${escapeHtml(categoryLabel(place.category))}${distance != null ? ` · 📍 ${escapeHtml(formatDistance(distance))} entfernt` : ""}${saved.visited ? " · ✓ besucht" : ""}</div></div><button type="button" class="agenda-visited-button ${saved.visited ? "visited" : ""}" data-action="toggle-visited" data-place-id="${place.id}">${saved.visited ? "✓" : "○"}</button></div>${legHtml}</div></div></div>`;
+  }).join("");
+
+  container.innerHTML = `${header}<div class="agenda-timeline">${rows}</div><div class="agenda-estimate-note">🚶 Gehzeiten sind kompakte Luftlinien-Schätzungen. Die Navigation verwendet weiterhin die echte Google-Fußroute.</div>`;
+  document.getElementById("addActivityAgendaBtn")?.addEventListener("click", () => openActivityDialog());
   wireAgendaDragAndDrop(container, selectedDay.id);
-  container.querySelectorAll(".agenda-item[data-place-id]").forEach(item=>item.addEventListener("click",event=>{if(event.target.closest("[data-action],.agenda-drag-handle"))return;const place=placesData.places.find(p=>p.id===item.dataset.placeId);if(place)focusExistingPlaceOnMap(place);}));
-  container.querySelectorAll(".agenda-activity-item").forEach(item=>item.addEventListener("click",event=>{if(event.target.closest("button"))return;const a=activities.find(x=>x.id===item.dataset.activityId);if(a)focusActivityOnMap(a);}));
+  container.querySelectorAll(".agenda-item[data-place-id]").forEach(item => item.addEventListener("click", event => {
+    if (event.target.closest("[data-action],.agenda-drag-handle")) return;
+    const place = placesData.places.find(p => p.id === item.dataset.placeId);
+    if (place) focusExistingPlaceOnMap(place);
+  }));
+  container.querySelectorAll(".agenda-activity-item").forEach(item => item.addEventListener("click", event => {
+    if (event.target.closest("button")) return;
+    const activity = activities.find(x => x.id === item.dataset.activityId);
+    if (activity) focusActivityOnMap(activity);
+  }));
 }
 
 function renderPlaceList(filteredPlaces) {
