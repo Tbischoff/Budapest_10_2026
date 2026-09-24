@@ -1,4 +1,4 @@
-# Budapest Travel Planner v1.33.2
+# Budapest Travel Planner v1.33.3
 
 Mobile Reise-PWA für die Budapest-Reise vom **03.–07.10.2026**. Die App verbindet Reiseplanung, gespeicherte Orte, Aktivitäten, Wetter, Öffnungszeiten, Tagesrouten, Live-Fußnavigation und Offline-Funktionen in einer Oberfläche.
 
@@ -22,6 +22,7 @@ Die Historie dokumentiert bewusst nur die **Hauptversionen**. Patch- und Zwische
 - Machbarkeitsfarben in der Reiseübersicht erklärt.
 - Entfernungswerte werden nur im Großraum Budapest angezeigt; die interne Distanzberechnung bleibt überall aktiv, damit „Nähe“ auch vor der Reise korrekt sortiert.
 - „Offen“ steht in der Tagesauswahl des Plans an erster Stelle, damit ungeplante Orte schneller erreichbar sind.
+- Beim ersten Öffnen des Plans wird während der Reise automatisch der aktuelle Reisetag gewählt; vor und nach der Reise startet der Plan mit „Offen“. Eine anschließend manuell gewählte Tagesansicht bleibt während der Sitzung erhalten.
 - Kopfzeile von „Orte entdecken“ stabilisiert: Nähe-Filter und Trefferanzahl bleiben unabhängig vom aktiven Filter fest rechts neben der Überschrift.
 - UI-Texte und Gehzeit-Hinweise bereinigt.
 
@@ -235,4 +236,4 @@ Die Historie dokumentiert bewusst nur die **Hauptversionen**. Patch- und Zwische
 - PWA mit Service Worker und Web-App-Manifest
 
 ---
-Aktueller Stand: **v1.33.2**
+Aktueller Stand: **v1.33.3**
