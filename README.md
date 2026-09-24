@@ -1,4 +1,4 @@
-# Budapest Travel Planner v1.14.14
+# Budapest Travel Planner v1.15.0
 
 ## Navigation Persistence & Wake Lock
 
@@ -292,3 +292,13 @@ Die Navigation arbeitet die kombinierte Tagesreihenfolge aus Orten und Aktivitä
 - In centerMapOnCurrentLocation wurde die Geolocation-Option korrekt auf enableHighAccuracy: highAccuracy gesetzt.
 - Der ReferenceError beim automatischen Standort-Fix tritt damit nicht mehr auf.
 - Die mobile Startzentrierung und der Schutz der Budapest-Ansicht bleiben unverändert erhalten.
+
+
+## v1.15.0 – Tagesübersicht als Timeline
+- Orte und Aktivitäten eines Tages werden in einer gemeinsamen chronologischen Timeline dargestellt.
+- Geplante Start-/Endzeiten stehen direkt am jeweiligen Programmpunkt.
+- Zwischen zwei aufeinanderfolgenden Stopps zeigt die Timeline eine kompakte Gehzeit- und Distanzschätzung.
+- Der Tageskopf zeigt Anzahl der Orte/Aktivitäten, geschätzte Gesamt-Gehstrecke und Gehzeit.
+- Besuchte Orte fließen in eine Fortschrittsanzeige mit Prozentwert und Fortschrittsbalken ein.
+- Aktivitäten bleiben optisch als Termine erkennbar und können weiterhin direkt bearbeitet werden.
+- Die Timeline verwendet für die schnelle Übersicht Luftlinien-Schätzungen; die eigentliche Navigation nutzt weiterhin Google Routes.
