@@ -1,4 +1,4 @@
-# Budapest Travel Planner v1.15.0
+# Budapest Travel Planner v1.16.0
 
 ## Navigation Persistence & Wake Lock
 
@@ -302,3 +302,12 @@ Die Navigation arbeitet die kombinierte Tagesreihenfolge aus Orten und Aktivitä
 - Besuchte Orte fließen in eine Fortschrittsanzeige mit Prozentwert und Fortschrittsbalken ein.
 - Aktivitäten bleiben optisch als Termine erkennbar und können weiterhin direkt bearbeitet werden.
 - Die Timeline verwendet für die schnelle Übersicht Luftlinien-Schätzungen; die eigentliche Navigation nutzt weiterhin Google Routes.
+
+
+## v1.16.0 – „Was jetzt?“
+- Die Heute-Ansicht zeigt prominent den nächsten offenen Programmpunkt aus der gemischten Tagesreihenfolge von Orten und Aktivitäten.
+- Mit verfügbarem Standort werden Entfernung und geschätzte Gehzeit direkt angezeigt.
+- Geplante Start-/Endzeit und Art des Programmpunkts sind sofort sichtbar.
+- „Navigation starten“ führt direkt vom aktuellen Standort zum nächsten Programmpunkt.
+- „Auf Karte“ öffnet den nächsten Ort bzw. die nächste Aktivität direkt auf der Karte.
+- Die Funktion nutzt die bestehende Tagesreihenfolge und Standortlogik, ohne den Plan automatisch umzusortieren.
