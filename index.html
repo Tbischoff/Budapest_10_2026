@@ -14,7 +14,7 @@
 <body>
   <div id="authGate" class="auth-gate">
     <form id="loginForm" class="auth-card">
-      <div class="eyebrow">Travel Planner · <span id="loginVersion">v1.19.3</span></div>
+      <div class="eyebrow">Travel Planner · <span id="loginVersion">v1.20.0</span></div>
       <h1>Budapest Map</h1>
       <p>Bitte anmelden, um den gemeinsamen Reisestand zu laden.</p>
       <label class="form-field"><span>E-Mail</span><input id="loginEmail" type="email" autocomplete="username" required></label>
@@ -30,7 +30,7 @@
         <div>
           <div class="eyebrow">Budapest · 03.–07.10.2026</div>
           <h1>Budapest Map</h1>
-        <div class="app-version">v1.19.3</div>
+        <div class="app-version">v1.20.0</div>
 
         <div class="app-connectivity" data-app-connectivity>🟢 Online</div>
         </div>
@@ -166,6 +166,7 @@
 
     <main class="map-wrap">
       <div id="map"></div>
+      <div id="offlineMap" aria-label="Offline-Karte Budapest"></div>
 
       <button id="mobileLocateBtn" class="mobile-locate-fab mobile-only" type="button"
         aria-label="Mein Standort">📍</button>
@@ -377,6 +378,8 @@
   </dialog>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0"></script>
+  <script src="https://unpkg.com/maplibre-gl@5.7.3/dist/maplibre-gl.js"></script>
+  <script src="https://unpkg.com/pmtiles@4.3.0/dist/pmtiles.js"></script>
   <script src="data/places.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@googlemaps/markerclusterer@2.6.2/dist/index.min.js"></script>
   <script src="assets/js/app.js?v=1.19.3"></script>
