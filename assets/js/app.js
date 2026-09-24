@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.14.11";
+const APP_VERSION = "v1.14.12";
 
 function syncVersionLabels() {
   document.querySelectorAll(".app-version").forEach(el => { el.textContent = APP_VERSION; });
@@ -116,8 +116,6 @@ let navigationLastAccuracy = Infinity;
 const NAV_CACHED_POSITION_MAX_AGE_MS = 60000;
 const NAV_CACHED_POSITION_MAX_ACCURACY = 50;
 const NAV_SESSION_STORAGE_KEY = "budapestActiveNavigation";
-const LAST_LOCATION_STORAGE_KEY = "budapestLastKnownLocation";
-const LAST_LOCATION_MAX_AGE_MS = 30 * 60 * 1000;
 const LAST_LOCATION_STORAGE_KEY = "budapestLastKnownLocation";
 const LAST_LOCATION_MAX_AGE_MS = 30 * 60 * 1000;
 const NAV_OFF_ROUTE_METERS = 45;
