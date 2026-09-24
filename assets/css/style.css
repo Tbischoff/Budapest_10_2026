@@ -3406,3 +3406,73 @@ body.agenda-dragging {
   .today-day-card { gap:8px; }
   .today-day-side { min-width:auto; }
 }
+
+
+/* v1.30.0 – Globaler UI/UX Refresh */
+.mobile-nav-icon svg {
+  width:25px;
+  height:25px;
+  display:block;
+  fill:none;
+  stroke:currentColor;
+  stroke-width:1.8;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+}
+.mobile-header-meta { display:flex; align-items:center; gap:7px; margin-top:6px; }
+
+@media (max-width:700px) {
+  .sidebar-header {
+    min-height:auto;
+    padding-top:12px;
+    padding-bottom:12px;
+    align-items:flex-start;
+  }
+  .sidebar-header .eyebrow { font-size:10px; letter-spacing:.07em; }
+  .sidebar-header h1 { margin:3px 0 0; font-size:25px; line-height:1.05; }
+  .sidebar-header .app-version,
+  .sidebar-header .app-connectivity {
+    margin:0;
+    min-height:25px;
+    padding:3px 8px;
+    font-size:10px;
+    line-height:17px;
+  }
+  .sidebar-header .account-actions { margin-left:auto; }
+  .sidebar-header #logoutButton { padding:5px 7px; font-size:11px; }
+  .sidebar-header #mobileClose {
+    width:34px;
+    height:34px;
+    margin-left:2px;
+    font-size:21px;
+  }
+
+  .mobile-bottom-nav {
+    padding-top:5px;
+    padding-bottom:max(5px,env(safe-area-inset-bottom));
+    min-height:67px;
+    border-top:1px solid rgba(31,48,45,.08);
+    box-shadow:0 -4px 18px rgba(31,48,45,.06);
+  }
+  .mobile-nav-button {
+    gap:3px;
+    min-height:55px;
+    padding:5px 8px;
+    border-radius:16px;
+    color:#69716f;
+    font-size:10.5px;
+    font-weight:700;
+  }
+  .mobile-nav-button.active {
+    background:#e8f2ef;
+    color:#2f625d;
+  }
+  .mobile-nav-button.active .mobile-nav-icon { transform:translateY(-1px); }
+  .mobile-nav-icon {
+    display:grid;
+    place-items:center;
+    width:27px;
+    height:27px;
+    font-size:0;
+  }
+}
