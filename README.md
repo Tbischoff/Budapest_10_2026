@@ -1,4 +1,4 @@
-# Budapest Travel Planner v1.22.6
+# Budapest Travel Planner v1.22.7
 
 ## Navigation Persistence & Wake Lock
 
@@ -430,3 +430,10 @@ Die Navigation arbeitet die kombinierte Tagesreihenfolge aus Orten und Aktivitä
 - Aktivitäten werden als violette Ticket-Marker dargestellt, Orte anhand ihrer Kategorie.
 - Besuchte Orte werden dezenter dargestellt.
 - „Auf Karte anzeigen“ hebt den ausgewählten Offline-Marker mit einem Ring hervor.
+
+
+### v1.22.7
+- Offline-Kartenstil überarbeitet: klarere Wasserflächen, Gebäude und Straßen.
+- Straßennamen und Ortsbezeichnungen aus den PMTiles-Daten werden ab passenden Zoomstufen eingeblendet.
+- Beschriftungen erhalten helle Konturen für bessere Lesbarkeit über der Karte.
+- Straßen werden mit abgerundeten Linien und zoomabhängiger Breite dargestellt.
