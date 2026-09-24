@@ -1,4 +1,4 @@
-# Budapest Travel Planner v1.14.8
+# Budapest Travel Planner v1.14.9
 
 ## Navigation Persistence & Wake Lock
 
@@ -251,3 +251,11 @@ Die Navigation arbeitet die kombinierte Tagesreihenfolge aus Orten und Aktivitä
 - Für den ersten Kartensprung wird zunächst eine schnelle bzw. gecachte Position akzeptiert; anschließend wird GPS im Hintergrund hochgenau präzisiert.
 - Die Google Routes Library wird beim normalen Öffnen der App nicht mehr geladen, sondern erst bei der ersten tatsächlichen Routenberechnung.
 - Die präzisere Hintergrundposition aktualisiert Standort- und Navigationsdaten, ohne einen bereits erfolgten schnellen Kartensprung unnötig zu verzögern.
+
+
+## v1.14.9 – Google Maps parallel laden
+- Google Maps startet jetzt unmittelbar beim DOM-Start parallel zu Authentifizierung, Supabase und Standortbestimmung.
+- Der bisher serielle Ablauf „Supabase fertig → Google Maps laden“ wurde entfernt.
+- Mehrere interne Aufrufe teilen sich denselben Maps-Ladevorgang, damit das Script nicht doppelt geladen wird.
+- Sobald die Reisedaten bereit sind, kann die bereits parallel geladene Karte sofort initialisiert und auf die zuvor ermittelte Position gesetzt werden.
+- Routes bleibt weiterhin Lazy-Loading und wird erst bei einer tatsächlichen Routenberechnung geladen.
