@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.19.2";
+const APP_VERSION = "v1.19.3";
 
 function syncVersionLabels() {
   document.querySelectorAll(".app-version").forEach(el => { el.textContent = APP_VERSION; });
@@ -2307,6 +2307,109 @@ function buildRouteRequestPoints(routeStops) {
   };
 }
 
+const OFFLINE_ROUTES_STORAGE_KEY = "budapestOfflineDayRoutesV1";
+
+function loadOfflineDayRoutes() {
+  try { return JSON.parse(localStorage.getItem(OFFLINE_ROUTES_STORAGE_KEY)) || {}; }
+  catch { return {}; }
+}
+
+function saveOfflineDayRoute(dayId, route, routeStops) {
+  const path = Array.from(route.path || []).map(normalizeLatLng).filter(Boolean);
+  if (path.length < 2) return false;
+  const all = loadOfflineDayRoutes();
+  all[dayId] = {
+    dayId,
+    savedAt: new Date().toISOString(),
+    distanceMeters: Number(route.distanceMeters) || 0,
+    durationMillis: Number(route.durationMillis) || 0,
+    path,
+    stops: routeStops.map(stop => ({ id: stop.id, type: stop.type, name: stop.name, position: normalizeLatLng(stop.position) }))
+  };
+  localStorage.setItem(OFFLINE_ROUTES_STORAGE_KEY, JSON.stringify(all));
+  renderOfflineRouteStatus();
+  return true;
+}
+
+function drawOfflineDayRoute(dayId, cached) {
+  if (!cached?.path?.length || !map || !window.google?.maps) return false;
+  clearRenderedRoute();
+  const polyline = new google.maps.Polyline({
+    path: cached.path,
+    strokeColor: "#2f625d",
+    strokeOpacity: 0.95,
+    strokeWeight: 6,
+    zIndex: 10,
+    map
+  });
+  dayRoutePolylines = [polyline];
+  activeRouteDay = dayId;
+  activeRouteSummary = {
+    distanceMeters: cached.distanceMeters,
+    durationMillis: cached.durationMillis,
+    placeCount: cached.stops?.length || 0
+  };
+  const bounds = new google.maps.LatLngBounds();
+  cached.path.forEach(point => bounds.extend(point));
+  map.fitBounds(bounds, 70);
+  updateRouteControls();
+  return true;
+}
+
+function renderOfflineRouteStatus() {
+  const box = document.getElementById("offlineRouteStatus");
+  if (!box) return;
+  const saved = loadOfflineDayRoutes();
+  const rows = TRIP_DAYS.map(day => {
+    const stops = getRouteStopsForDay(day.id);
+    const item = saved[day.id];
+    if (stops.length < 2) return `<div>⚪ ${escapeHtml(day.short)} – ${stops.length ? "nur ein Stopp" : "keine Route"}</div>`;
+    return item
+      ? `<div>✅ ${escapeHtml(day.short)} – gespeichert</div>`
+      : `<div>⚪ ${escapeHtml(day.short)} – nicht vorbereitet</div>`;
+  }).join("");
+  const times = Object.values(saved).map(item => new Date(item.savedAt).getTime()).filter(Number.isFinite);
+  const updated = times.length ? new Date(Math.max(...times)).toLocaleString("de-DE", { dateStyle:"short", timeStyle:"short" }) : "";
+  box.innerHTML = rows + (updated ? `<small>Zuletzt aktualisiert: ${escapeHtml(updated)}</small>` : "");
+}
+
+async function prepareOfflineRoutes() {
+  if (navigator.onLine === false) {
+    setStatus("Offline-Daten können nur mit Internetverbindung vorbereitet werden.");
+    return;
+  }
+  const button = document.getElementById("prepareOfflineRoutesBtn");
+  if (button) { button.disabled = true; button.textContent = "⏳ Routen werden gespeichert …"; }
+  let savedCount = 0, skippedCount = 0, failedCount = 0;
+  try {
+    const Route = await ensureRoutesLibrary();
+    for (const day of TRIP_DAYS) {
+      const stops = getRouteStopsForDay(day.id);
+      if (stops.length < 2 || stops.length > 27) { skippedCount++; continue; }
+      setStatus(`Offline-Route für ${day.label} wird vorbereitet …`);
+      try {
+        const request = {
+          origin: stops[0].position,
+          destination: stops[stops.length - 1].position,
+          travelMode: "WALKING",
+          intermediates: stops.slice(1, -1).map(stop => ({ location: stop.position })),
+          fields: ["path", "distanceMeters", "durationMillis"]
+        };
+        const { routes } = await Route.computeRoutes(request);
+        if (!routes?.length) throw new Error("Keine Route gefunden.");
+        if (saveOfflineDayRoute(day.id, routes[0], stops)) savedCount++; else failedCount++;
+      } catch (error) {
+        failedCount++;
+        console.warn(`Offline-Vorbereitung ${day.id}:`, error);
+      }
+    }
+    renderOfflineRouteStatus();
+    setStatus(`Offline-Vorbereitung abgeschlossen: ${savedCount} Route(n) gespeichert${skippedCount ? ` · ${skippedCount} ohne Route` : ""}${failedCount ? ` · ${failedCount} fehlgeschlagen` : ""}.`);
+  } finally {
+    if (button) { button.disabled = false; button.textContent = "📥 Offline-Daten vorbereiten"; }
+  }
+}
+
 async function showDayRoute(dayId = selectedDayFilter) {
   const day = TRIP_DAYS.find(item => item.id === dayId);
 
@@ -2359,6 +2462,16 @@ async function showDayRoute(dayId = selectedDayFilter) {
     }
   }
 
+  if (navigator.onLine === false) {
+    const cached = loadOfflineDayRoutes()[dayId];
+    if (cached && drawOfflineDayRoute(dayId, cached)) {
+      setStatus(`🟠 Offline · gespeicherte Fußroute für ${day.label}: ${formatRouteDistance(cached.distanceMeters)} · ${formatRouteDuration(cached.durationMillis)}.`);
+    } else {
+      setStatus(`🟠 Offline · Für ${day.label} ist keine gespeicherte Route vorhanden. Bitte online „Offline-Daten vorbereiten“ ausführen.`);
+    }
+    return;
+  }
+
   routeLoading = true;
   updateRouteControls();
   setStatus(`Fußroute für ${day.label} wird berechnet …`);
@@ -2379,6 +2492,7 @@ async function showDayRoute(dayId = selectedDayFilter) {
     if (!routes?.length) throw new Error("Keine Route gefunden.");
 
     const route = routes[0];
+    saveOfflineDayRoute(dayId, route, routeStops);
     clearRenderedRoute();
 
     dayRoutePolylines = route.createPolylines({
@@ -5830,6 +5944,8 @@ function wireControls() {
   document.getElementById("distanceSortBtn")?.addEventListener("click", toggleDistanceSort);
   document.getElementById("mobileDistanceSortBtn")?.addEventListener("click", toggleDistanceSort);
   document.getElementById("routeToggleBtn").addEventListener("click", toggleDayRoute);
+  document.getElementById("prepareOfflineRoutesBtn")?.addEventListener("click", prepareOfflineRoutes);
+  renderOfflineRouteStatus();
   document.getElementById("routeGoogleBtn").addEventListener("click", () => openDayRouteInGoogleMaps());
   document.getElementById("routeStartMode").addEventListener("change", event => setRouteStartMode(event.target.value));
   document.getElementById("navigationStartBtn")?.addEventListener("click", () => {
