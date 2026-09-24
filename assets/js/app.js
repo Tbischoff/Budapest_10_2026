@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.22.11";
+const APP_VERSION = "v1.22.12";
 
 const MOBILE_DEBUG_STORAGE_KEY = "budapestMobileDebugV1";
 function debugLog(message, detail = "") {
@@ -2263,6 +2263,16 @@ async function ensureRoutesLibrary() {
 function clearRenderedRoute() {
   dayRoutePolylines.forEach(polyline => polyline.setMap(null));
   dayRoutePolylines = [];
+
+  // Die Offline-Route lebt in eigenen MapLibre-Quellen und muss separat
+  // geleert werden. Sonst bleibt sie nach "Route ausblenden" sichtbar.
+  if (offlineMapReady && offlineMap) {
+    const emptyLine = { type:"FeatureCollection", features:[] };
+    const emptyPoints = { type:"FeatureCollection", features:[] };
+    offlineMap.getSource("saved-route")?.setData(emptyLine);
+    offlineMap.getSource("saved-stops")?.setData(emptyPoints);
+  }
+
   activeRouteSummary = null;
 }
 
@@ -3011,7 +3021,8 @@ function updateRouteControls() {
   // current location as origin.
   googleButton.disabled = !hasRoute || routeLoading;
 
-  const routeIsActive = activeRouteDay === day.id && dayRoutePolylines.length > 0;
+  const offlineRouteIsVisible = navigator.onLine === false && offlineMapReady && activeRouteDay === day.id;
+  const routeIsActive = activeRouteDay === day.id && (dayRoutePolylines.length > 0 || offlineRouteIsVisible);
   if (routeLoading) routeButton.textContent = "⏳ Route wird berechnet …";
   else if (routeIsActive) routeButton.textContent = "🚶 Route ausblenden";
   else if (routeStops.length === 1 && startMode !== "current") routeButton.textContent = "📍 Stopp anzeigen";
