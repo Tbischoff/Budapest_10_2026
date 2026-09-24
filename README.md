@@ -1,4 +1,4 @@
-# Budapest Travel Planner v1.22.10
+# Budapest Travel Planner v1.22.11
 
 ## Navigation Persistence & Wake Lock
 
@@ -454,3 +454,9 @@ Die Navigation arbeitet die kombinierte Tagesreihenfolge aus Orten und Aktivitä
 - MapLibre GL JS auf 5.11.0 aktualisiert, damit Kartenbeschriftungen lokale Systemschriften ohne Glyph-Server verwenden können.
 - Straßennamen und Ortsbezeichnungen wieder aktiviert; bevorzugt deutsch, sonst lokaler OSM-Name.
 - Beschriftungen verwenden lokale Roboto/Arial-Fallbacks und bleiben damit ohne Internet verfügbar.
+
+
+### v1.22.11
+- Offline-Straßenbeschriftungen beruhigt: Nebenstraßen erscheinen später, kleinere Schrift und größere Abstände reduzieren Überlagerungen.
+- Ortsbezeichnungen erhalten mehr Abstand zu anderen Labels.
+- Der aktuell über „Auf Karte anzeigen“ gewählte Ort bzw. die Aktivität wird direkt am Marker namentlich beschriftet.
