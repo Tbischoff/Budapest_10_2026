@@ -1,4 +1,4 @@
-# Budapest Travel Planner v1.14.5
+# Budapest Travel Planner v1.14.6
 
 ## Navigation Persistence & Wake Lock
 
@@ -229,3 +229,10 @@ Die Navigation arbeitet die kombinierte Tagesreihenfolge aus Orten und Aktivitä
 - Die GPS-Anzeige erhält ausreichend Platz, damit die Genauigkeit in Metern sichtbar bleibt.
 - Position bleibt rechts neben GPS; Stopp und Richtung bleiben in der kompakten zweiten Zeile.
 - Keine Änderung an Navigations- oder Pufferlogik.
+
+
+## v1.14.6 – Schnellere Navigation
+- Die beim Kartenstart ohnehin ermittelte GPS-Position wird jetzt als Navigations-Startposition wiederverwendet.
+- Dadurch entfällt beim Start der Navigation in der Regel das erneute Warten auf eine frische GPS-Abfrage.
+- Eine brauchbare Position darf bis zu 60 Sekunden alt sein; eine präzisere aktuelle Position wird nach Navigationsstart weiterhin im Hintergrund ermittelt und bei relevanter Abweichung neu geroutet.
+- Routen-, Puffer- und Navigationslogik bleiben unverändert.
