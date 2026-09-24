@@ -1,4 +1,4 @@
-# Budapest Travel Planner v1.14.6
+# Budapest Travel Planner v1.14.7
 
 ## Navigation Persistence & Wake Lock
 
@@ -236,3 +236,11 @@ Die Navigation arbeitet die kombinierte Tagesreihenfolge aus Orten und Aktivitä
 - Dadurch entfällt beim Start der Navigation in der Regel das erneute Warten auf eine frische GPS-Abfrage.
 - Eine brauchbare Position darf bis zu 60 Sekunden alt sein; eine präzisere aktuelle Position wird nach Navigationsstart weiterhin im Hintergrund ermittelt und bei relevanter Abweichung neu geroutet.
 - Routen-, Puffer- und Navigationslogik bleiben unverändert.
+
+
+## v1.14.7 – Navigation abschnittsweise berechnen
+- Beim Start der Live-Navigation wird nur noch die Route vom aktuellen Standort zum nächsten Stopp berechnet.
+- Die übrigen Tagesstopps bleiben in der Navigationswarteschlange und werden erst nach Erreichen oder Überspringen des aktuellen Stopps geroutet.
+- Dadurch muss beim Start eines Budapest-Tages aus Deutschland nicht mehr sofort eine Fußroute über den gesamten Tagesplan berechnet werden.
+- Neuberechnung, Fortsetzen und „Stopp überspringen“ verwenden ebenfalls nur den jeweils nächsten Zielabschnitt.
+- Die normale Tagesrouten-Anzeige im Plan bleibt unverändert und kann weiterhin den kompletten Tagesverlauf darstellen.
