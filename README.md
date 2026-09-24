@@ -1,4 +1,4 @@
-# Budapest Travel Planner v1.14.3
+# Budapest Travel Planner v1.14.4
 
 ## Navigation Persistence & Wake Lock
 
@@ -216,3 +216,9 @@ Die Navigation arbeitet die kombinierte Tagesreihenfolge aus Orten und Aktivitä
 - Online/GPS und Navigationsaktionen werden kompakter angeordnet; die Positionsschaltfläche erscheint weiterhin nur bei Bedarf.
 - Lange Navigationsanweisungen bleiben auf zwei Zeilen begrenzt.
 - Keine Änderung an Pufferberechnung oder Navigationslogik.
+
+
+## v1.14.4 – Position kompakter angeordnet
+- Der „Position“-Button sitzt im erweiterten mobilen Navigationspanel direkt rechts neben der GPS-Anzeige.
+- Dadurch entsteht beim Verlassen des Follow-Modus keine zusätzliche dritte Bedienzeile mehr.
+- Navigationslogik und übriges Design bleiben unverändert.
