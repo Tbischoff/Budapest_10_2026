@@ -1,4 +1,17 @@
-# Budapest Travel Planner v1.32.2
+# Budapest Travel Planner v1.33.0
+
+## v1.33.0 – Cleanup & Polish
+
+- Die Tagesplanung enthält nur noch die fünf Reisetage und „Offen“; der fachlich unpassende Filter „Alle“ wurde entfernt.
+- „Nächster Ort“ wurde aus dem Plan entfernt, da die unmittelbare Empfehlung inzwischen konsequent über „Was jetzt?“ in Heute erfolgt.
+- Die Machbarkeitsprüfung verwendet eine Startzeit nicht mehr fälschlich als Abfahrtszeit. Für einen Transfer ist nun eine echte Endzeit des vorherigen Stopps nötig.
+- Leere Tage und Tage mit nur einem Programmpunkt werden in der Machbarkeit neutral statt grün bewertet.
+- Die Reiseübersicht erklärt die Machbarkeitsfarben jetzt mit einer kompakten Legende.
+- Der Hinweis zu Gehzeiten spricht nun korrekt von einer groben statt „konservativen“ Luftlinien-Schätzung.
+- Entfernungen zu Budapester Orten werden nur angezeigt, wenn sich der Nutzer im Großraum Budapest (max. ca. 100 km) befindet; damit entfallen nutzlose Fernangaben wie 897 km aus Deutschland.
+- Die Entfernungsberechnung nutzt bevorzugt die direkten Ortskoordinaten und ist damit weniger von bereits erzeugten Kartenmarkern abhängig.
+- Der inzwischen redundante Einführungstext oberhalb der Ortssuche wurde entfernt.
+- Keine Datenbankmigration erforderlich.
 
 ## v1.32.2 – Standort-Button rechts oben versetzt
 
