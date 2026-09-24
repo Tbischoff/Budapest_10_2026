@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.33.2";
+const APP_VERSION = "v1.33.3";
 
 
 function syncVersionLabels() {
@@ -64,7 +64,7 @@ const TRIP_DAYS = [
   { id: "2026-10-07", short: "Mi 07.10.", label: "Mittwoch, 07.10." }
 ];
 
-let selectedDayFilter = "all";
+let selectedDayFilter = "unplanned";
 let userPosition = null;
 let userLocationMarker = null;
 let AdvancedMarkerElement = null;
@@ -4183,7 +4183,9 @@ function renderDayFilters() {
   const container = document.getElementById("dayFilters");
   if (!container) return;
 
-  if (selectedDayFilter === "all") selectedDayFilter = TRIP_DAYS[0]?.id || "unplanned";
+  if (selectedDayFilter === "all") {
+    selectedDayFilter = getTripDayForDate()?.id || "unplanned";
+  }
   const buttons = [
     { id: "unplanned", label: "Noch offen" },
     ...TRIP_DAYS.map(day => ({ id: day.id, label: day.short }))
@@ -6857,6 +6859,14 @@ function setMobileView(view) {
   if (infoWindow && targetView !== "map") {
     activeInfoPlaceId = null;
     infoWindow.close();
+  }
+
+  if (targetView === "plan" && !window.__planViewOpenedOnce) {
+    const currentTripDay = getTripDayForDate();
+    selectedDayFilter = currentTripDay?.id || "unplanned";
+    window.__planViewOpenedOnce = true;
+    applyFilters();
+    renderDayFilters();
   }
 
   if (targetView === "today") {
