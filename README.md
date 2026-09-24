@@ -1,4 +1,14 @@
-# Budapest Travel Planner v1.22.14
+# Budapest Travel Planner v1.23.0
+
+## v1.23.0 – „Was jetzt?“ 2.0
+
+- „Was jetzt?“ berücksichtigt während der Reise erstmals die aktuelle Uhrzeit in Budapest.
+- Bereits vergangene Aktivitäten werden nicht mehr dauerhaft als nächster Programmpunkt vorgeschlagen.
+- Feste Aktivitäten, die laufen oder innerhalb von 45 Minuten beginnen, erhalten Vorrang vor flexiblen Stopps.
+- Statushinweise zeigen z. B. „Jetzt · Termin läuft“, „In 20 Min. geplant“, „Um 18:00 Uhr geplant“ oder einen überfälligen Planzeitpunkt.
+- Normale Orte können direkt in der „Was jetzt?“-Karte als besucht markiert werden; die nächste Empfehlung aktualisiert sich sofort.
+- Vor Reisebeginn bleibt die Funktion als klar gekennzeichnete Vorschau testbar.
+- Keine Datenbankmigration erforderlich.
 
 ## Navigation Persistence & Wake Lock
 
