@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.21.2";
+const APP_VERSION = "v1.21.3";
 
 function syncVersionLabels() {
   document.querySelectorAll(".app-version").forEach(el => { el.textContent = APP_VERSION; });
@@ -4435,7 +4435,9 @@ function selectToday() {
   if (!today) {
     const first = TRIP_DAYS[0];
     const last = TRIP_DAYS[TRIP_DAYS.length - 1];
-    setStatus(`Heute liegt außerhalb der Reise (${formatDate(first.id)}–${formatDate(last.id)}).`);
+    const formatTripDate = value => new Intl.DateTimeFormat("de-DE", { day:"2-digit", month:"2-digit", year:"numeric" }).format(new Date(value + "T12:00:00"));
+    setStatus(`Heute liegt außerhalb der Reise (${formatTripDate(first.id)}–${formatTripDate(last.id)}).`);
+    renderTodayView();
     return;
   }
 
