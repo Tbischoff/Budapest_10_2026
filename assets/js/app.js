@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.33.3";
+const APP_VERSION = "v1.33.4";
 
 
 function syncVersionLabels() {
@@ -6830,6 +6830,19 @@ function setMobileView(view) {
     normalizedView !== "map" && currentMobileView === normalizedView
       ? "map"
       : normalizedView;
+
+  // Beim Verlassen des Orte-Tabs die Suche als flüchtigen UI-Zustand zurücksetzen.
+  // Filter wie Kategorie, Reisetag oder "unbesucht" bleiben unverändert.
+  if (currentMobileView === "places" && targetView !== "places") {
+    const searchInput = document.getElementById("searchInput");
+    if (searchInput?.value) {
+      searchInput.value = "";
+      hideSearchSuggestions();
+      applyFilters();
+    } else {
+      hideSearchSuggestions();
+    }
+  }
 
   currentMobileView = targetView;
 
