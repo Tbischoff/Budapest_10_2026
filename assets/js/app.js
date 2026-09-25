@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.33.5";
+const APP_VERSION = "v1.33.6";
 
 
 function syncVersionLabels() {
@@ -5383,7 +5383,7 @@ function renderTodayView() {
     selectedDayFilter = day.id;
     try {
       if (!userPosition) await getFreshCurrentPosition({ timeout: 8000, maximumAge: 60000 });
-      await startNavigationWithStops([nextStop], { testMode: false });
+      await computeNavigationRoute([nextStop], { testMode: false });
     } catch (error) {
       console.error("Was jetzt? – Navigation:", error);
       setStatus(error?.message || "Navigation konnte nicht gestartet werden.");
