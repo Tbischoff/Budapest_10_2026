@@ -12,13 +12,13 @@ jobs:
   build-map:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           fetch-depth: 0
       - name: Extract Budapest PMTiles
         run: |
           mkdir -p assets/maps
-          docker run --rm -v "$PWD:/data" ghcr.io/protomaps/go-pmtiles:v1.31.2             extract https://build.protomaps.com/20260924.pmtiles /data/assets/maps/budapest.pmtiles             --bbox=18.94,47.42,19.18,47.60 --maxzoom=15
+          docker run --rm -v "$PWD:/data" ghcr.io/protomaps/go-pmtiles@sha256:06574f01f55a78f78f887bc7ebf729a5c093c0d6e17d9876300cfcb0758b59d3 # v1.31.2             extract https://build.protomaps.com/20260924.pmtiles /data/assets/maps/budapest.pmtiles             --bbox=18.94,47.42,19.18,47.60 --maxzoom=15
           ls -lh assets/maps/budapest.pmtiles
       - name: Commit offline map
         run: |
