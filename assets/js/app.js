@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.33.4";
+const APP_VERSION = "v1.33.5";
 
 
 function syncVersionLabels() {
@@ -4283,17 +4283,22 @@ function dayOptionsHtml(selectedDay) {
   return html;
 }
 
+function clearPlaceSearch() {
+  const searchInput = document.getElementById("searchInput");
+  if (!searchInput) return;
+  window.clearTimeout(searchDebounceTimer);
+  searchInput.value = "";
+  hideSearchSuggestions();
+  applyFilters();
+}
+
 function resetPlaceSearchAfterPlanning() {
   const reset = () => {
-    const searchInput = document.getElementById("searchInput");
-    if (!searchInput) return;
-    searchInput.value = "";
+    clearPlaceSearch();
     // Mobile browsers can keep the native search control visually stale
     // unless its normal input/change flow is triggered as well.
-    searchInput.dispatchEvent(new Event("input", { bubbles: true }));
-    searchInput.dispatchEvent(new Event("change", { bubbles: true }));
-    renderSearchSuggestions();
-    hideSearchSuggestions();
+    const searchInput = document.getElementById("searchInput");
+    searchInput?.dispatchEvent(new Event("change", { bubbles: true }));
   };
 
   reset();
@@ -6834,14 +6839,7 @@ function setMobileView(view) {
   // Beim Verlassen des Orte-Tabs die Suche als flüchtigen UI-Zustand zurücksetzen.
   // Filter wie Kategorie, Reisetag oder "unbesucht" bleiben unverändert.
   if (currentMobileView === "places" && targetView !== "places") {
-    const searchInput = document.getElementById("searchInput");
-    if (searchInput?.value) {
-      searchInput.value = "";
-      hideSearchSuggestions();
-      applyFilters();
-    } else {
-      hideSearchSuggestions();
-    }
+    clearPlaceSearch();
   }
 
   currentMobileView = targetView;
@@ -7085,6 +7083,9 @@ function initDesktopSidebarUi() {
       event.stopPropagation();
       const collapsed = section.classList.toggle("desktop-collapsed");
       button.setAttribute("aria-expanded", String(!collapsed));
+      if (collapsed && section.classList.contains("desktop-places-panel")) {
+        clearPlaceSearch();
+      }
     });
     heading.addEventListener("click", event => {
       if (event.target.closest("button") && event.target !== button) return;
