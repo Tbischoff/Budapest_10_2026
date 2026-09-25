@@ -2531,6 +2531,42 @@ function openOfflineMarkerPopup(event) {
     .setLngLat(coordinates)
     .setHTML(html)
     .addTo(offlineMap);
+
+  // v1.33.8: MapLibre berücksichtigt die mobile Navigation und unsere
+  // Karten-Overlays beim automatischen Popup-Panning nicht zuverlässig.
+  // Nach dem Rendern nur so weit verschieben, dass das komplette Popup
+  // innerhalb eines sicheren sichtbaren Kartenbereichs liegt.
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      const popupEl = offlineSelectedMarker?.getElement?.();
+      const mapEl = document.getElementById("offlineMap");
+      if (!popupEl || !mapEl || !offlineMap) return;
+
+      const popupRect = popupEl.getBoundingClientRect();
+      const mapRect = mapEl.getBoundingClientRect();
+      const sidePadding = 14;
+      const topPadding = 18;
+      const bottomNav = document.querySelector(".mobile-bottom-nav");
+      const bottomNavRect = bottomNav?.getBoundingClientRect();
+      const safeBottom = bottomNavRect && bottomNavRect.top > mapRect.top
+        ? Math.min(mapRect.bottom, bottomNavRect.top) - 14
+        : mapRect.bottom - 14;
+      const safeLeft = mapRect.left + sidePadding;
+      const safeRight = mapRect.right - sidePadding;
+      const safeTop = mapRect.top + topPadding;
+
+      let dx = 0;
+      let dy = 0;
+      if (popupRect.left < safeLeft) dx = popupRect.left - safeLeft;
+      else if (popupRect.right > safeRight) dx = popupRect.right - safeRight;
+      if (popupRect.top < safeTop) dy = popupRect.top - safeTop;
+      else if (popupRect.bottom > safeBottom) dy = popupRect.bottom - safeBottom;
+
+      if (Math.abs(dx) > 1 || Math.abs(dy) > 1) {
+        offlineMap.panBy([dx, dy], { duration: 280 });
+      }
+    });
+  });
 }
 
 function offlineMarkerFeatures() {
