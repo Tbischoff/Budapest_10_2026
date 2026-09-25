@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.33.7";
+const APP_VERSION = "v1.33.8";
 
 
 function syncVersionLabels() {
@@ -750,11 +750,16 @@ function loadGoogleMaps() {
 
 
 function centerMapOnBudapest() {
-  if (!map) return;
-  // v1.14.13: Eine bewusste Kartenauswahl darf nicht durch einen noch
-  // laufenden Standort-Fix des App-Starts wieder überschrieben werden.
+  // v1.33.8: Online- und Offline-Karte über denselben Budapest-Button steuern.
   startupAutoCenterCancelled = true;
   startupLocationCentered = true;
+  if (navigator.onLine === false && offlineMapReady && offlineMap) {
+    offlineMap.resize();
+    offlineMap.jumpTo({ center: [CONFIG.initialCenter.lng, CONFIG.initialCenter.lat], zoom: CONFIG.initialZoom });
+    setStatus("🟠 Offline · Karte auf Budapest zentriert.");
+    return;
+  }
+  if (!map) return;
   map.setCenter(CONFIG.initialCenter);
   map.setZoom(CONFIG.initialZoom);
   setStatus("Karte auf Budapest zentriert.");
@@ -778,8 +783,13 @@ function centerMapOnCurrentLocation({ silent = false, highAccuracy = true, recen
       // zentrieren, wenn die schnelle Vorab-Abfrage auf Android leer blieb.
       const shouldRecenter = !startupAutoCenterCancelled && (recenter || (startupFix && !startupLocationCentered));
       if (shouldRecenter) {
-        map.panTo(userPosition);
-        if (map.getZoom() < 14) map.setZoom(14);
+        if (navigator.onLine === false && offlineMapReady && offlineMap) {
+          updateOfflineUserLocationMarker();
+          offlineMap.jumpTo({ center: [userPosition.lng, userPosition.lat], zoom: Math.max(Number(offlineMap.getZoom()) || 0, 14) });
+        } else if (map) {
+          map.panTo(userPosition);
+          if (map.getZoom() < 14) map.setZoom(14);
+        }
         if (startupFix) startupLocationCentered = true;
       }
 
@@ -2453,6 +2463,76 @@ function offlineBaseStyle() {
   };
 }
 
+function updateOfflineUserLocationMarker() {
+  if (!offlineMapReady || !offlineMap || !userPosition) return;
+  const data = {
+    type: "FeatureCollection",
+    features: [{
+      type: "Feature",
+      geometry: { type: "Point", coordinates: [userPosition.lng, userPosition.lat] },
+      properties: { name: "Mein Standort" }
+    }]
+  };
+  const source = offlineMap.getSource("user-location");
+  if (source) source.setData(data);
+  else {
+    offlineMap.addSource("user-location", { type: "geojson", data });
+    offlineMap.addLayer({
+      id: "user-location-dot",
+      type: "circle",
+      source: "user-location",
+      paint: {
+        "circle-radius": 8,
+        "circle-color": "#2563eb",
+        "circle-stroke-color": "#ffffff",
+        "circle-stroke-width": 3
+      }
+    });
+  }
+}
+
+function offlineMarkerPopupHtml(feature) {
+  const kind = feature?.properties?.kind;
+  const id = String(feature?.properties?.id || "");
+  if (kind === "place") {
+    const place = (placesData?.places || []).find(item => String(item.id) === id);
+    if (!place) return "";
+    const saved = state?.places?.[place.id] || {};
+    const details = [];
+    if (place.address) details.push(`<div>📍 ${escapeHtml(place.address)}</div>`);
+    if (saved.plannedDay) {
+      const day = TRIP_DAYS.find(item => item.id === saved.plannedDay);
+      const time = formatPlannedTime(saved);
+      details.push(`<div>🗓️ ${escapeHtml(day?.short || saved.plannedDay)}${time ? ` · 🕐 ${escapeHtml(time)}` : ""}</div>`);
+    }
+    if (place.notes) details.push(`<div class="info-note">${escapeHtml(place.notes)}</div>`);
+    if (place.openingHoursText) details.push(`<div>🕒 ${escapeHtml(place.openingHoursText)}</div>`);
+    if (place.phone) details.push(`<div>📞 ${escapeHtml(place.phone)}</div>`);
+    return `<div class="info-window offline-info-window"><h3>${escapeHtml(place.name || "Ort")}</h3><div class="info-meta">${CATEGORY_ICONS[place.category] || "📍"} ${escapeHtml(categoryLabel(place.category))}${saved.visited ? " · ✓ Besucht" : ""}</div>${details.join("")}</div>`;
+  }
+  if (kind === "activity") {
+    const activity = (activities || []).find(item => String(item.id) === id);
+    if (!activity) return "";
+    const time = [activity.start_time?.slice(0,5), activity.end_time?.slice(0,5)].filter(Boolean).join("–");
+    return `<div class="info-window offline-info-window"><h3>🎟️ ${escapeHtml(activity.name || "Aktivität")}</h3>${time ? `<div>🕐 ${escapeHtml(time)}</div>` : ""}<div>📍 ${escapeHtml(activity.meeting_place_name || activity.address || "Treffpunkt")}</div>${activity.address ? `<div>${escapeHtml(activity.address)}</div>` : ""}${activity.note ? `<div class="info-note">${escapeHtml(activity.note)}</div>` : ""}</div>`;
+  }
+  return "";
+}
+
+function openOfflineMarkerPopup(event) {
+  const feature = event?.features?.[0];
+  if (!feature || !offlineMap) return;
+  const html = offlineMarkerPopupHtml(feature);
+  if (!html) return;
+  const coordinates = feature.geometry.coordinates.slice();
+  highlightOfflineMarker(feature.properties.id, feature.properties.kind);
+  if (offlineSelectedMarker) offlineSelectedMarker.remove();
+  offlineSelectedMarker = new maplibregl.Popup({ closeButton: true, closeOnClick: true, maxWidth: "320px" })
+    .setLngLat(coordinates)
+    .setHTML(html)
+    .addTo(offlineMap);
+}
+
 function offlineMarkerFeatures() {
   const placeFeatures = (placesData?.places || []).map(place => {
     const p = normalizeLatLng({lat:place.lat,lng:place.lng});
@@ -2521,6 +2601,10 @@ async function ensureOfflineMap() {
   });
   offlineMapReady = true;
   syncOfflineMarkers();
+  updateOfflineUserLocationMarker();
+  offlineMap.on("click", "trip-marker-halo", openOfflineMarkerPopup);
+  offlineMap.on("mouseenter", "trip-marker-halo", () => { offlineMap.getCanvas().style.cursor = "pointer"; });
+  offlineMap.on("mouseleave", "trip-marker-halo", () => { offlineMap.getCanvas().style.cursor = ""; });
   return offlineMap;
 }
 
@@ -4416,8 +4500,14 @@ function requestUserLocation() {
       updateRouteControls();
       applyFilters();
 
-      map.panTo(userPosition);
-      if (map.getZoom() < 14) map.setZoom(14);
+      if (navigator.onLine === false && offlineMapReady && offlineMap) {
+        updateOfflineUserLocationMarker();
+        offlineMap.resize();
+        offlineMap.jumpTo({ center: [userPosition.lng, userPosition.lat], zoom: Math.max(Number(offlineMap.getZoom()) || 0, 14) });
+      } else if (map) {
+        map.panTo(userPosition);
+        if (map.getZoom() < 14) map.setZoom(14);
+      }
 
       const accuracy = Math.round(position.coords.accuracy || 0);
       locationText.textContent = accuracy
@@ -4458,6 +4548,10 @@ function requestUserLocation() {
 
 function updateUserLocationMarker() {
   if (!userPosition) return;
+  if (navigator.onLine === false || !map || !AdvancedMarkerElement || !PinElement) {
+    updateOfflineUserLocationMarker();
+    return;
+  }
 
   if (!userLocationMarker) {
     const locationPin = new PinElement({
