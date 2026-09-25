@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.33.6";
+const APP_VERSION = "v1.33.7";
 
 
 function syncVersionLabels() {
@@ -3514,17 +3514,21 @@ function remainingNavigationStops() {
 }
 
 function updateNavigationStartButton() {
-  const button = document.getElementById("navigationStartBtn");
-  if (!button) return;
-  if (navigationActive) {
-    button.textContent = "✕ Navigation beenden";
-    button.classList.add("navigation-stop-active");
-    button.setAttribute("aria-pressed", "true");
-  } else {
-    button.textContent = "🧭 Navigation starten";
-    button.classList.remove("navigation-stop-active");
-    button.setAttribute("aria-pressed", "false");
-  }
+  const buttons = [
+    document.getElementById("navigationStartBtn"),
+    document.getElementById("whatNowNavigateBtn")
+  ].filter(Boolean);
+  buttons.forEach(button => {
+    if (navigationActive) {
+      button.textContent = "✕ Navigation beenden";
+      button.classList.add("navigation-stop-active");
+      button.setAttribute("aria-pressed", "true");
+    } else {
+      button.textContent = "🧭 Navigation starten";
+      button.classList.remove("navigation-stop-active");
+      button.setAttribute("aria-pressed", "false");
+    }
+  });
 }
 
 function setNavigationZoom(zoom) {
@@ -5272,7 +5276,7 @@ function renderTodayView() {
         <span class="today-chevron">›</span>
       </button>
       <div class="today-what-now-actions">
-        <button id="whatNowNavigateBtn" class="primary-button today-action-button" type="button">🧭 Navigation starten</button>
+        <button id="whatNowNavigateBtn" class="primary-button today-action-button${navigationActive ? " navigation-stop-active" : ""}" type="button" aria-pressed="${navigationActive ? "true" : "false"}">${navigationActive ? "✕ Navigation beenden" : "🧭 Navigation starten"}</button>
         <button id="whatNowMapBtn" class="secondary-button today-action-button" type="button">🗺️ Auf Karte</button>
       </div>
       ${nextStop.type === "place" ? `<button class="what-now-done" type="button" data-what-now-complete="${escapeHtml(nextStop.id)}">✓ Als besucht markieren</button>` : ""}
@@ -5379,11 +5383,17 @@ function renderTodayView() {
   container.querySelector("[data-what-now-focus]")?.addEventListener("click", focusWhatNowStop);
   document.getElementById("whatNowMapBtn")?.addEventListener("click", focusWhatNowStop);
   document.getElementById("whatNowNavigateBtn")?.addEventListener("click", async () => {
+    if (navigationActive) {
+      stopNavigation();
+      renderTodayView();
+      return;
+    }
     if (!nextStop) return;
     selectedDayFilter = day.id;
     try {
       if (!userPosition) await getFreshCurrentPosition({ timeout: 8000, maximumAge: 60000 });
       await computeNavigationRoute([nextStop], { testMode: false });
+      renderTodayView();
     } catch (error) {
       console.error("Was jetzt? – Navigation:", error);
       setStatus(error?.message || "Navigation konnte nicht gestartet werden.");
