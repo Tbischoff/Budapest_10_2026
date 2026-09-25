@@ -1,4 +1,4 @@
-# Budapest Travel Planner v1.33.7
+# Budapest Travel Planner v1.33.8
 
 Mobile Reise-PWA für die Budapest-Reise vom **03.–07.10.2026**. Die App verbindet Reiseplanung, gespeicherte Orte, Aktivitäten, Wetter, Öffnungszeiten, Tagesrouten, Live-Fußnavigation und Offline-Funktionen in einer Oberfläche.
 
