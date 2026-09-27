@@ -3715,3 +3715,13 @@ details.mobility-leg { display:block; }
   opacity: .78;
 }
 .agenda-hotel-transfer .agenda-leg { margin: 0; }
+
+
+/* v1.37.0 · ÖPNV-Navigation */
+.navigation-mode-row { display:flex; align-items:center; justify-content:space-between; gap:12px; margin:10px 0; }
+.navigation-mode-row label { font-weight:700; }
+.navigation-transit { display:flex; flex-direction:column; gap:6px; margin:4px 14px 10px; }
+.navigation-transit-step { display:flex; flex-direction:column; gap:2px; padding:8px 10px; border-radius:10px; background:rgba(15,118,110,.09); }
+.navigation-transit-step span,.navigation-transit-step small { font-size:.78rem; opacity:.82; }
+.navigation-transit-google { margin:0 14px 10px; border:0; background:transparent; text-decoration:underline; font-weight:700; cursor:pointer; }
+.navigation-panel:not(.expanded) .navigation-transit { display:none; }
