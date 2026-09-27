@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.36.0";
+const APP_VERSION = "v1.36.1";
 
 
 function syncVersionLabels() {
@@ -1163,6 +1163,17 @@ function getRoutingStopsForDay(dayId) {
   const result = [...planned];
   if (getRouteStartMode() === "accommodation" && result[0]?.id !== hotel.id) result.unshift({ ...hotel, role: "start" });
   if (routeEndsAtAccommodation() && result[result.length - 1]?.id !== hotel.id) result.push({ ...hotel, role: "end" });
+  return result;
+}
+
+function getAgendaMobilityStopsForDay(dayId) {
+  const planned = getRouteStopsForDay(dayId);
+  const hotel = accommodationStop();
+  if (!hotel || !planned.length) return planned;
+
+  const result = [...planned];
+  if (result[0]?.id !== hotel.id) result.unshift({ ...hotel, role: "agenda-start" });
+  if (result[result.length - 1]?.id !== hotel.id) result.push({ ...hotel, role: "agenda-end" });
   return result;
 }
 
@@ -4832,7 +4843,7 @@ function mobilityLegHtml(from, to, walkingLeg) {
 
 async function loadTransitLegsForDay(dayId) {
   if (navigator.onLine===false || getMobilityMode()==="walk") return;
-  const stops=getRouteStopsForDay(dayId);
+  const stops=getAgendaMobilityStopsForDay(dayId);
   if(stops.length<2) return;
   let changed=false;
   try {
@@ -6241,6 +6252,7 @@ function renderDayAgenda() {
   }
 
   const stops = getRouteStopsForDay(selectedDay.id);
+  const mobilityStops = getAgendaMobilityStopsForDay(selectedDay.id);
   const accommodation = getAccommodationPlace();
   const accommodationHtml = accommodation ? `<button class="agenda-accommodation" type="button" data-accommodation-focus="${escapeHtml(accommodation.id)}">🏨 <span><strong>${escapeHtml(accommodation.name)}</strong><small>Unterkunft · Start-/Endpunkt verfügbar</small></span><span class="today-chevron">›</span></button>` : "";
   const dayPlaces = getPlacesForDay(selectedDay.id);
@@ -6248,6 +6260,15 @@ function renderDayAgenda() {
   const visitedCount = dayPlaces.filter(place => (state.places[place.id] || {}).visited).length;
   const progress = dayPlaces.length ? Math.round((visitedCount / dayPlaces.length) * 100) : 0;
   const { legs, totalDistance, totalMinutes } = getAgendaLegs(stops);
+  const { legs: mobilityLegs } = getAgendaLegs(mobilityStops);
+  const hasHotelAnchors = mobilityStops.length > stops.length;
+  const firstHotelLegHtml = hasHotelAnchors && mobilityLegs[0]
+    ? `<div class="agenda-hotel-transfer"><div class="agenda-hotel-transfer-label">🏨 Von der Unterkunft zum ersten Programmpunkt</div>${mobilityLegHtml(mobilityStops[0], mobilityStops[1], mobilityLegs[0])}</div>`
+    : "";
+  const lastMobilityIndex = mobilityStops.length - 2;
+  const lastHotelLegHtml = hasHotelAnchors && mobilityLegs[lastMobilityIndex]
+    ? `<div class="agenda-hotel-transfer"><div class="agenda-hotel-transfer-label">🏨 Vom letzten Programmpunkt zurück zur Unterkunft</div>${mobilityLegHtml(mobilityStops[lastMobilityIndex], mobilityStops[lastMobilityIndex + 1], mobilityLegs[lastMobilityIndex])}</div>`
+    : "";
   const dayWeather = dailyWeatherFor(selectedDay.id);
   const agendaWeather = dayWeather ? `<div class="agenda-weather-card"><div><strong>${weatherIcon(dayWeather.code)} ${Math.round(Number(dayWeather.max))}° / ${Math.round(Number(dayWeather.min))}°</strong><span>💧 ${Math.round(Number(dayWeather.rain))}% Regen</span></div>${weatherPeriodsHtml(selectedDay.id)}</div>` : '<div class="agenda-weather-card muted">🌦️ Für diesen Tag ist noch keine Prognose verfügbar.</div>';
   const header = `<div class="agenda-day-header"><div><div class="agenda-day-kicker">Tages-Timeline</div><div class="agenda-day-title">${escapeHtml(selectedDay.label)}</div><div class="agenda-day-stats">${dayPlaces.length} Orte · ${dayActivities.length} Aktivitäten${stops.length > 1 ? ` · 🚶 ca. ${formatRouteDistance(totalDistance)} · ${totalMinutes} Min.` : ""}</div></div><div class="agenda-header-actions"><span class="agenda-progress-badge">${progress}%</span><button id="addActivityAgendaBtn" class="mini-action-button activity-add-button" type="button">＋ Aktivität</button></div></div><div class="agenda-progress-track"><div class="agenda-progress-fill" style="width:${progress}%"></div></div>${agendaWeather}${feasibilityCardHtml(selectedDay.id, stops)}`;
@@ -6278,7 +6299,7 @@ function renderDayAgenda() {
     return `<div class="agenda-place-wrap" data-agenda-key="place:${escapeHtml(place.id)}"><div class="agenda-timeline-row"><div class="agenda-time-column"><div class="agenda-time ${time ? "" : "agenda-time-open"}">${time ? escapeHtml(time) : "offen"}</div><div class="agenda-timeline-dot ${saved.visited ? "visited" : ""}">${saved.visited ? "✓" : index + 1}</div>${index < stops.length - 1 ? '<div class="agenda-timeline-line"></div>' : ""}</div><div class="agenda-content-column"><div class="agenda-item ${saved.visited ? "agenda-item-visited" : ""}" data-place-id="${place.id}"><button type="button" class="agenda-drag-handle" aria-label="${escapeHtml(place.name)} verschieben">⋮⋮</button><div class="agenda-main"><div class="agenda-title">${CATEGORY_ICONS[place.category] || "•"} ${escapeHtml(place.name)}</div><div class="agenda-meta">${escapeHtml(categoryLabel(place.category))}${distance != null ? ` · 📍 ${escapeHtml(formatDistance(distance))} entfernt` : ""}${saved.visited ? " · ✓ besucht" : ""}</div>${openingHtml}${stopWeatherHtml}</div><button type="button" class="agenda-visited-button ${saved.visited ? "visited" : ""}" data-action="toggle-visited" data-place-id="${place.id}">${saved.visited ? "✓" : "○"}</button></div>${legHtml}</div></div></div>`;
   }).join("");
 
-  container.innerHTML = `${header}${accommodationHtml}<div class="agenda-timeline">${rows}</div><div class="agenda-estimate-note">🚶 Gehzeiten sind kompakte Schätzungen. 🚇 ÖPNV zeigt online Linien, Haltestellen und Fahrzeiten aus Google Routes; Google Maps liefert die aktuelle Live-Verbindung.</div>`;
+  container.innerHTML = `${header}${accommodationHtml}${firstHotelLegHtml}<div class="agenda-timeline">${rows}</div>${lastHotelLegHtml}<div class="agenda-estimate-note">🚶 Gehzeiten sind kompakte Schätzungen. 🚇 ÖPNV zeigt online Linien, Haltestellen und Fahrzeiten aus Google Routes; Google Maps liefert die aktuelle Live-Verbindung.</div>`;
   document.getElementById("addActivityAgendaBtn")?.addEventListener("click", () => openActivityDialog());
   container.querySelector("[data-accommodation-focus]")?.addEventListener("click", () => {
     const place = getAccommodationPlace();
