@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.38.1";
+const APP_VERSION = "v1.39.0";
 
 
 function syncVersionLabels() {
@@ -2871,7 +2871,32 @@ async function prepareOfflineRoutes() {
 
 function dayRouteMode() {
   const mode=getMobilityMode();
-  return mode==="transit" ? "transit" : "walking";
+  return mode==="transit" ? "transit" : mode==="auto" ? "auto" : "walking";
+}
+
+async function computeWalkingSegment(from,to) {
+  const Route=await ensureRoutesLibrary();
+  const {routes}=await Route.computeRoutes({
+    origin:from.position,destination:to.position,travelMode:"WALKING",
+    fields:["path","distanceMeters","durationMillis"]
+  });
+  return routes?.[0]||null;
+}
+
+async function computeAutomaticDaySegments(routeStops) {
+  const segments=[];
+  for(let i=0;i<routeStops.length-1;i++){
+    const from=routeStops[i],to=routeStops[i+1];
+    const walking=await computeWalkingSegment(from,to);
+    let transit=null;
+    try { transit=(await computeTransitDaySegments([from,to]))[0]||null; } catch(error) { console.warn("Automatik ÖPNV:",error); }
+    const walkMinutes=walking?.durationMillis ? Math.round(walking.durationMillis/60000) : Infinity;
+    const transitMinutes=transit?.durationMillis ? Math.round(transit.durationMillis/60000) : Infinity;
+    // Transit only wins with a meaningful advantage; otherwise walking is simpler.
+    const useTransit=Number.isFinite(transitMinutes) && (!Number.isFinite(walkMinutes) || transitMinutes+5<walkMinutes);
+    segments.push({route:useTransit?transit:walking,mode:useTransit?"transit":"walking",walkMinutes,transitMinutes});
+  }
+  return segments;
 }
 
 async function computeTransitDaySegments(routeStops) {
@@ -2951,8 +2976,8 @@ async function showDayRoute(dayId = selectedDayFilter) {
   }
 
   if (navigator.onLine === false) {
-    if (dayRouteMode() === "transit") {
-      setStatus("🟠 Offline · ÖPNV-Routen benötigen aktuelle Online-Daten. Offline bleibt die vorbereitete Fußroute verfügbar.");
+    if (["transit","auto"].includes(dayRouteMode())) {
+      setStatus("🟠 Offline · Automatische/ÖPNV-Routen benötigen aktuelle Online-Daten. Offline bleibt die vorbereitete Fußroute verfügbar.");
       return;
     }
     const cached = loadOfflineDayRoutes()[dayId];
@@ -2966,14 +2991,38 @@ async function showDayRoute(dayId = selectedDayFilter) {
 
   routeLoading = true;
   updateRouteControls();
-  setStatus(`${dayRouteMode()==="transit" ? "ÖPNV-Route" : "Fußroute"} für ${day.label} wird berechnet …`);
+  setStatus(`${dayRouteMode()==="transit" ? "ÖPNV-Route" : dayRouteMode()==="auto" ? "Automatische Route" : "Fußroute"} für ${day.label} wird berechnet …`);
 
   try {
     setStatus("Budapest-Offline-Karte wird gespeichert …");
     await cacheBudapestOfflineMap();
     const mode=dayRouteMode();
     clearRenderedRoute();
-    if(mode==="transit"){
+    if(mode==="auto"){
+      setStatus(`✨ Automatische Route für ${day.label} wird berechnet – Fußweg und ÖPNV werden je Abschnitt verglichen …`);
+      const segments=await computeAutomaticDaySegments(routeStops);
+      const bounds=new google.maps.LatLngBounds();
+      let totalDistance=0,totalDuration=0,walkCount=0,transitCount=0;
+      for(const segment of segments){
+        const route=segment.route;
+        if(!route) continue;
+        totalDistance+=Number(route.distanceMeters)||0;
+        totalDuration+=Number(route.durationMillis)||0;
+        if(segment.mode==="transit") transitCount++; else walkCount++;
+        const polylines=route.createPolylines({polylineOptions:{
+          strokeColor:segment.mode==="transit"?"#0f766e":"#6b7280",
+          strokeOpacity:.95,
+          strokeWeight:segment.mode==="transit"?7:5,
+          zIndex:segment.mode==="transit"?11:10
+        }});
+        polylines.forEach(polyline=>{polyline.setMap(map);dayRoutePolylines.push(polyline);});
+        (route.path||[]).forEach(point=>bounds.extend(point));
+      }
+      activeRouteDay=dayId;
+      activeRouteSummary={distanceMeters:totalDistance,durationMillis:totalDuration,placeCount:routeStops.length,mode:"auto",walkCount,transitCount};
+      if(!bounds.isEmpty()) map.fitBounds(bounds,70);
+      setStatus(`✨ Automatische Route für ${day.label}: ca. ${formatRouteDuration(totalDuration)} · 🚶 ${walkCount} Fußabschnitt(e) · 🚇 ${transitCount} ÖPNV-Abschnitt(e).`);
+    } else if(mode==="transit"){
       setStatus(`ÖPNV-Route für ${day.label} wird berechnet …`);
       const routes=await computeTransitDaySegments(routeStops);
       const bounds=new google.maps.LatLngBounds();
@@ -3121,7 +3170,7 @@ function updateRouteControls() {
   if (!day) {
     routeButton.disabled = true;
     googleButton.disabled = true;
-    routeButton.textContent = getMobilityMode()==="transit" ? "🚇 ÖPNV-Route anzeigen" : "🚶 Fußroute anzeigen";
+    routeButton.textContent = getMobilityMode()==="transit" ? "🚇 ÖPNV-Route anzeigen" : getMobilityMode()==="auto" ? "✨ Automatische Route anzeigen" : "🚶 Fußroute anzeigen";
     info.textContent = "Wähle einen Reisetag aus.";
     return;
   }
@@ -3145,9 +3194,9 @@ function updateRouteControls() {
   const offlineRouteIsVisible = navigator.onLine === false && offlineMapReady && activeRouteDay === day.id;
   const routeIsActive = activeRouteDay === day.id && (dayRoutePolylines.length > 0 || offlineRouteIsVisible);
   if (routeLoading) routeButton.textContent = "⏳ Route wird berechnet …";
-  else if (routeIsActive) routeButton.textContent = `${activeRouteSummary?.mode==="transit" ? "🚇" : "🚶"} Route ausblenden`;
+  else if (routeIsActive) routeButton.textContent = `${activeRouteSummary?.mode==="transit" ? "🚇" : activeRouteSummary?.mode==="auto" ? "✨" : "🚶"} Route ausblenden`;
   else if (routeStops.length === 1 && startMode !== "current") routeButton.textContent = "📍 Stopp anzeigen";
-  else routeButton.textContent = getMobilityMode()==="transit" ? "🚇 ÖPNV-Route anzeigen" : "🚶 Fußroute anzeigen";
+  else routeButton.textContent = getMobilityMode()==="transit" ? "🚇 ÖPNV-Route anzeigen" : getMobilityMode()==="auto" ? "✨ Automatische Route anzeigen" : "🚶 Fußroute anzeigen";
 
   const startLabel =
     startMode === "current"
@@ -3165,7 +3214,7 @@ function updateRouteControls() {
     info.textContent = `${day.short}: ${stopSummary} · auf der Karte anzeigen. Mit „Mein aktueller Standort“ kann die Fußroute zu diesem Stopp berechnet werden.`;
   } else if (routeIsActive && activeRouteSummary) {
     info.textContent =
-      `${day.short}: ${stopSummary} · ${startLabel} · ${activeRouteSummary.mode==="transit" ? "🚇" : "🚶"} ${activeRouteSummary.mode==="transit" ? "" : formatRouteDistance(activeRouteSummary.distanceMeters)+" · "}ca. ${formatRouteDuration(activeRouteSummary.durationMillis)}`;
+      `${day.short}: ${stopSummary} · ${startLabel} · ${activeRouteSummary.mode==="transit" ? "🚇" : activeRouteSummary.mode==="auto" ? "✨" : "🚶"} ${activeRouteSummary.mode==="walking" ? formatRouteDistance(activeRouteSummary.distanceMeters)+" · " : ""}ca. ${formatRouteDuration(activeRouteSummary.durationMillis)}${activeRouteSummary.mode==="auto" ? ` · 🚶 ${activeRouteSummary.walkCount||0} · 🚇 ${activeRouteSummary.transitCount||0}` : ""}`;
   } else {
     info.textContent = `${day.short}: ${stopSummary} · ${startLabel}.`;
   }
