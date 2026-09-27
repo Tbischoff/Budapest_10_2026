@@ -3698,3 +3698,20 @@ details.mobility-leg { display:block; }
 .transit-step small { opacity:.78; }
 .transit-recommended { border-left:3px solid #0f766e; padding-left:8px; }
 .mobility-details > a { font-weight:600; }
+
+
+/* v1.36.1 · Unterkunft als Mobilitätsanker */
+.agenda-hotel-transfer {
+  margin: 10px 0 14px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(15,118,110,.055);
+  border: 1px solid rgba(15,118,110,.14);
+}
+.agenda-hotel-transfer-label {
+  font-size: .78rem;
+  font-weight: 700;
+  margin-bottom: 6px;
+  opacity: .78;
+}
+.agenda-hotel-transfer .agenda-leg { margin: 0; }
