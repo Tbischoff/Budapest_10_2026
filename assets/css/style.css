@@ -3758,3 +3758,7 @@ details.mobility-leg { display:block; }
 @media (min-width:821px) {
   .sidebar { display:flex; flex-direction:column; }
 }
+
+
+/* v1.39.0 · automatische Mischroute
+   Grau = Fußabschnitt, Petrol = ÖPNV-Abschnitt. */
