@@ -1,4 +1,4 @@
-# Budapest Travel Planner v1.38.1
+# Budapest Travel Planner v1.39.0
 
 Mobile Reise-PWA für die Budapest-Reise vom **03.–07.10.2026**. Die App verbindet Reiseplanung, gespeicherte Orte, Aktivitäten, Wetter, Öffnungszeiten, Tagesrouten, Live-Fußnavigation und Offline-Funktionen in einer Oberfläche.
 
@@ -13,6 +13,15 @@ Mobile Reise-PWA für die Budapest-Reise vom **03.–07.10.2026**. Die App verbi
 - **Daten:** Supabase-Synchronisation für Orte, Reiseplanung und Aktivitäten.
 
 ## Version
+
+### v1.39.0 – Automatische Mischroute
+- ✨ Automatisch vergleicht für jeden Abschnitt der Tagesroute eine echte Google-Fußroute mit einer ÖPNV-Verbindung.
+- ÖPNV wird gewählt, wenn er mindestens etwa fünf Minuten Zeitvorteil bietet; sonst bleibt der Abschnitt zu Fuß.
+- Die resultierende Tagesroute kann Fuß- und ÖPNV-Abschnitte kombinieren und gemeinsam auf der Karte darstellen.
+- Fußabschnitte und ÖPNV-Abschnitte werden auf der Karte unterschiedlich dargestellt.
+- Die Routenzusammenfassung nennt die Anzahl der gewählten Fuß- und ÖPNV-Abschnitte.
+
+
 
 ### v1.38.0 – Werkzeuge & ÖPNV-Tagesroute
 - Neuer Bereich „Mehr“ bündelt Offline-Reisemodus und Datensicherung außerhalb der Tagesplanung.
