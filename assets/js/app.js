@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.33.8";
+const APP_VERSION = "v1.34.0";
 
 
 function syncVersionLabels() {
@@ -53,6 +53,7 @@ const CATEGORY_ICONS = {
   viewpoint: "🌇",
   transport: "🚇",
   area: "📍",
+  hotel: "🏨",
   other: "•"
 };
 
@@ -1134,10 +1135,39 @@ const MARKER_BACKGROUNDS = {
   viewpoint: "#ca8a04",
   transport: "#475569",
   area: "#dc2626",
+  hotel: "#0f766e",
   other: "#64748b"
 };
 
+function getAccommodationPlace() {
+  return (placesData?.places || []).find(place => place.category === "hotel") || null;
+}
+
+function accommodationStop() {
+  const place = getAccommodationPlace();
+  if (!place) return null;
+  const marker = markers.get(place.id);
+  const position = marker ? getMarkerPosition(marker) : normalizeLatLng({ lat: place.lat, lng: place.lng });
+  return position ? { type: "accommodation", id: place.id, name: place.name, position, place } : null;
+}
+
+function routeEndsAtAccommodation() {
+  const checkbox = document.getElementById("routeEndAccommodation");
+  return checkbox ? checkbox.checked : localStorage.getItem("budapestRouteEndAccommodation") !== "false";
+}
+
+function getRoutingStopsForDay(dayId) {
+  const planned = getRouteStopsForDay(dayId);
+  const hotel = accommodationStop();
+  if (!hotel) return planned;
+  const result = [...planned];
+  if (getRouteStartMode() === "accommodation" && result[0]?.id !== hotel.id) result.unshift({ ...hotel, role: "start" });
+  if (routeEndsAtAccommodation() && result[result.length - 1]?.id !== hotel.id) result.push({ ...hotel, role: "end" });
+  return result;
+}
+
 function markerGlyphForPlace(place) {
+  if (place.category === "hotel") return "🏨";
   const saved = state.places[place.id] || {};
 
   if (TRIP_DAYS.some(day => day.id === selectedDayFilter) && saved.plannedDay === selectedDayFilter) {
@@ -1149,6 +1179,7 @@ function markerGlyphForPlace(place) {
 }
 
 function markerAppearanceForPlace(place) {
+  if (place.category === "hotel") return { background: "#0f766e", glyphColor: "#ffffff", scale: 1.2, opacity: 1 };
   const saved = state.places[place.id] || {};
   const selectedDayIsConcrete = TRIP_DAYS.some(day => day.id === selectedDayFilter);
   const isInSelectedDay = selectedDayIsConcrete && saved.plannedDay === selectedDayFilter;
@@ -1219,7 +1250,7 @@ function refreshMarkerAppearance(place) {
   marker.append(buildMarkerContent(place));
 
   const saved = state.places[place.id] || {};
-  marker.zIndex = (
+  marker.zIndex = place.category === "hotel" ? 900 : (
     TRIP_DAYS.some(day => day.id === selectedDayFilter) &&
     saved.plannedDay === selectedDayFilter
   ) ? 500 + (saved.plannedOrder || 0) : (place.localTip ? 100 : 1);
@@ -2321,7 +2352,7 @@ function getRouteStartMode() {
 }
 
 function setRouteStartMode(value) {
-  routeStartMode = value === "current" ? "current" : "planned";
+  routeStartMode = ["current", "accommodation"].includes(value) ? value : "planned";
 
   if (activeRouteDay) {
     clearRenderedRoute();
@@ -2574,7 +2605,7 @@ function offlineMarkerFeatures() {
     const p = normalizeLatLng({lat:place.lat,lng:place.lng});
     if (!p) return null;
     const saved = state?.places?.[place.id] || {};
-    return {type:"Feature",geometry:{type:"Point",coordinates:[p.lng,p.lat]},properties:{id:String(place.id),kind:"place",name:place.name||"",icon:CATEGORY_ICONS[place.category]||"📍",visited:Boolean(saved.visited)}};
+    return {type:"Feature",geometry:{type:"Point",coordinates:[p.lng,p.lat]},properties:{id:String(place.id),kind:"place",name:place.name||"",icon:CATEGORY_ICONS[place.category]||"📍",visited:Boolean(saved.visited),accommodation:place.category==="hotel"}};
   }).filter(Boolean);
   const activityFeatures = (activities || []).map(activity => {
     const p=normalizeLatLng({lat:activity.latitude,lng:activity.longitude});
@@ -2590,7 +2621,7 @@ function syncOfflineMarkers() {
   if(src) src.setData(data);
   else {
     offlineMap.addSource("trip-markers",{type:"geojson",data});
-    offlineMap.addLayer({id:"trip-marker-halo",type:"circle",source:"trip-markers",paint:{"circle-radius":["case",["==",["get","kind"],"activity"],15,13],"circle-color":["case",["==",["get","kind"],"activity"],"#7c3aed","#2f625d"],"circle-opacity":["case",["==",["get","visited"],true],0.45,0.95],"circle-stroke-color":"#ffffff","circle-stroke-width":3}});
+    offlineMap.addLayer({id:"trip-marker-halo",type:"circle",source:"trip-markers",paint:{"circle-radius":["case",["==",["get","kind"],"activity"],15,13],"circle-color":["case",["==",["get","kind"],"activity"],"#7c3aed",["==",["get","accommodation"],true],"#0f766e","#2f625d"],"circle-opacity":["case",["==",["get","visited"],true],0.45,0.95],"circle-stroke-color":"#ffffff","circle-stroke-width":3}});
 
   }
 }
@@ -2766,7 +2797,7 @@ function renderOfflineRouteStatus() {
   if (!box) return;
   const saved = loadOfflineDayRoutes();
   const rows = TRIP_DAYS.map(day => {
-    const stops = getRouteStopsForDay(day.id);
+    const stops = getRoutingStopsForDay(day.id);
     const item = saved[day.id];
     if (stops.length < 2) return `<div>⚪ ${escapeHtml(day.short)} – ${stops.length ? "nur ein Stopp" : "keine Route"}</div>`;
     return item
@@ -2798,7 +2829,7 @@ async function prepareOfflineRoutes() {
     if (weatherForecast) localStorage.setItem(OFFLINE_WEATHER_STORAGE_KEY, JSON.stringify({savedAt:new Date().toISOString(),data:weatherForecast}));
     const Route = await ensureRoutesLibrary();
     for (const day of TRIP_DAYS) {
-      const stops = getRouteStopsForDay(day.id);
+      const stops = getRoutingStopsForDay(day.id);
       if (stops.length < 2 || stops.length > 27) { skippedCount++; continue; }
       setStatus(`Offline-Route für ${day.label} wird vorbereitet …`);
       try {
@@ -2833,7 +2864,7 @@ async function showDayRoute(dayId = selectedDayFilter) {
     return;
   }
 
-  const routeStops = getRouteStopsForDay(dayId);
+  const routeStops = getRoutingStopsForDay(dayId);
 
   if (!routeStops.length) {
     setStatus(`Für ${day.label} ist noch kein Routenstopp geplant.`);
@@ -2979,7 +3010,7 @@ function openDayRouteInGoogleMaps(dayId = selectedDayFilter) {
     return;
   }
 
-  const routeStops = getRouteStopsForDay(dayId);
+  const routeStops = getRoutingStopsForDay(dayId);
   if (!routeStops.length) {
     setStatus(`Für ${day.label} ist noch kein Routenstopp geplant.`);
     return;
@@ -3064,7 +3095,7 @@ function updateRouteControls() {
   // v1.10.5 already used these stops for route calculation, but the controls
   // still counted visit places only and therefore disabled the buttons for
   // e.g. 1 place + 1 activity.
-  const routeStops = getRouteStopsForDay(day.id);
+  const routeStops = getRoutingStopsForDay(day.id);
   const startMode = getRouteStartMode();
   const hasStop = routeStops.length >= 1;
   const hasRoute = routeStops.length >= 2 || (routeStops.length === 1 && startMode === "current");
@@ -5357,6 +5388,8 @@ function renderTodayView() {
   const progress = dayPlaces.length ? Math.round((visitedCount / dayPlaces.length) * 100) : 0;
   const dayIndex = Math.max(0, TRIP_DAYS.findIndex(item => item.id === day.id)) + 1;
   const dayWeather = dailyWeatherFor(day.id);
+  const accommodation = getAccommodationPlace();
+  const accommodationCard = accommodation ? `<div class="today-accommodation-card"><button type="button" data-today-accommodation><span>🏨</span><span><small>Unterkunft</small><strong>${escapeHtml(accommodation.name)}</strong></span><span class="today-chevron">›</span></button><button type="button" class="secondary-button" data-navigate-accommodation>Zum Hotel</button></div>` : "";
   const dayWeatherHtml = dayWeather
     ? `<div class="today-weather-summary">${weatherIcon(dayWeather.code)} <strong>${Math.round(Number(dayWeather.max))}°</strong> / ${Math.round(Number(dayWeather.min))}° · 💧 ${Math.round(Number(dayWeather.rain))}%</div>`
     : '<div class="today-weather-summary muted">🌦️ Prognose noch nicht verfügbar</div>';
@@ -5442,6 +5475,7 @@ function renderTodayView() {
       <div><div class="today-kicker">${preview ? "Erster Reisetag" : "Heute"}</div><h2>${escapeHtml(formatTodayDayTitle(day))}</h2><div class="today-day-label">${escapeHtml(day.label)}</div></div>
       <div class="today-day-side"><span class="today-day-number">Tag ${dayIndex}</span>${dayWeatherHtml}</div>
     </div>
+    ${accommodationCard}
     ${whatNowCard}
     ${freeTimeCardHtml(day.id, dayStops, preview)}
     ${nearbyTodayCardHtml(day.id)}
@@ -5457,6 +5491,23 @@ function renderTodayView() {
       <div class="today-timeline">${timeline || '<div class="today-empty">Noch keine Programmpunkte geplant.</div>'}</div>
       <button id="todayOpenPlanButton" class="secondary-button today-open-plan" type="button">☷ Tagesplan öffnen</button>
     </div>`;
+
+  container.querySelector("[data-today-accommodation]")?.addEventListener("click", () => {
+    const place = getAccommodationPlace();
+    if (!place) return;
+    setMobileView("map");
+    window.setTimeout(() => focusExistingPlaceOnMap(place), 80);
+  });
+  container.querySelector("[data-navigate-accommodation]")?.addEventListener("click", async () => {
+    const hotel = accommodationStop();
+    if (!hotel) return;
+    try {
+      await computeNavigationRoute([hotel], { testMode: false });
+      setStatus("🏨 Navigation zur Unterkunft gestartet.");
+    } catch (error) {
+      setStatus(`Navigation zur Unterkunft konnte nicht gestartet werden: ${error.message || error}`);
+    }
+  });
 
   container.querySelector("[data-free-time-place]")?.addEventListener("click", event => {
     const place = placesData.places.find(item => item.id === event.currentTarget.dataset.freeTimePlace);
@@ -6071,6 +6122,8 @@ function renderDayAgenda() {
   }
 
   const stops = getRouteStopsForDay(selectedDay.id);
+  const accommodation = getAccommodationPlace();
+  const accommodationHtml = accommodation ? `<button class="agenda-accommodation" type="button" data-accommodation-focus="${escapeHtml(accommodation.id)}">🏨 <span><strong>${escapeHtml(accommodation.name)}</strong><small>Unterkunft · Start-/Endpunkt verfügbar</small></span><span class="today-chevron">›</span></button>` : "";
   const dayPlaces = getPlacesForDay(selectedDay.id);
   const dayActivities = getActivitiesForDay(selectedDay.id);
   const visitedCount = dayPlaces.filter(place => (state.places[place.id] || {}).visited).length;
@@ -6081,7 +6134,7 @@ function renderDayAgenda() {
   const header = `<div class="agenda-day-header"><div><div class="agenda-day-kicker">Tages-Timeline</div><div class="agenda-day-title">${escapeHtml(selectedDay.label)}</div><div class="agenda-day-stats">${dayPlaces.length} Orte · ${dayActivities.length} Aktivitäten${stops.length > 1 ? ` · 🚶 ca. ${formatRouteDistance(totalDistance)} · ${totalMinutes} Min.` : ""}</div></div><div class="agenda-header-actions"><span class="agenda-progress-badge">${progress}%</span><button id="addActivityAgendaBtn" class="mini-action-button activity-add-button" type="button">＋ Aktivität</button></div></div><div class="agenda-progress-track"><div class="agenda-progress-fill" style="width:${progress}%"></div></div>${agendaWeather}${feasibilityCardHtml(selectedDay.id, stops)}`;
 
   if (!stops.length) {
-    container.innerHTML = `${header}<div class="agenda-empty">Für ${escapeHtml(selectedDay.label)} ist noch nichts geplant.</div>`;
+    container.innerHTML = `${header}${accommodationHtml}<div class="agenda-empty">Für ${escapeHtml(selectedDay.label)} ist noch nichts geplant.</div>`;
     document.getElementById("addActivityAgendaBtn")?.addEventListener("click", () => openActivityDialog());
     return;
   }
@@ -6106,8 +6159,12 @@ function renderDayAgenda() {
     return `<div class="agenda-place-wrap" data-agenda-key="place:${escapeHtml(place.id)}"><div class="agenda-timeline-row"><div class="agenda-time-column"><div class="agenda-time ${time ? "" : "agenda-time-open"}">${time ? escapeHtml(time) : "offen"}</div><div class="agenda-timeline-dot ${saved.visited ? "visited" : ""}">${saved.visited ? "✓" : index + 1}</div>${index < stops.length - 1 ? '<div class="agenda-timeline-line"></div>' : ""}</div><div class="agenda-content-column"><div class="agenda-item ${saved.visited ? "agenda-item-visited" : ""}" data-place-id="${place.id}"><button type="button" class="agenda-drag-handle" aria-label="${escapeHtml(place.name)} verschieben">⋮⋮</button><div class="agenda-main"><div class="agenda-title">${CATEGORY_ICONS[place.category] || "•"} ${escapeHtml(place.name)}</div><div class="agenda-meta">${escapeHtml(categoryLabel(place.category))}${distance != null ? ` · 📍 ${escapeHtml(formatDistance(distance))} entfernt` : ""}${saved.visited ? " · ✓ besucht" : ""}</div>${openingHtml}${stopWeatherHtml}</div><button type="button" class="agenda-visited-button ${saved.visited ? "visited" : ""}" data-action="toggle-visited" data-place-id="${place.id}">${saved.visited ? "✓" : "○"}</button></div>${legHtml}</div></div></div>`;
   }).join("");
 
-  container.innerHTML = `${header}<div class="agenda-timeline">${rows}</div><div class="agenda-estimate-note">🚶 Gehzeiten sind kompakte Luftlinien-Schätzungen. Die Navigation verwendet weiterhin die echte Google-Fußroute.</div>`;
+  container.innerHTML = `${header}${accommodationHtml}<div class="agenda-timeline">${rows}</div><div class="agenda-estimate-note">🚶 Gehzeiten sind kompakte Luftlinien-Schätzungen. Die Navigation verwendet weiterhin die echte Google-Fußroute.</div>`;
   document.getElementById("addActivityAgendaBtn")?.addEventListener("click", () => openActivityDialog());
+  container.querySelector("[data-accommodation-focus]")?.addEventListener("click", () => {
+    const place = getAccommodationPlace();
+    if (place) focusExistingPlaceOnMap(place);
+  });
   wireAgendaDragAndDrop(container, selectedDay.id);
   container.querySelectorAll(".agenda-item[data-place-id]").forEach(item => item.addEventListener("click", event => {
     if (event.target.closest("[data-action],.agenda-drag-handle")) return;
@@ -6291,13 +6348,14 @@ function getFilteredPlaces() {
 
   return placesData.places.filter(place => {
     const saved = state.places[place.id] || {};
-    if (!activeCategories.has(place.category)) return false;
+    const isAccommodation = place.category === "hotel";
+    if (!isAccommodation && !activeCategories.has(place.category)) return false;
     if (localOnly && !place.localTip) return false;
     if (unvisitedOnly && saved.visited) return false;
 
     const plannedDay = saved.plannedDay || "";
     if (selectedDayFilter === "unplanned" && plannedDay) return false;
-    if (selectedDayFilter !== "all" && selectedDayFilter !== "unplanned" && plannedDay !== selectedDayFilter) return false;
+    if (!isAccommodation && selectedDayFilter !== "all" && selectedDayFilter !== "unplanned" && plannedDay !== selectedDayFilter) return false;
 
     if (query) {
       const haystack = [place.name, place.address, place.notes, ...(place.tags || [])]
@@ -6791,6 +6849,17 @@ function wireControls() {
   renderOfflineRouteStatus();
   document.getElementById("routeGoogleBtn").addEventListener("click", () => openDayRouteInGoogleMaps());
   document.getElementById("routeStartMode").addEventListener("change", event => setRouteStartMode(event.target.value));
+  const routeEndAccommodation = document.getElementById("routeEndAccommodation");
+  if (routeEndAccommodation) {
+    routeEndAccommodation.checked = localStorage.getItem("budapestRouteEndAccommodation") !== "false";
+    routeEndAccommodation.addEventListener("change", () => {
+      localStorage.setItem("budapestRouteEndAccommodation", String(routeEndAccommodation.checked));
+      if (activeRouteDay) clearDayRoute();
+      updateRouteControls();
+      renderOfflineRouteStatus();
+      setStatus(routeEndAccommodation.checked ? "🏨 Unterkunft als Tagesziel aktiviert." : "Tagesziel Unterkunft deaktiviert.");
+    });
+  }
   document.getElementById("navigationStartBtn")?.addEventListener("click", () => {
     if (navigationActive) stopNavigation();
     else startDayNavigation();
@@ -7061,6 +7130,7 @@ function ensurePlaceState(id) {
 }
 
 function categoryLabel(key) {
+  if (key === "hotel") return "Unterkunft";
   return placesData.meta.categories[key] || key;
 }
 
