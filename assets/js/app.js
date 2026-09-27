@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.35.0";
+const APP_VERSION = "v1.35.1";
 
 
 function syncVersionLabels() {
@@ -6543,7 +6543,13 @@ function syncActivityMarkerVisibility() {
 function applyFilters() {
   const filtered = getFilteredPlaces();
 
+  // v1.35.1: Die Unterkunft ist ein permanenter Karten-Bezugspunkt.
+  // Sie darf weder durch Tages-, Kategorie-, Besucht-, Local-Tipp- noch
+  // Suchfilter von der Karte verschwinden. Die Listenfilter bleiben davon
+  // unberührt, damit das Hotel nicht künstlich in jeder Ortsliste auftaucht.
   const visibleIds = new Set(filtered.map(p => p.id));
+  const accommodation = getAccommodationPlace();
+  if (accommodation) visibleIds.add(accommodation.id);
   syncVisibleMarkers(visibleIds);
   syncActivityMarkerVisibility();
 
@@ -6556,6 +6562,8 @@ function applyFilters() {
 
 function fitVisibleMarkers() {
   const visibleIds = new Set(getFilteredPlaces().map(place => place.id));
+  const accommodation = getAccommodationPlace();
+  if (accommodation) visibleIds.add(accommodation.id);
   const visible = [...markers.entries()]
     .filter(([id]) => visibleIds.has(id))
     .map(([, marker]) => marker);
