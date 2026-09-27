@@ -3678,3 +3678,23 @@ body.agenda-dragging {
 .mobility-leg > span:last-child { display:flex; flex-direction:column; gap:2px; }
 .mobility-leg small { display:block; font-weight:400; opacity:.82; }
 .mobility-leg a { color:inherit; text-decoration:underline; text-underline-offset:2px; }
+
+
+/* v1.36.0 · ÖPNV-Details */
+details.mobility-leg { display:block; }
+.mobility-leg summary {
+  display:grid;
+  grid-template-columns:auto minmax(0,1fr) auto;
+  align-items:center;
+  gap:8px;
+  cursor:pointer;
+  list-style:none;
+}
+.mobility-leg summary::-webkit-details-marker { display:none; }
+.mobility-leg summary > span:nth-child(2) { display:flex; flex-direction:column; }
+.mobility-expand { font-size:.75rem; opacity:.7; }
+.mobility-details { margin:8px 0 2px 28px; display:flex; flex-direction:column; gap:7px; }
+.transit-step { display:flex; flex-direction:column; gap:2px; padding:7px 9px; border-radius:9px; background:rgba(15,118,110,.07); }
+.transit-step small { opacity:.78; }
+.transit-recommended { border-left:3px solid #0f766e; padding-left:8px; }
+.mobility-details > a { font-weight:600; }
