@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.35.1";
+const APP_VERSION = "v1.36.0";
 
 
 function syncVersionLabels() {
@@ -4772,44 +4772,96 @@ function googleMapsTransitUrl(from, to) {
   return `https://www.google.com/maps/dir/?${params.toString()}`;
 }
 
+function transitVehicleIcon(type) {
+  const value=String(type||"").toUpperCase();
+  if (value.includes("BUS")) return "🚌";
+  if (value.includes("SUBWAY") || value.includes("METRO")) return "🚇";
+  if (value.includes("TRAM") || value.includes("LIGHT_RAIL")) return "🚋";
+  if (value.includes("RAIL") || value.includes("TRAIN")) return "🚆";
+  return "🚇";
+}
+
+function formatTransitClock(value) {
+  if (!value) return "";
+  const date=value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return new Intl.DateTimeFormat("de-DE",{hour:"2-digit",minute:"2-digit",timeZone:"Europe/Budapest"}).format(date);
+}
+
+function transitStepSummary(step) {
+  const details=step?.transitDetails;
+  if (!details) return null;
+  const line=details.transitLine || {};
+  const vehicle=line.vehicle || {};
+  const type=vehicle.type || step.travelMode || "";
+  const lineName=line.shortName || line.name || details.tripShortText || "ÖPNV";
+  return {
+    icon:transitVehicleIcon(type),
+    line:lineName,
+    headsign:details.headsign || "",
+    departure:details.departureStop?.name || "",
+    arrival:details.arrivalStop?.name || "",
+    departureTime:formatTransitClock(details.departureTime),
+    arrivalTime:formatTransitClock(details.arrivalTime),
+    stops:Number(details.stopCount)||0
+  };
+}
+
 function mobilityLegHtml(from, to, walkingLeg) {
   if (!from?.position || !to?.position || !walkingLeg) return "";
-  const mode = getMobilityMode();
-  const walkText = `🚶 ca. ${formatRouteDistance(walkingLeg.distanceMeters)} · ${walkingLeg.minutes} Min.`;
-  if (mode === "walk") return `<div class="agenda-leg"><span>🚶</span><span>${escapeHtml(walkText.replace(/^🚶 /,""))} zum nächsten Punkt</span></div>`;
+  const mode=getMobilityMode();
+  const walkText=`🚶 ca. ${formatRouteDistance(walkingLeg.distanceMeters)} · ${walkingLeg.minutes} Min.`;
+  if (mode==="walk") return `<div class="agenda-leg"><span>🚶</span><span>ca. ${escapeHtml(formatRouteDistance(walkingLeg.distanceMeters))} · ${walkingLeg.minutes} Min. zum nächsten Punkt</span></div>`;
 
-  const key = `${from.position.lat},${from.position.lng}|${to.position.lat},${to.position.lng}`;
-  const cached = transitLegCache.get(key);
-  const transitText = cached?.durationMillis ? `🚇 ca. ${formatRouteDuration(cached.durationMillis)}` : "🚇 ÖPNV";
-  const recommendedTransit = mode === "transit" || (mode === "auto" && cached?.durationMillis && Math.round(cached.durationMillis / 60000) + 5 < walkingLeg.minutes);
-  const primary = recommendedTransit ? transitText : walkText;
-  const secondary = recommendedTransit ? walkText : transitText;
-  return `<div class="agenda-leg mobility-leg"><span>${recommendedTransit ? "🚇" : "🚶"}</span><span><strong>${escapeHtml(primary.replace(/^[🚇🚶] /u,""))}</strong><small>${escapeHtml(secondary)} · <a href="${escapeHtml(googleMapsTransitUrl(from,to))}" target="_blank" rel="noopener noreferrer">ÖPNV in Google Maps</a></small></span></div>`;
+  const key=`${from.position.lat},${from.position.lng}|${to.position.lat},${to.position.lng}`;
+  const cached=transitLegCache.get(key);
+  const transitMinutes=cached?.durationMillis ? Math.round(cached.durationMillis/60000) : null;
+  const recommendedTransit=mode==="transit" || (mode==="auto" && transitMinutes && transitMinutes+5<walkingLeg.minutes);
+  const steps=(cached?.transitSteps||[]).map(step=>{
+    const direction=step.headsign ? ` Richtung ${escapeHtml(step.headsign)}` : "";
+    const stops=step.stops ? ` · ${step.stops} ${step.stops===1?"Station":"Stationen"}` : "";
+    const times=step.departureTime && step.arrivalTime ? ` · ${escapeHtml(step.departureTime)}–${escapeHtml(step.arrivalTime)}` : "";
+    const stations=step.departure && step.arrival ? `<small>📍 ${escapeHtml(step.departure)} → ${escapeHtml(step.arrival)}</small>` : "";
+    return `<div class="transit-step"><strong>${step.icon} ${escapeHtml(step.line)}${direction}</strong><small>${stops}${times}</small>${stations}</div>`;
+  }).join("");
+  const transitText=transitMinutes ? `🚇 ca. ${transitMinutes} Min.` : "🚇 ÖPNV";
+  const primary=recommendedTransit?transitText:walkText;
+  const secondary=recommendedTransit?walkText:transitText;
+  return `<details class="agenda-leg mobility-leg ${recommendedTransit?"transit-recommended":""}"><summary><span>${recommendedTransit?"🚇":"🚶"}</span><span><strong>${escapeHtml(primary.replace(/^[🚇🚶] /u,""))}</strong><small>${escapeHtml(secondary)}${recommendedTransit&&transitMinutes?" · ÖPNV empfohlen":""}</small></span><span class="mobility-expand">Details</span></summary><div class="mobility-details">${steps || '<div class="transit-step muted">Linien- und Haltestellendetails sind für diese Verbindung noch nicht verfügbar.</div>'}<a href="${escapeHtml(googleMapsTransitUrl(from,to))}" target="_blank" rel="noopener noreferrer">🚇 Aktuelle Verbindung in Google Maps öffnen</a></div></details>`;
 }
 
 async function loadTransitLegsForDay(dayId) {
-  if (navigator.onLine === false || getMobilityMode() === "walk") return;
-  const stops = getRouteStopsForDay(dayId);
-  if (stops.length < 2) return;
-  let changed = false;
+  if (navigator.onLine===false || getMobilityMode()==="walk") return;
+  const stops=getRouteStopsForDay(dayId);
+  if(stops.length<2) return;
+  let changed=false;
   try {
-    const Route = await ensureRoutesLibrary();
-    for (let i=0;i<stops.length-1;i++) {
-      const from=stops[i], to=stops[i+1];
+    const Route=await ensureRoutesLibrary();
+    for(let i=0;i<stops.length-1;i++){
+      const from=stops[i],to=stops[i+1];
       const key=`${from.position.lat},${from.position.lng}|${to.position.lat},${to.position.lng}`;
-      if (transitLegCache.has(key)) continue;
-      try {
-        const request={origin:from.position,destination:to.position,travelMode:"TRANSIT",fields:["distanceMeters","durationMillis"]};
+      if(transitLegCache.has(key)) continue;
+      try{
+        const request={
+          origin:from.position,
+          destination:to.position,
+          travelMode:"TRANSIT",
+          departureTime:new Date(),
+          transitPreference:{allowedTransitModes:["BUS","SUBWAY","TRAIN","LIGHT_RAIL","RAIL"],routingPreference:"FEWER_TRANSFERS"},
+          fields:["distanceMeters","durationMillis","legs","localizedValues"]
+        };
         const {routes}=await Route.computeRoutes(request);
-        transitLegCache.set(key, routes?.[0] ? {distanceMeters:routes[0].distanceMeters,durationMillis:routes[0].durationMillis} : null);
+        const route=routes?.[0]||null;
+        const transitSteps=(route?.legs||[]).flatMap(leg=>leg.steps||[]).map(transitStepSummary).filter(Boolean);
+        transitLegCache.set(key,route?{distanceMeters:route.distanceMeters,durationMillis:route.durationMillis,transitSteps}:null);
         changed=true;
-      } catch (error) {
-        console.warn("ÖPNV-Verbindung:", from.name, "→", to.name, error);
+      }catch(error){
+        console.warn("ÖPNV-Verbindung:",from.name,"→",to.name,error);
         transitLegCache.set(key,null);
       }
     }
   } finally {
-    if (changed && selectedDayFilter===dayId) renderDayAgenda();
+    if(changed && selectedDayFilter===dayId) renderDayAgenda();
   }
 }
 
@@ -6226,7 +6278,7 @@ function renderDayAgenda() {
     return `<div class="agenda-place-wrap" data-agenda-key="place:${escapeHtml(place.id)}"><div class="agenda-timeline-row"><div class="agenda-time-column"><div class="agenda-time ${time ? "" : "agenda-time-open"}">${time ? escapeHtml(time) : "offen"}</div><div class="agenda-timeline-dot ${saved.visited ? "visited" : ""}">${saved.visited ? "✓" : index + 1}</div>${index < stops.length - 1 ? '<div class="agenda-timeline-line"></div>' : ""}</div><div class="agenda-content-column"><div class="agenda-item ${saved.visited ? "agenda-item-visited" : ""}" data-place-id="${place.id}"><button type="button" class="agenda-drag-handle" aria-label="${escapeHtml(place.name)} verschieben">⋮⋮</button><div class="agenda-main"><div class="agenda-title">${CATEGORY_ICONS[place.category] || "•"} ${escapeHtml(place.name)}</div><div class="agenda-meta">${escapeHtml(categoryLabel(place.category))}${distance != null ? ` · 📍 ${escapeHtml(formatDistance(distance))} entfernt` : ""}${saved.visited ? " · ✓ besucht" : ""}</div>${openingHtml}${stopWeatherHtml}</div><button type="button" class="agenda-visited-button ${saved.visited ? "visited" : ""}" data-action="toggle-visited" data-place-id="${place.id}">${saved.visited ? "✓" : "○"}</button></div>${legHtml}</div></div></div>`;
   }).join("");
 
-  container.innerHTML = `${header}${accommodationHtml}<div class="agenda-timeline">${rows}</div><div class="agenda-estimate-note">🚶 Gehzeiten sind kompakte Schätzungen. 🚇 ÖPNV-Zeiten werden online über Google Routes geladen; für die Live-Verbindung öffnet sich Google Maps.</div>`;
+  container.innerHTML = `${header}${accommodationHtml}<div class="agenda-timeline">${rows}</div><div class="agenda-estimate-note">🚶 Gehzeiten sind kompakte Schätzungen. 🚇 ÖPNV zeigt online Linien, Haltestellen und Fahrzeiten aus Google Routes; Google Maps liefert die aktuelle Live-Verbindung.</div>`;
   document.getElementById("addActivityAgendaBtn")?.addEventListener("click", () => openActivityDialog());
   container.querySelector("[data-accommodation-focus]")?.addEventListener("click", () => {
     const place = getAccommodationPlace();
