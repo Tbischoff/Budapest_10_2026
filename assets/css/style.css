@@ -3736,3 +3736,25 @@ details.mobility-leg { display:block; }
 @media (min-width:821px) {
   .tools-panel { display:block; }
 }
+
+
+/* v1.38.1 · Werkzeuge Layout-Fix */
+@media (max-width:820px) {
+  .tools-panel[data-mobile-view="tools"] { display:block; }
+  .tools-panel.mobile-view-hidden { display:none !important; }
+  .tools-panel .tools-content { display:block; }
+  .mobile-nav-icon svg { width:24px; height:24px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+}
+@media (min-width:821px) {
+  .tools-panel {
+    order:999;
+    margin-top:auto;
+  }
+  .tools-panel.desktop-tools-collapsed .tools-content { display:none; }
+  .tools-title-row { margin-bottom:0; }
+  .tools-panel:not(.desktop-tools-collapsed) .tools-title-row { margin-bottom:10px; }
+}
+
+@media (min-width:821px) {
+  .sidebar { display:flex; flex-direction:column; }
+}
