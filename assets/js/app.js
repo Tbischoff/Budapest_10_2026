@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.36.1";
+const APP_VERSION = "v1.37.0";
 
 
 function syncVersionLabels() {
@@ -112,6 +112,8 @@ let navigationExpanded = false;
 let navigationWakeLock = null;
 let navigationResumeInProgress = false;
 let navigationPaused = false;
+let navigationMode = "walking";
+let navigationTransitSummary = null;
 let navigationOnline = navigator.onLine !== false;
 let navigationLastPositionAt = 0;
 let navigationLastAccuracy = Infinity;
@@ -3624,6 +3626,9 @@ function stopNavigation(message = "Navigation beendet.") {
   navigationStops = [];
   navigationFinalTarget = null;
   navigationTestMode = false;
+  navigationMode = "walking";
+  navigationTransitSummary = null;
+  renderNavigationTransitSummary();
   navigationFollowMode = true;
   navigationOffRouteSamples = 0;
   navigationRerouteInProgress = false;
@@ -4069,10 +4074,14 @@ function updateNavigationUi(position = userPosition) {
   const legIndex = Number(currentEntry?.legIndex) || 0;
   const targetName = navigationTestMode ? "Testziel" : (navigationStops[Math.min(legIndex, navigationStops.length - 1)]?.name || "Nächster Stopp");
 
-  if (titleEl) titleEl.textContent = targetName;
-  if (iconEl) iconEl.textContent = maneuverIcon(currentStep?.maneuver);
+  if (titleEl) titleEl.textContent = navigationMode === "transit" ? `🚇 ${targetName}` : targetName;
+  const activeTransit = transitStepSummary(currentStep);
+  if (iconEl) iconEl.textContent = activeTransit?.icon || maneuverIcon(currentStep?.maneuver);
   if (distanceEl) distanceEl.textContent = formatRouteDistance(metersToManeuver);
-  if (instructionEl) instructionEl.textContent = currentStep?.instructions || "Route folgen";
+  if (instructionEl) {
+    if (activeTransit) instructionEl.textContent = `${activeTransit.line}${activeTransit.headsign ? " Richtung " + activeTransit.headsign : ""}`;
+    else instructionEl.textContent = currentStep?.instructions || (navigationMode === "transit" ? "Zur nächsten ÖPNV-Etappe" : "Route folgen");
+  }
   if (metaEl) metaEl.textContent = `${formatRouteDistance(remainingMeters)} verbleibend`;
   const totalRouteMeters = Number(navigationPathMetrics?.total) || Number(navigationRoute?.distanceMeters) || 0;
   const totalDurationMillis = Number(navigationRoute?.durationMillis) || 0;
@@ -4115,6 +4124,51 @@ async function getNavigationStartPosition() {
   return { position: await getFreshCurrentPosition({ timeout: 7000, maximumAge: 10000 }), cached: false };
 }
 
+function selectedNavigationMode() {
+  const value = document.getElementById("navigationMode")?.value || "auto";
+  if (value === "transit") return "transit";
+  if (value === "walking") return "walking";
+  return getMobilityMode() === "transit" ? "transit" : "walking";
+}
+
+function plannedTransitTimeForStop(stop) {
+  if (!stop?.plannedDate) return null;
+  const clock = stop.plannedStartTime || stop.plannedEndTime;
+  if (!clock) return null;
+  const [year,month,day]=stop.plannedDate.split("-").map(Number);
+  const [hour,minute]=clock.split(":").map(Number);
+  // Budapest is UTC+2 during the October 2026 trip (DST ends later in October).
+  const value=new Date(Date.UTC(year,month-1,day,hour-2,minute||0,0));
+  const now=Date.now(), delta=value.getTime()-now;
+  return delta >= -7*86400000 && delta <= 100*86400000 ? value : null;
+}
+
+function navigationTransitDetails(route) {
+  const steps=(route?.legs||[]).flatMap(leg=>leg.steps||[]);
+  return steps.map(transitStepSummary).filter(Boolean);
+}
+
+function renderNavigationTransitSummary() {
+  const el=document.getElementById("navigationTransit");
+  if(!el) return;
+  if(navigationMode!=="transit" || !navigationTransitSummary?.length){el.hidden=true;el.innerHTML="";return;}
+  el.hidden=false;
+  el.innerHTML=navigationTransitSummary.map(step=>{
+    const times=step.departureTime&&step.arrivalTime?`${escapeHtml(step.departureTime)}–${escapeHtml(step.arrivalTime)} · `:"";
+    const direction=step.headsign?` Richtung ${escapeHtml(step.headsign)}`:"";
+    const stops=step.stops?`${step.stops} ${step.stops===1?"Station":"Stationen"}`:"";
+    return `<div class="navigation-transit-step"><strong>${step.icon} ${escapeHtml(step.line)}${direction}</strong><span>${times}${escapeHtml(stops)}</span><small>📍 ${escapeHtml(step.departure||"Einstieg")} → ${escapeHtml(step.arrival||"Ausstieg")}</small></div>`;
+  }).join("");
+}
+
+function openCurrentNavigationInGoogleMaps() {
+  const stop=navigationStops?.[0];
+  if(!stop?.position) return;
+  const origin=userPosition?{position:userPosition}:{position:stop.position};
+  const url=googleMapsTransitUrl(origin,stop);
+  window.open(url,"_blank","noopener,noreferrer");
+}
+
 async function requestNavigationRoute(stops, origin) {
   if (!navigationOnline) throw new Error("Keine Internetverbindung – Route kann momentan nicht berechnet werden.");
   if (!stops?.length) throw new Error("Kein Navigationsziel vorhanden.");
@@ -4126,15 +4180,27 @@ async function requestNavigationRoute(stops, origin) {
   // Das vermeidet besonders bei Tests außerhalb Budapests eine teure Route
   // vom aktuellen Standort über sämtliche Tagesstopps.
   const destination = stops[0].position;
-  const { routes } = await Route.computeRoutes({
+  navigationMode = selectedNavigationMode();
+  const request = {
     origin,
     destination,
-    travelMode: "WALKING",
+    travelMode: navigationMode === "transit" ? "TRANSIT" : "WALKING",
     language: "de",
     units: google.maps.UnitSystem.METRIC,
-    fields: ["path", "legs", "distanceMeters", "durationMillis", "viewport"]
-  });
-  if (!routes?.length) throw new Error("Keine Fußroute gefunden.");
+    fields: ["path", "legs", "distanceMeters", "durationMillis", "viewport", "localizedValues"]
+  };
+  if (navigationMode === "transit") {
+    request.transitPreference = {
+      allowedTransitModes: ["BUS","SUBWAY","TRAIN","LIGHT_RAIL","RAIL"],
+      routingPreference: "FEWER_TRANSFERS"
+    };
+    const plannedTime = plannedTransitTimeForStop(stops[0]);
+    if (plannedTime) request.arrivalTime = plannedTime;
+    else request.departureTime = new Date();
+  }
+  const { routes } = await Route.computeRoutes(request);
+  if (!routes?.length) throw new Error(navigationMode === "transit" ? "Keine ÖPNV-Route gefunden." : "Keine Fußroute gefunden.");
+  navigationTransitSummary = navigationMode === "transit" ? navigationTransitDetails(routes[0]) : null;
   return routes[0];
 }
 
@@ -4155,6 +4221,7 @@ function applyNavigationRoute(route, stops, { testMode = navigationTestMode, fit
   navigationFinalTarget = stops.at(-1)?.position || null;
   navigationTestMode = testMode;
   navigationArrived = false;
+  renderNavigationTransitSummary();
   navigationOffRouteSamples = 0;
   navigationArrivalSamples = 0;
   navigationMaxProgress = 0;
@@ -4220,6 +4287,7 @@ function processNavigationPosition(position) {
   updateNavigationUi(next);
   if (navigationArrived || navigationRerouteInProgress) return;
   const accuracy = Number(coords.accuracy) || 0;
+  if (navigationMode === "transit") return;
   const offRouteDistance = distanceToNavigationRoute(next);
   const threshold = Math.max(NAV_OFF_ROUTE_METERS, accuracy * 1.5);
   const gpsGoodEnough = !accuracy || accuracy <= NAV_MAX_REROUTE_ACCURACY;
@@ -4857,10 +4925,14 @@ async function loadTransitLegsForDay(dayId) {
           origin:from.position,
           destination:to.position,
           travelMode:"TRANSIT",
-          departureTime:new Date(),
           transitPreference:{allowedTransitModes:["BUS","SUBWAY","TRAIN","LIGHT_RAIL","RAIL"],routingPreference:"FEWER_TRANSFERS"},
           fields:["distanceMeters","durationMillis","legs","localizedValues"]
         };
+        const arrivalCandidate=plannedTransitTimeForStop(to);
+        const departureCandidate=plannedTransitTimeForStop(from);
+        if(arrivalCandidate) request.arrivalTime=arrivalCandidate;
+        else if(departureCandidate) request.departureTime=departureCandidate;
+        else request.departureTime=new Date();
         const {routes}=await Route.computeRoutes(request);
         const route=routes?.[0]||null;
         const transitSteps=(route?.legs||[]).flatMap(leg=>leg.steps||[]).map(transitStepSummary).filter(Boolean);
@@ -6998,6 +7070,10 @@ function wireControls() {
   renderOfflineRouteStatus();
   document.getElementById("routeGoogleBtn").addEventListener("click", () => openDayRouteInGoogleMaps());
   document.getElementById("routeStartMode").addEventListener("change", event => setRouteStartMode(event.target.value));
+  document.getElementById("navigationMode")?.addEventListener("change", () => {
+    if (navigationActive) setStatus("Navigationsart geändert. Navigation bitte neu starten.");
+  });
+  document.getElementById("navigationTransitGoogleBtn")?.addEventListener("click", openCurrentNavigationInGoogleMaps);
   const mobilityMode = document.getElementById("mobilityMode");
   if (mobilityMode) {
     mobilityMode.value = getMobilityMode();
