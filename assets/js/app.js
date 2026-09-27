@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.37.0";
+const APP_VERSION = "v1.38.0";
 
 
 function syncVersionLabels() {
@@ -2869,6 +2869,35 @@ async function prepareOfflineRoutes() {
   }
 }
 
+function dayRouteMode() {
+  const mode=getMobilityMode();
+  return mode==="transit" ? "transit" : "walking";
+}
+
+async function computeTransitDaySegments(routeStops) {
+  const Route=await ensureRoutesLibrary();
+  const segments=[];
+  for(let i=0;i<routeStops.length-1;i++){
+    const from=routeStops[i],to=routeStops[i+1];
+    const request={
+      origin:from.position,
+      destination:to.position,
+      travelMode:"TRANSIT",
+      transitPreference:{allowedTransitModes:["BUS","SUBWAY","TRAIN","LIGHT_RAIL","RAIL"],routingPreference:"FEWER_TRANSFERS"},
+      fields:["path","distanceMeters","durationMillis","legs","localizedValues"]
+    };
+    const arrival=plannedTransitTimeForStop(to);
+    const departure=plannedTransitTimeForStop(from);
+    if(arrival) request.arrivalTime=arrival;
+    else if(departure) request.departureTime=departure;
+    else request.departureTime=new Date();
+    const {routes}=await Route.computeRoutes(request);
+    if(!routes?.[0]) throw new Error(`Keine ÖPNV-Verbindung „${from.name}“ → „${to.name}“ gefunden.`);
+    segments.push(routes[0]);
+  }
+  return segments;
+}
+
 async function showDayRoute(dayId = selectedDayFilter) {
   const day = TRIP_DAYS.find(item => item.id === dayId);
 
@@ -2922,6 +2951,10 @@ async function showDayRoute(dayId = selectedDayFilter) {
   }
 
   if (navigator.onLine === false) {
+    if (dayRouteMode() === "transit") {
+      setStatus("🟠 Offline · ÖPNV-Routen benötigen aktuelle Online-Daten. Offline bleibt die vorbereitete Fußroute verfügbar.");
+      return;
+    }
     const cached = loadOfflineDayRoutes()[dayId];
     if (cached && drawOfflineDayRoute(dayId, cached)) {
       setStatus(`🟠 Offline · gespeicherte Fußroute für ${day.label}: ${formatRouteDistance(cached.distanceMeters)} · ${formatRouteDuration(cached.durationMillis)}.`);
@@ -2933,55 +2966,43 @@ async function showDayRoute(dayId = selectedDayFilter) {
 
   routeLoading = true;
   updateRouteControls();
-  setStatus(`Fußroute für ${day.label} wird berechnet …`);
+  setStatus(`${dayRouteMode()==="transit" ? "ÖPNV-Route" : "Fußroute"} für ${day.label} wird berechnet …`);
 
   try {
     setStatus("Budapest-Offline-Karte wird gespeichert …");
     await cacheBudapestOfflineMap();
-    const Route = await ensureRoutesLibrary();
-    const { origin, destination, intermediates } = buildRouteRequestPoints(routeStops);
-
-    const request = {
-      origin,
-      destination,
-      travelMode: "WALKING",
-      intermediates,
-      fields: ["path", "distanceMeters", "durationMillis"]
-    };
-
-    const { routes } = await Route.computeRoutes(request);
-    if (!routes?.length) throw new Error("Keine Route gefunden.");
-
-    const route = routes[0];
-    saveOfflineDayRoute(dayId, route, routeStops);
+    const mode=dayRouteMode();
     clearRenderedRoute();
-
-    dayRoutePolylines = route.createPolylines({
-      polylineOptions: {
-        strokeColor: "#2f625d",
-        strokeOpacity: 0.95,
-        strokeWeight: 6,
-        zIndex: 10
-      }
-    });
-    dayRoutePolylines.forEach(polyline => polyline.setMap(map));
-
-    activeRouteDay = dayId;
-    activeRouteSummary = {
-      distanceMeters: route.distanceMeters,
-      durationMillis: route.durationMillis,
-      placeCount: routeStops.length
-    };
-
-    if (route.path?.length) {
-      const bounds = new google.maps.LatLngBounds();
-      route.path.forEach(point => bounds.extend(point));
-      map.fitBounds(bounds, 70);
+    if(mode==="transit"){
+      setStatus(`ÖPNV-Route für ${day.label} wird berechnet …`);
+      const routes=await computeTransitDaySegments(routeStops);
+      const bounds=new google.maps.LatLngBounds();
+      let totalDistance=0,totalDuration=0;
+      routes.forEach(route=>{
+        totalDistance+=Number(route.distanceMeters)||0;
+        totalDuration+=Number(route.durationMillis)||0;
+        const polylines=route.createPolylines({polylineOptions:{strokeColor:"#0f766e",strokeOpacity:.95,strokeWeight:7,zIndex:10}});
+        polylines.forEach(polyline=>{polyline.setMap(map);dayRoutePolylines.push(polyline);});
+        (route.path||[]).forEach(point=>bounds.extend(point));
+      });
+      activeRouteDay=dayId;
+      activeRouteSummary={distanceMeters:totalDistance,durationMillis:totalDuration,placeCount:routeStops.length,mode:"transit"};
+      if(!bounds.isEmpty()) map.fitBounds(bounds,70);
+      setStatus(`ÖPNV-Route für ${day.label}: ca. ${formatRouteDuration(totalDuration)} · ${routeStops.length-1} Verbindung(en).`);
+    } else {
+      const Route=await ensureRoutesLibrary();
+      const {origin,destination,intermediates}=buildRouteRequestPoints(routeStops);
+      const {routes}=await Route.computeRoutes({origin,destination,travelMode:"WALKING",intermediates,fields:["path","distanceMeters","durationMillis"]});
+      if(!routes?.length) throw new Error("Keine Route gefunden.");
+      const route=routes[0];
+      saveOfflineDayRoute(dayId,route,routeStops);
+      dayRoutePolylines=route.createPolylines({polylineOptions:{strokeColor:"#2f625d",strokeOpacity:.95,strokeWeight:6,zIndex:10}});
+      dayRoutePolylines.forEach(polyline=>polyline.setMap(map));
+      activeRouteDay=dayId;
+      activeRouteSummary={distanceMeters:route.distanceMeters,durationMillis:route.durationMillis,placeCount:routeStops.length,mode:"walking"};
+      if(route.path?.length){const bounds=new google.maps.LatLngBounds();route.path.forEach(point=>bounds.extend(point));map.fitBounds(bounds,70);}
+      setStatus(`Fußroute für ${day.label}: ${formatRouteDistance(route.distanceMeters)||"Distanz unbekannt"} · ${formatRouteDuration(route.durationMillis)||"Dauer unbekannt"}.`);
     }
-
-    const distanceText = formatRouteDistance(route.distanceMeters);
-    const durationText = formatRouteDuration(route.durationMillis);
-    setStatus(`Fußroute für ${day.label}: ${distanceText || "Distanz unbekannt"} · ${durationText || "Dauer unbekannt"}.`);
   } catch (error) {
     console.error("Routes API:", error);
     clearRenderedRoute();
@@ -3070,14 +3091,16 @@ function openDayRouteInGoogleMaps(dayId = selectedDayFilter) {
     waypointPositions = routeStops.slice(1, -1).map(item => item.position);
   }
 
+  const transitMode=getMobilityMode()==="transit";
+  const transitDestination=transitMode && routeStops.length>1 ? routeStops[getRouteStartMode()==="current" ? 0 : 1].position : destinationPosition;
   const params = new URLSearchParams({
     api: "1",
     origin: `${originPosition.lat},${originPosition.lng}`,
-    destination: `${destinationPosition.lat},${destinationPosition.lng}`,
-    travelmode: "walking"
+    destination: `${transitDestination.lat},${transitDestination.lng}`,
+    travelmode: transitMode ? "transit" : "walking"
   });
 
-  if (waypointPositions.length) {
+  if (!transitMode && waypointPositions.length) {
     params.set(
       "waypoints",
       waypointPositions.map(item => `${item.lat},${item.lng}`).join("|")
@@ -3098,7 +3121,7 @@ function updateRouteControls() {
   if (!day) {
     routeButton.disabled = true;
     googleButton.disabled = true;
-    routeButton.textContent = "🚶 Fußroute anzeigen";
+    routeButton.textContent = getMobilityMode()==="transit" ? "🚇 ÖPNV-Route anzeigen" : "🚶 Fußroute anzeigen";
     info.textContent = "Wähle einen Reisetag aus.";
     return;
   }
@@ -3122,9 +3145,9 @@ function updateRouteControls() {
   const offlineRouteIsVisible = navigator.onLine === false && offlineMapReady && activeRouteDay === day.id;
   const routeIsActive = activeRouteDay === day.id && (dayRoutePolylines.length > 0 || offlineRouteIsVisible);
   if (routeLoading) routeButton.textContent = "⏳ Route wird berechnet …";
-  else if (routeIsActive) routeButton.textContent = "🚶 Route ausblenden";
+  else if (routeIsActive) routeButton.textContent = `${activeRouteSummary?.mode==="transit" ? "🚇" : "🚶"} Route ausblenden`;
   else if (routeStops.length === 1 && startMode !== "current") routeButton.textContent = "📍 Stopp anzeigen";
-  else routeButton.textContent = "🚶 Fußroute anzeigen";
+  else routeButton.textContent = getMobilityMode()==="transit" ? "🚇 ÖPNV-Route anzeigen" : "🚶 Fußroute anzeigen";
 
   const startLabel =
     startMode === "current"
@@ -3142,7 +3165,7 @@ function updateRouteControls() {
     info.textContent = `${day.short}: ${stopSummary} · auf der Karte anzeigen. Mit „Mein aktueller Standort“ kann die Fußroute zu diesem Stopp berechnet werden.`;
   } else if (routeIsActive && activeRouteSummary) {
     info.textContent =
-      `${day.short}: ${stopSummary} · ${startLabel} · 🚶 ${formatRouteDistance(activeRouteSummary.distanceMeters)} · ca. ${formatRouteDuration(activeRouteSummary.durationMillis)}`;
+      `${day.short}: ${stopSummary} · ${startLabel} · ${activeRouteSummary.mode==="transit" ? "🚇" : "🚶"} ${activeRouteSummary.mode==="transit" ? "" : formatRouteDistance(activeRouteSummary.distanceMeters)+" · "}ca. ${formatRouteDuration(activeRouteSummary.durationMillis)}`;
   } else {
     info.textContent = `${day.short}: ${stopSummary} · ${startLabel}.`;
   }
@@ -7077,7 +7100,11 @@ function wireControls() {
   const mobilityMode = document.getElementById("mobilityMode");
   if (mobilityMode) {
     mobilityMode.value = getMobilityMode();
-    mobilityMode.addEventListener("change", event => setMobilityMode(event.target.value));
+    mobilityMode.addEventListener("change", event => {
+      if(activeRouteDay) clearDayRoute();
+      setMobilityMode(event.target.value);
+      updateRouteControls();
+    });
   }
   const routeEndAccommodation = document.getElementById("routeEndAccommodation");
   if (routeEndAccommodation) {
@@ -7184,6 +7211,7 @@ document.getElementById("navigationExpandBtn")?.addEventListener("click", () => 
   bindMobileViewButton("mobileNavToday", "today");
   bindMobileViewButton("mobileNavPlan", "plan");
   bindMobileViewButton("mobileNavPlaces", "places");
+  bindMobileViewButton("mobileNavTools", "tools");
   bindMobileViewButton("mobileScrim", "map");
   document.getElementById("mobileLocateBtn").addEventListener("click", requestUserLocation);
   document.getElementById("budapestBtn").addEventListener("click", centerMapOnBudapest);
@@ -7254,7 +7282,7 @@ function isMobileLayout() {
 }
 
 function setMobileView(view) {
-  const normalizedView = ["map", "today", "plan", "places"].includes(view) ? view : "map";
+  const normalizedView = ["map", "today", "plan", "places", "tools"].includes(view) ? view : "map";
   const sidebar = document.querySelector(".sidebar");
   const scrim = document.getElementById("mobileScrim");
 
