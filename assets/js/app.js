@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.34.0";
+const APP_VERSION = "v1.35.0";
 
 
 function syncVersionLabels() {
@@ -4746,6 +4746,73 @@ function estimatedWalkingMinutes(distanceMeters) {
   return Math.max(1, Math.round(distanceMeters / 80));
 }
 
+const MOBILITY_MODE_STORAGE_KEY = "budapestMobilityModeV1";
+const transitLegCache = new Map();
+
+function getMobilityMode() {
+  return localStorage.getItem(MOBILITY_MODE_STORAGE_KEY) || "auto";
+}
+
+function setMobilityMode(value) {
+  const mode = ["auto", "walk", "transit"].includes(value) ? value : "auto";
+  localStorage.setItem(MOBILITY_MODE_STORAGE_KEY, mode);
+  const select = document.getElementById("mobilityMode");
+  if (select && select.value !== mode) select.value = mode;
+  renderDayAgenda();
+  setStatus(mode === "walk" ? "🚶 Mobilität: zu Fuß." : mode === "transit" ? "🚇 Mobilität: ÖPNV." : "✨ Mobilität: automatisch.");
+}
+
+function googleMapsTransitUrl(from, to) {
+  const params = new URLSearchParams({
+    api: "1",
+    origin: `${from.position.lat},${from.position.lng}`,
+    destination: `${to.position.lat},${to.position.lng}`,
+    travelmode: "transit"
+  });
+  return `https://www.google.com/maps/dir/?${params.toString()}`;
+}
+
+function mobilityLegHtml(from, to, walkingLeg) {
+  if (!from?.position || !to?.position || !walkingLeg) return "";
+  const mode = getMobilityMode();
+  const walkText = `🚶 ca. ${formatRouteDistance(walkingLeg.distanceMeters)} · ${walkingLeg.minutes} Min.`;
+  if (mode === "walk") return `<div class="agenda-leg"><span>🚶</span><span>${escapeHtml(walkText.replace(/^🚶 /,""))} zum nächsten Punkt</span></div>`;
+
+  const key = `${from.position.lat},${from.position.lng}|${to.position.lat},${to.position.lng}`;
+  const cached = transitLegCache.get(key);
+  const transitText = cached?.durationMillis ? `🚇 ca. ${formatRouteDuration(cached.durationMillis)}` : "🚇 ÖPNV";
+  const recommendedTransit = mode === "transit" || (mode === "auto" && cached?.durationMillis && Math.round(cached.durationMillis / 60000) + 5 < walkingLeg.minutes);
+  const primary = recommendedTransit ? transitText : walkText;
+  const secondary = recommendedTransit ? walkText : transitText;
+  return `<div class="agenda-leg mobility-leg"><span>${recommendedTransit ? "🚇" : "🚶"}</span><span><strong>${escapeHtml(primary.replace(/^[🚇🚶] /u,""))}</strong><small>${escapeHtml(secondary)} · <a href="${escapeHtml(googleMapsTransitUrl(from,to))}" target="_blank" rel="noopener noreferrer">ÖPNV in Google Maps</a></small></span></div>`;
+}
+
+async function loadTransitLegsForDay(dayId) {
+  if (navigator.onLine === false || getMobilityMode() === "walk") return;
+  const stops = getRouteStopsForDay(dayId);
+  if (stops.length < 2) return;
+  let changed = false;
+  try {
+    const Route = await ensureRoutesLibrary();
+    for (let i=0;i<stops.length-1;i++) {
+      const from=stops[i], to=stops[i+1];
+      const key=`${from.position.lat},${from.position.lng}|${to.position.lat},${to.position.lng}`;
+      if (transitLegCache.has(key)) continue;
+      try {
+        const request={origin:from.position,destination:to.position,travelMode:"TRANSIT",fields:["distanceMeters","durationMillis"]};
+        const {routes}=await Route.computeRoutes(request);
+        transitLegCache.set(key, routes?.[0] ? {distanceMeters:routes[0].distanceMeters,durationMillis:routes[0].durationMillis} : null);
+        changed=true;
+      } catch (error) {
+        console.warn("ÖPNV-Verbindung:", from.name, "→", to.name, error);
+        transitLegCache.set(key,null);
+      }
+    }
+  } finally {
+    if (changed && selectedDayFilter===dayId) renderDayAgenda();
+  }
+}
+
 function getAgendaLegs(dayPlaces) {
   const legs = [];
   let totalDistance = 0;
@@ -6142,7 +6209,7 @@ function renderDayAgenda() {
   const rows = stops.map((stop, index) => {
     const nextLeg = legs[index] || null;
     const stopWeatherHtml = weatherBadge(selectedDay.id, stop.plannedStartTime);
-    const legHtml = nextLeg ? `<div class="agenda-leg"><span>🚶</span><span>ca. ${escapeHtml(formatRouteDistance(nextLeg.distanceMeters))} · ${nextLeg.minutes} Min. zum nächsten Punkt</span></div>` : "";
+    const legHtml = nextLeg ? mobilityLegHtml(stop, stops[index + 1], nextLeg) : "";
 
     if (stop.type === "activity") {
       const a = stop.activity;
@@ -6159,13 +6226,14 @@ function renderDayAgenda() {
     return `<div class="agenda-place-wrap" data-agenda-key="place:${escapeHtml(place.id)}"><div class="agenda-timeline-row"><div class="agenda-time-column"><div class="agenda-time ${time ? "" : "agenda-time-open"}">${time ? escapeHtml(time) : "offen"}</div><div class="agenda-timeline-dot ${saved.visited ? "visited" : ""}">${saved.visited ? "✓" : index + 1}</div>${index < stops.length - 1 ? '<div class="agenda-timeline-line"></div>' : ""}</div><div class="agenda-content-column"><div class="agenda-item ${saved.visited ? "agenda-item-visited" : ""}" data-place-id="${place.id}"><button type="button" class="agenda-drag-handle" aria-label="${escapeHtml(place.name)} verschieben">⋮⋮</button><div class="agenda-main"><div class="agenda-title">${CATEGORY_ICONS[place.category] || "•"} ${escapeHtml(place.name)}</div><div class="agenda-meta">${escapeHtml(categoryLabel(place.category))}${distance != null ? ` · 📍 ${escapeHtml(formatDistance(distance))} entfernt` : ""}${saved.visited ? " · ✓ besucht" : ""}</div>${openingHtml}${stopWeatherHtml}</div><button type="button" class="agenda-visited-button ${saved.visited ? "visited" : ""}" data-action="toggle-visited" data-place-id="${place.id}">${saved.visited ? "✓" : "○"}</button></div>${legHtml}</div></div></div>`;
   }).join("");
 
-  container.innerHTML = `${header}${accommodationHtml}<div class="agenda-timeline">${rows}</div><div class="agenda-estimate-note">🚶 Gehzeiten sind kompakte Luftlinien-Schätzungen. Die Navigation verwendet weiterhin die echte Google-Fußroute.</div>`;
+  container.innerHTML = `${header}${accommodationHtml}<div class="agenda-timeline">${rows}</div><div class="agenda-estimate-note">🚶 Gehzeiten sind kompakte Schätzungen. 🚇 ÖPNV-Zeiten werden online über Google Routes geladen; für die Live-Verbindung öffnet sich Google Maps.</div>`;
   document.getElementById("addActivityAgendaBtn")?.addEventListener("click", () => openActivityDialog());
   container.querySelector("[data-accommodation-focus]")?.addEventListener("click", () => {
     const place = getAccommodationPlace();
     if (place) focusExistingPlaceOnMap(place);
   });
   wireAgendaDragAndDrop(container, selectedDay.id);
+  loadTransitLegsForDay(selectedDay.id);
   container.querySelectorAll(".agenda-item[data-place-id]").forEach(item => item.addEventListener("click", event => {
     if (event.target.closest("[data-action],.agenda-drag-handle")) return;
     const place = placesData.places.find(p => p.id === item.dataset.placeId);
@@ -6849,6 +6917,11 @@ function wireControls() {
   renderOfflineRouteStatus();
   document.getElementById("routeGoogleBtn").addEventListener("click", () => openDayRouteInGoogleMaps());
   document.getElementById("routeStartMode").addEventListener("change", event => setRouteStartMode(event.target.value));
+  const mobilityMode = document.getElementById("mobilityMode");
+  if (mobilityMode) {
+    mobilityMode.value = getMobilityMode();
+    mobilityMode.addEventListener("change", event => setMobilityMode(event.target.value));
+  }
   const routeEndAccommodation = document.getElementById("routeEndAccommodation");
   if (routeEndAccommodation) {
     routeEndAccommodation.checked = localStorage.getItem("budapestRouteEndAccommodation") !== "false";
