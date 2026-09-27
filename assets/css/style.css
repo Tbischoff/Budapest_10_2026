@@ -3725,3 +3725,16 @@ details.mobility-leg { display:block; }
 .navigation-transit-step span,.navigation-transit-step small { font-size:.78rem; opacity:.82; }
 .navigation-transit-google { margin:0 14px 10px; border:0; background:transparent; text-decoration:underline; font-weight:700; cursor:pointer; }
 .navigation-panel:not(.expanded) .navigation-transit { display:none; }
+
+
+/* v1.38.0 · Werkzeuge */
+.tools-panel { display:none; }
+.tools-card { padding:14px; margin-top:12px; border:1px solid rgba(47,98,93,.16); border-radius:14px; background:rgba(47,98,93,.035); }
+.tools-card h3 { margin:0 0 6px; }
+@media (max-width:820px) {
+  .mobile-bottom-nav { grid-template-columns:repeat(5,minmax(0,1fr)); }
+  .sidebar.open[data-mobile-view="tools"] [data-mobile-view="tools"] { display:block; }
+}
+@media (min-width:821px) {
+  .tools-panel { display:block; }
+}
