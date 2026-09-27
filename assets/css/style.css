@@ -3628,3 +3628,39 @@ body.agenda-dragging {
     margin-top:0;
   }
 }
+
+
+/* v1.34.0 · Unterkunft */
+.agenda-accommodation,
+.today-accommodation-card > button:first-child {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-align: left;
+  border: 1px solid rgba(15,118,110,.22);
+  background: rgba(15,118,110,.08);
+  border-radius: 12px;
+  padding: 10px 12px;
+  color: inherit;
+}
+.agenda-accommodation { margin: 10px 0 12px; cursor: pointer; }
+.agenda-accommodation span:nth-child(2),
+.today-accommodation-card > button:first-child span:nth-child(2) { display:flex; flex-direction:column; flex:1; }
+.agenda-accommodation small,
+.today-accommodation-card small { opacity:.7; margin-top:2px; }
+.today-accommodation-card {
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  gap:8px;
+  margin:10px 0;
+}
+.today-accommodation-card > button:first-child { cursor:pointer; }
+.route-accommodation-end {
+  display:flex;
+  align-items:center;
+  gap:8px;
+  margin:8px 0 10px;
+  font-size:.9rem;
+}
+.route-accommodation-end input { accent-color:#0f766e; }
