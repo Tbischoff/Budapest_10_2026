@@ -157,8 +157,12 @@
         <div id="tryList"></div>
       </section>
 
-      <section class="panel tools-panel" data-mobile-view="tools">
-        <div class="panel-title-row"><h2>Werkzeuge</h2></div>
+      <section class="panel tools-panel desktop-tools-collapsed" data-mobile-view="tools">
+        <div class="panel-title-row tools-title-row">
+          <h2>Werkzeuge</h2>
+          <button id="desktopToolsToggle" class="text-button desktop-only" type="button" aria-expanded="false">Aufklappen</button>
+        </div>
+        <div class="tools-content">
         <div class="tools-card">
           <h3>📱 Offline-Reisemodus</h3>
           <p class="form-hint">Speichert Reisedaten, Wetter, Budapest-Karte und vorbereitete Fußrouten für die Nutzung ohne Internet.</p>
@@ -173,6 +177,7 @@
             <button id="importBackupButton" class="secondary-button" type="button">📥 Backup importieren</button>
             <input id="backupFileInput" type="file" accept="application/json,.json" hidden />
           </div>
+        </div>
         </div>
       </section>
 
