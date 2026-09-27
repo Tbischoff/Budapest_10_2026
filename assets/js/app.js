@@ -7212,6 +7212,13 @@ document.getElementById("navigationExpandBtn")?.addEventListener("click", () => 
   bindMobileViewButton("mobileNavPlan", "plan");
   bindMobileViewButton("mobileNavPlaces", "places");
   bindMobileViewButton("mobileNavTools", "tools");
+  const desktopToolsToggle=document.getElementById("desktopToolsToggle");
+  desktopToolsToggle?.addEventListener("click",()=>{
+    const panel=document.querySelector(".tools-panel");
+    const collapsed=panel?.classList.toggle("desktop-tools-collapsed");
+    desktopToolsToggle.setAttribute("aria-expanded",collapsed?"false":"true");
+    desktopToolsToggle.textContent=collapsed?"Aufklappen":"Einklappen";
+  });
   bindMobileViewButton("mobileScrim", "map");
   document.getElementById("mobileLocateBtn").addEventListener("click", requestUserLocation);
   document.getElementById("budapestBtn").addEventListener("click", centerMapOnBudapest);
