@@ -5,16 +5,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Budapest Map 2026</title>
   <link rel="icon" href="assets/icons/favicon.svg" type="image/svg+xml" />
-  <link rel="manifest" href="manifest.webmanifest?v=1.36.1" />
+  <link rel="manifest" href="manifest.webmanifest?v=1.37.0" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maplibre-gl@5.11.0/dist/maplibre-gl.css" />
   <meta name="theme-color" content="#2f625d" />
   <meta name="mobile-web-app-capable" content="yes" />
-  <link rel="stylesheet" href="assets/css/style.css?v=1.36.1" />
+  <link rel="stylesheet" href="assets/css/style.css?v=1.37.0" />
 </head>
 <body>
   <div id="authGate" class="auth-gate">
     <form id="loginForm" class="auth-card">
-      <div class="eyebrow">Travel Planner · <span id="loginVersion">v1.36.1</span></div>
+      <div class="eyebrow">Travel Planner · <span id="loginVersion">v1.37.0</span></div>
       <h1>Budapest Map</h1>
       <p>Bitte anmelden, um den gemeinsamen Reisestand zu laden.</p>
       <label class="form-field"><span>E-Mail</span><input id="loginEmail" type="email" autocomplete="username" required></label>
@@ -30,7 +30,7 @@
         <div>
           <div class="eyebrow">Budapest · 03.–07.10.2026</div>
           <h1>Budapest Map</h1>
-        <div class="mobile-header-meta"><div class="app-version">v1.36.1</div><div class="app-connectivity" data-app-connectivity>🟢 Online</div></div>
+        <div class="mobile-header-meta"><div class="app-version">v1.37.0</div><div class="app-connectivity" data-app-connectivity>🟢 Online</div></div>
         </div>
         <div class="account-actions">
           <button id="logoutButton" class="text-button" type="button">Abmelden</button>
@@ -127,6 +127,14 @@
             <button id="prepareOfflineRoutesBtn" class="route-button offline-prepare-button" type="button">📥 Offline-Daten vorbereiten</button>
             <div id="offlineRouteStatus" class="offline-route-status">Noch keine Offline-Routen vorbereitet.</div>
           </div>
+          <div class="navigation-mode-row">
+            <label for="navigationMode">Navigation</label>
+            <select id="navigationMode" class="route-start-select">
+              <option value="auto">✨ Automatisch</option>
+              <option value="walking">🚶 Zu Fuß</option>
+              <option value="transit">🚇 ÖPNV</option>
+            </select>
+          </div>
           <div class="navigation-actions">
             <button id="navigationStartBtn" class="route-button navigation-start-button" type="button">🧭 Navigation starten</button>
             <button id="navigationTestBtn" class="route-button secondary-route-button" type="button">🧪 Testnavigation</button>
@@ -209,6 +217,8 @@
             <div id="navigationInstruction" class="navigation-instruction">Route wird vorbereitet …</div>
           </div>
         </div>
+        <div id="navigationTransit" class="navigation-transit" hidden></div>
+        <button id="navigationTransitGoogleBtn" class="navigation-transit-google" type="button">↗ Live in Google Maps</button>
         <div id="navigationArrivalActions" class="navigation-arrival-actions" hidden>
           <button id="navigationMarkVisitedBtn" class="navigation-arrival-button secondary" type="button">✓ Als besucht markieren</button>
           <button id="navigationContinueBtn" class="navigation-arrival-button primary" type="button">🚶 Weiter navigieren</button>
@@ -392,6 +402,6 @@
   
   <script src="data/places.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@googlemaps/markerclusterer@2.6.2/dist/index.min.js"></script>
-  <script src="assets/js/app.js?v=1.36.1"></script>
+  <script src="assets/js/app.js?v=1.37.0"></script>
 </body>
 </html>
