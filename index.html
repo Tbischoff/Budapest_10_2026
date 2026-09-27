@@ -5,16 +5,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Budapest Map 2026</title>
   <link rel="icon" href="assets/icons/favicon.svg" type="image/svg+xml" />
-  <link rel="manifest" href="manifest.webmanifest?v=1.37.0" />
+  <link rel="manifest" href="manifest.webmanifest?v=1.38.0" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maplibre-gl@5.11.0/dist/maplibre-gl.css" />
   <meta name="theme-color" content="#2f625d" />
   <meta name="mobile-web-app-capable" content="yes" />
-  <link rel="stylesheet" href="assets/css/style.css?v=1.37.0" />
+  <link rel="stylesheet" href="assets/css/style.css?v=1.38.0" />
 </head>
 <body>
   <div id="authGate" class="auth-gate">
     <form id="loginForm" class="auth-card">
-      <div class="eyebrow">Travel Planner · <span id="loginVersion">v1.37.0</span></div>
+      <div class="eyebrow">Travel Planner · <span id="loginVersion">v1.38.0</span></div>
       <h1>Budapest Map</h1>
       <p>Bitte anmelden, um den gemeinsamen Reisestand zu laden.</p>
       <label class="form-field"><span>E-Mail</span><input id="loginEmail" type="email" autocomplete="username" required></label>
@@ -30,7 +30,7 @@
         <div>
           <div class="eyebrow">Budapest · 03.–07.10.2026</div>
           <h1>Budapest Map</h1>
-        <div class="mobile-header-meta"><div class="app-version">v1.37.0</div><div class="app-connectivity" data-app-connectivity>🟢 Online</div></div>
+        <div class="mobile-header-meta"><div class="app-version">v1.38.0</div><div class="app-connectivity" data-app-connectivity>🟢 Online</div></div>
         </div>
         <div class="account-actions">
           <button id="logoutButton" class="text-button" type="button">Abmelden</button>
@@ -122,11 +122,6 @@
           <div class="route-hint">
             Online wird die Route über Google Routes berechnet. Vorbereitete Tagesrouten können anschließend auch offline angezeigt werden.
           </div>
-          <div class="offline-route-panel">
-            <div class="offline-route-title">📱 Offline-Reisemodus</div>
-            <button id="prepareOfflineRoutesBtn" class="route-button offline-prepare-button" type="button">📥 Offline-Daten vorbereiten</button>
-            <div id="offlineRouteStatus" class="offline-route-status">Noch keine Offline-Routen vorbereitet.</div>
-          </div>
           <div class="navigation-mode-row">
             <label for="navigationMode">Navigation</label>
             <select id="navigationMode" class="route-start-select">
@@ -162,17 +157,26 @@
         <div id="tryList"></div>
       </section>
 
-      <div class="sidebar-footer desktop-secondary-section" data-mobile-view="places">
-              <div class="backup-section">
-        <h3>Datensicherung</h3>
-        <p class="form-hint">Sichert deine lokale Planung, eigene Orte und Statusdaten als JSON-Datei.</p>
-        <div class="backup-actions">
-          <button id="exportBackupButton" class="secondary-button" type="button">💾 Backup exportieren</button>
-          <button id="importBackupButton" class="secondary-button" type="button">📥 Backup importieren</button>
-          <input id="backupFileInput" type="file" accept="application/json,.json" hidden />
+      <section class="panel tools-panel" data-mobile-view="tools">
+        <div class="panel-title-row"><h2>Werkzeuge</h2></div>
+        <div class="tools-card">
+          <h3>📱 Offline-Reisemodus</h3>
+          <p class="form-hint">Speichert Reisedaten, Wetter, Budapest-Karte und vorbereitete Fußrouten für die Nutzung ohne Internet.</p>
+          <button id="prepareOfflineRoutesBtn" class="route-button offline-prepare-button" type="button">📥 Offline-Daten vorbereiten</button>
+          <div id="offlineRouteStatus" class="offline-route-status">Noch keine Offline-Routen vorbereitet.</div>
         </div>
-      </div>
+        <div class="tools-card backup-section">
+          <h3>💾 Datensicherung</h3>
+          <p class="form-hint">Sichert deine Reise- und Planungsdaten als JSON-Datei oder stellt ein Backup wieder her.</p>
+          <div class="backup-actions">
+            <button id="exportBackupButton" class="secondary-button" type="button">💾 Backup exportieren</button>
+            <button id="importBackupButton" class="secondary-button" type="button">📥 Backup importieren</button>
+            <input id="backupFileInput" type="file" accept="application/json,.json" hidden />
+          </div>
+        </div>
+      </section>
 
+      <div class="sidebar-footer desktop-secondary-section" data-mobile-view="places">
 <button id="resetStateBtn" class="secondary-button">Tagesplanung/Besucht zurücksetzen</button>
       </div>
     </aside>
@@ -281,6 +285,10 @@
     <button id="mobileNavPlaces" class="mobile-nav-button" type="button" data-view="places">
       <span class="mobile-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 21s6-5.1 6-11a6 6 0 1 0-12 0c0 5.9 6 11 6 11z"/><circle cx="12" cy="10" r="2.2"/></svg></span>
       <span>Orte</span>
+    </button>
+    <button id="mobileNavTools" class="mobile-nav-button" type="button" data-view="tools">
+      <span class="mobile-nav-icon" aria-hidden="true">⚙️</span>
+      <span>Mehr</span>
     </button>
   </nav>
 
@@ -402,6 +410,6 @@
   
   <script src="data/places.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@googlemaps/markerclusterer@2.6.2/dist/index.min.js"></script>
-  <script src="assets/js/app.js?v=1.37.0"></script>
+  <script src="assets/js/app.js?v=1.38.0"></script>
 </body>
 </html>
