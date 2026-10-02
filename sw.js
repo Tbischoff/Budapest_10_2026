@@ -1,4 +1,4 @@
-const CACHE_NAME = "budapest-travel-v1.42.5";
+const CACHE_NAME = "budapest-travel-v1.43.0";
 const OFFLINE_MAP_CACHE = "budapest-offline-map-v1";
 const APP_SHELL = ["./","./index.html","./assets/css/style.css?v=1.42.2","./assets/js/app.js?v=1.42.2","./data/places.js","./assets/icons/favicon.svg","./manifest.webmanifest?v=1.42.2",
   "https://cdn.jsdelivr.net/npm/maplibre-gl@5.11.0/dist/maplibre-gl.css",
