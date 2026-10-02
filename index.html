@@ -5,16 +5,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Travel Planner</title>
   <link rel="icon" href="assets/icons/favicon.svg" type="image/svg+xml" />
-  <link rel="manifest" href="manifest.webmanifest?v=1.40.2" />
+  <link rel="manifest" href="manifest.webmanifest?v=1.41.0" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maplibre-gl@5.11.0/dist/maplibre-gl.css" />
   <meta name="theme-color" content="#2f625d" />
   <meta name="mobile-web-app-capable" content="yes" />
-  <link rel="stylesheet" href="assets/css/style.css?v=1.40.2" />
+  <link rel="stylesheet" href="assets/css/style.css?v=1.41.0" />
 </head>
 <body>
   <div id="authGate" class="auth-gate">
     <form id="loginForm" class="auth-card">
-      <div class="eyebrow">Travel Planner · <span id="loginVersion">v1.40.2</span></div>
+      <div class="eyebrow">Travel Planner · <span id="loginVersion">v1.41.0</span></div>
       <h1>Budapest Map</h1>
       <p>Bitte anmelden, um den gemeinsamen Reisestand zu laden.</p>
       <label class="form-field"><span>E-Mail</span><input id="loginEmail" type="email" autocomplete="username" required></label>
@@ -23,13 +23,38 @@
       <div id="loginMessage" class="form-message" aria-live="polite"></div>
     </form>
     <section id="tripSelection" class="auth-card trip-selection is-hidden" aria-labelledby="tripSelectionTitle">
-      <div class="eyebrow">Travel Planner · <span class="app-version">v1.40.2</span></div>
+      <div class="eyebrow">Travel Planner · <span class="app-version">v1.41.0</span></div>
       <h1 id="tripSelectionTitle">Meine Reisen</h1>
       <p>Wähle die Reise aus, die du öffnen möchtest.</p>
+      <button id="createTripButton" class="primary-button trip-create-button" type="button">＋ Neue Reise</button>
       <div id="tripSelectionList" class="trip-selection-list"></div>
       <div id="tripSelectionMessage" class="form-message" aria-live="polite"></div>
       <button id="tripSelectionLogout" class="text-button trip-selection-logout" type="button">Abmelden</button>
     </section>
+
+    <dialog id="tripEditorDialog" class="trip-editor-dialog">
+      <form id="tripEditorForm" class="trip-editor-form">
+        <div class="trip-editor-heading">
+          <div>
+            <div class="eyebrow">Reiseverwaltung</div>
+            <h2 id="tripEditorTitle">Neue Reise</h2>
+          </div>
+          <button id="tripEditorClose" class="text-button" type="button" aria-label="Schließen">✕</button>
+        </div>
+        <input id="tripEditorId" type="hidden">
+        <label>Reisename<input id="tripEditorName" type="text" maxlength="120" required placeholder="z. B. Rom 2027"></label>
+        <label>Reiseziel<input id="tripEditorDestination" type="text" maxlength="160" required placeholder="z. B. Rom"></label>
+        <div class="trip-editor-dates">
+          <label>Startdatum<input id="tripEditorStartDate" type="date" required></label>
+          <label>Enddatum<input id="tripEditorEndDate" type="date" required></label>
+        </div>
+        <div id="tripEditorMessage" class="form-message" aria-live="polite"></div>
+        <div class="trip-editor-actions">
+          <button id="tripEditorCancel" class="text-button" type="button">Abbrechen</button>
+          <button id="tripEditorSave" class="primary-button" type="submit">Reise speichern</button>
+        </div>
+      </form>
+    </dialog>
   </div>
   <div class="app-shell">
     <aside class="sidebar" aria-label="Budapest Planung">
@@ -38,7 +63,7 @@
         <div>
           <div class="eyebrow">Budapest · 03.–07.10.2026</div>
           <h1>Budapest Map</h1>
-        <div class="mobile-header-meta"><div class="app-version">v1.40.2</div><div class="app-connectivity" data-app-connectivity>🟢 Online</div></div>
+        <div class="mobile-header-meta"><div class="app-version">v1.41.0</div><div class="app-connectivity" data-app-connectivity>🟢 Online</div></div>
         </div>
         <div class="account-actions">
           <button id="switchTripButton" class="text-button" type="button">Reise wechseln</button>
@@ -424,6 +449,6 @@
   
   <script src="data/places.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@googlemaps/markerclusterer@2.6.2/dist/index.min.js"></script>
-  <script src="assets/js/app.js?v=1.40.2"></script>
+  <script src="assets/js/app.js?v=1.41.0"></script>
 </body>
 </html>
