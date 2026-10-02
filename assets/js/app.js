@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.39.0";
+const APP_VERSION = "v1.40.0";
 
 
 function syncVersionLabels() {
@@ -13,10 +13,11 @@ const SUPABASE_CONFIG = {
   url: "https://fjlezfzninkltblcctds.supabase.co",
   publishableKey: "sb_publishable_h1U0zQu-XoJzVQsIqHtJNg_yGyurAr7"
 };
-const TRIP_NAME = "Budapest 2026";
 let supabaseClient = null;
 let currentUser = null;
 let currentTripId = null;
+let currentTrip = null;
+let availableTrips = [];
 let currentTripDays = [];
 let supabaseSyncTimer = null;
 let supabaseSyncInProgress = false;
@@ -244,6 +245,7 @@ async function bootstrapAuth() {
 
     document.getElementById("loginForm").addEventListener("submit", handleLogin);
     document.getElementById("logoutButton").addEventListener("click", handleLogout);
+    document.getElementById("tripSelectionLogout")?.addEventListener("click", handleLogout);
 
     const { data: { session }, error } = await supabaseClient.auth.getSession();
     if (error) throw error;
@@ -265,8 +267,80 @@ async function bootstrapAuth() {
 
 function showLogin(message = "") {
   currentUser = null;
+  currentTripId = null;
+  currentTrip = null;
+  availableTrips = [];
   document.getElementById("authGate").classList.remove("is-hidden");
+  document.getElementById("loginForm")?.classList.remove("is-hidden");
+  document.getElementById("tripSelection")?.classList.add("is-hidden");
   document.getElementById("loginMessage").textContent = message;
+}
+
+function formatTripSelectionDate(value) {
+  if (!value) return "";
+  const date = new Date(`${value}T12:00:00`);
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" });
+}
+
+async function loadAvailableTrips() {
+  const { data, error } = await supabaseClient
+    .from("trips")
+    .select("id,name,destination,start_date,end_date,updated_at")
+    .order("start_date", { ascending: false });
+  if (error) throw error;
+  return data || [];
+}
+
+function renderTripSelection() {
+  const list = document.getElementById("tripSelectionList");
+  const message = document.getElementById("tripSelectionMessage");
+  if (!list || !message) return;
+  list.innerHTML = "";
+  message.textContent = "";
+
+  if (!availableTrips.length) {
+    message.textContent = "Für dein Benutzerkonto ist aktuell keine Reise freigegeben.";
+    return;
+  }
+
+  for (const trip of availableTrips) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "trip-selection-card";
+    const destination = trip.destination ? `<span class="trip-selection-destination">${escapeHtml(trip.destination)}</span>` : "";
+    const period = [formatTripSelectionDate(trip.start_date), formatTripSelectionDate(trip.end_date)].filter(Boolean).join(" – ");
+    button.innerHTML = `<span class="trip-selection-card-main"><strong>${escapeHtml(trip.name || "Unbenannte Reise")}</strong>${destination}<small>${escapeHtml(period)}</small></span><span class="trip-selection-open">Öffnen ›</span>`;
+    button.addEventListener("click", () => selectTrip(trip.id));
+    list.appendChild(button);
+  }
+}
+
+async function showTripSelection() {
+  document.getElementById("authGate").classList.remove("is-hidden");
+  document.getElementById("loginForm")?.classList.add("is-hidden");
+  document.getElementById("tripSelection")?.classList.remove("is-hidden");
+  const message = document.getElementById("tripSelectionMessage");
+  if (message) message.textContent = "Reisen werden geladen …";
+  availableTrips = await loadAvailableTrips();
+  renderTripSelection();
+}
+
+async function selectTrip(tripId) {
+  const trip = availableTrips.find(item => item.id === tripId);
+  if (!trip) return;
+  const message = document.getElementById("tripSelectionMessage");
+  if (message) message.textContent = `„${trip.name}“ wird geladen …`;
+  currentTripId = trip.id;
+  currentTrip = trip;
+  try {
+    document.getElementById("authGate").classList.add("is-hidden");
+    await bootstrap();
+    subscribeToTripRealtime();
+  } catch (error) {
+    console.error("Reise öffnen:", error);
+    document.getElementById("authGate").classList.remove("is-hidden");
+    if (message) message.textContent = `Reise konnte nicht geöffnet werden: ${error.message}`;
+  }
 }
 
 async function handleLogin(event) {
@@ -302,9 +376,7 @@ async function handleLogout() {
 
 async function enterAuthenticatedApp(user) {
   currentUser = user;
-  document.getElementById("authGate").classList.add("is-hidden");
-  await bootstrap();
-  subscribeToTripRealtime();
+  await showTripSelection();
 }
 
 
@@ -409,12 +481,14 @@ async function refreshPlanningFromSupabase() {
 }
 
 async function loadSupabaseTripData() {
+  if (!currentTripId) throw new Error("Keine Reise ausgewählt.");
   const { data: trip, error: tripError } = await supabaseClient
     .from("trips")
     .select("id,name,destination,start_date,end_date")
-    .eq("name", TRIP_NAME)
+    .eq("id", currentTripId)
     .single();
   if (tripError) throw tripError;
+  currentTrip = trip;
 
   const { data: dbPlaces, error: placesError } = await supabaseClient
     .from("places")
