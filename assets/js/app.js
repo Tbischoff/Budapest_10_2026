@@ -3332,8 +3332,6 @@ async function showDayRoute(dayId = selectedDayFilter) {
   setStatus(`${dayRouteMode()==="transit" ? "ÖPNV-Route" : dayRouteMode()==="auto" ? "Automatische Route" : "Fußroute"} für ${day.label} wird berechnet …`);
 
   try {
-    setStatus("Budapest-Offline-Karte wird gespeichert …");
-    await cacheBudapestOfflineMap();
     const mode=dayRouteMode();
     clearRenderedRoute();
     if(mode==="auto"){
