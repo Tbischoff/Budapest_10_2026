@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.46.0";
+const APP_VERSION = "v1.47.0";
 
 
 function syncVersionLabels() {
@@ -152,8 +152,30 @@ let navigationLastPositionAt = 0;
 let navigationLastAccuracy = Infinity;
 const NAV_CACHED_POSITION_MAX_AGE_MS = 60000;
 const NAV_CACHED_POSITION_MAX_ACCURACY = 50;
-const NAV_SESSION_STORAGE_KEY = "budapestActiveNavigation";
-const LAST_LOCATION_STORAGE_KEY = "budapestLastKnownLocation";
+const NAV_SESSION_STORAGE_KEY = "travelPlannerActiveNavigation";
+const LAST_LOCATION_STORAGE_KEY = "travelPlannerLastKnownLocation";
+const MAP_STATE_STORAGE_KEY = "travelPlannerMapState";
+const ROUTE_END_ACCOMMODATION_STORAGE_KEY = "travelPlannerRouteEndAccommodation";
+const GEOCODE_CACHE_STORAGE_KEY = "travelPlannerGeocodeCache";
+
+function migrateLegacyLocalStorage() {
+  const pairs = [
+    ["budapestActiveNavigation", NAV_SESSION_STORAGE_KEY],
+    ["budapestLastKnownLocation", LAST_LOCATION_STORAGE_KEY],
+    [MAP_STATE_STORAGE_KEY, MAP_STATE_STORAGE_KEY],
+    [ROUTE_END_ACCOMMODATION_STORAGE_KEY, ROUTE_END_ACCOMMODATION_STORAGE_KEY],
+    [GEOCODE_CACHE_STORAGE_KEY, GEOCODE_CACHE_STORAGE_KEY],
+    ["budapestMobilityModeV1", "travelPlannerMobilityModeV1"]
+  ];
+  for (const [legacyKey, newKey] of pairs) {
+    try {
+      if (localStorage.getItem(newKey) === null && localStorage.getItem(legacyKey) !== null) {
+        localStorage.setItem(newKey, localStorage.getItem(legacyKey));
+      }
+    } catch {}
+  }
+}
+migrateLegacyLocalStorage();
 const LAST_LOCATION_MAX_AGE_MS = 30 * 60 * 1000;
 const NAV_OFF_ROUTE_METERS = 45;
 const NAV_OFF_ROUTE_SAMPLES = 3;
@@ -669,7 +691,7 @@ async function refreshPlanningFromSupabase() {
       else delete saved.endTime;
     }
 
-    localStorage.setItem("budapestMapState", JSON.stringify(state));
+    localStorage.setItem(MAP_STATE_STORAGE_KEY, JSON.stringify(state));
     applyFilters();
     updateDistanceControls();
     updateRouteControls();
@@ -907,7 +929,7 @@ async function deleteTryItem() {
 
 async function bootstrap() {
   try {
-    if (!window.BUDAPEST_PLACES_DATA) {
+    if (!window.TRAVEL_PLANNER_DATA) {
       throw new Error("Lokale Metadaten konnten nicht geladen werden.");
     }
 
@@ -926,8 +948,7 @@ async function bootstrap() {
       const cachedWeather = loadOfflineWeatherSnapshot();
       weatherForecast = cachedWeather?.data || null;
       placesData = {
-        meta: JSON.parse(JSON.stringify(window.BUDAPEST_PLACES_DATA.meta)),
-        tryInBudapest: JSON.parse(JSON.stringify(window.BUDAPEST_PLACES_DATA.tryInBudapest || [])),
+        meta: JSON.parse(JSON.stringify(window.TRAVEL_PLANNER_DATA.meta)),
         places: snapshot.places || []
       };
       placesData.meta.categoriesCount = Object.keys(placesData.meta.categories || {}).length;
@@ -946,8 +967,7 @@ async function bootstrap() {
     tryItems = await loadTryItemsFromSupabase();
     activities = await loadActivitiesFromSupabase();
     placesData = {
-      meta: JSON.parse(JSON.stringify(window.BUDAPEST_PLACES_DATA.meta)),
-      tryInBudapest: JSON.parse(JSON.stringify(window.BUDAPEST_PLACES_DATA.tryInBudapest || [])),
+      meta: JSON.parse(JSON.stringify(window.TRAVEL_PLANNER_DATA.meta)),
       places: remote.places
     };
     placesData.meta.categoriesCount = Object.keys(placesData.meta.categories || {}).length;
@@ -1055,7 +1075,7 @@ function centerMapOnTripDestination() {
   startupLocationCentered = true;
   const destination = currentTrip?.destination || "Reiseziel";
   if (navigator.onLine === false && offlineMapReady && offlineMap) {
-    setStatus(`🟠 Offline · Die vorbereitete Offline-Karte ist derzeit noch Budapest-spezifisch.`);
+    setStatus(`🟠 Offline · Für dieses Reiseziel ist derzeit keine Offline-Karte vorbereitet.`);
     return;
   }
   if (!map) return;
@@ -1449,7 +1469,7 @@ function accommodationStop() {
 
 function routeEndsAtAccommodation() {
   const checkbox = document.getElementById("routeEndAccommodation");
-  return checkbox ? checkbox.checked : localStorage.getItem("budapestRouteEndAccommodation") !== "false";
+  return checkbox ? checkbox.checked : localStorage.getItem(ROUTE_END_ACCOMMODATION_STORAGE_KEY) !== "false";
 }
 
 function getRoutingStopsForDay(dayId) {
@@ -2194,7 +2214,7 @@ async function handleAddPlace(event) {
       ps.plannedDay = selectedTripDay;
       ps.plannedOrder = nextOrder;
       ps.visited = false;
-      localStorage.setItem("budapestMapState", JSON.stringify(state));
+      localStorage.setItem(MAP_STATE_STORAGE_KEY, JSON.stringify(state));
     }
     cachePosition(draft.id, position);
     const marker = createPlaceMarker(draft, position, map);
@@ -2263,7 +2283,7 @@ async function removePlaceFromTrip(id) {
   markers.delete(id);
   placesData.places = placesData.places.filter(item => item.id !== id);
   delete state.places[id];
-  localStorage.setItem("budapestMapState", JSON.stringify(state));
+  localStorage.setItem(MAP_STATE_STORAGE_KEY, JSON.stringify(state));
   if (previousDay) normalizeDayOrder(previousDay);
   applyFilters();
   updateRouteControls();
@@ -4545,7 +4565,7 @@ function plannedTransitTimeForStop(stop) {
   if (!clock) return null;
   const [year,month,day]=stop.plannedDate.split("-").map(Number);
   const [hour,minute]=clock.split(":").map(Number);
-  // Reisezeit ohne fest verdrahtete Budapest-Zeitzone. Google Routes erhält
+  // Reisezeit ohne fest verdrahtete Reiseziel-Zeitzone. Google Routes erhält
   // einen Date-Wert; die Anzeige selbst verwendet die Zeitzone des Reiseziels.
   const value=new Date(year,month-1,day,hour,minute||0,0);
   const now=Date.now(), delta=value.getTime()-now;
@@ -5234,7 +5254,7 @@ function estimatedWalkingMinutes(distanceMeters) {
   return Math.max(1, Math.round(distanceMeters / 80));
 }
 
-const MOBILITY_MODE_STORAGE_KEY = "budapestMobilityModeV1";
+const MOBILITY_MODE_STORAGE_KEY = "travelPlannerMobilityModeV1";
 const transitLegCache = new Map();
 
 function getMobilityMode() {
@@ -7403,7 +7423,7 @@ async function importBackupFile(file) {
     }
 
     // Lokale Altstände dürfen den frisch restaurierten Cloud-Stand nicht überlagern.
-    localStorage.removeItem("budapestMapState");
+    localStorage.removeItem(MAP_STATE_STORAGE_KEY);
     setStatus("📥 Supabase-Backup wiederhergestellt. App wird neu geladen …");
     window.setTimeout(() => window.location.reload(), 600);
   } catch (error) {
@@ -7503,9 +7523,9 @@ function wireControls() {
   }
   const routeEndAccommodation = document.getElementById("routeEndAccommodation");
   if (routeEndAccommodation) {
-    routeEndAccommodation.checked = localStorage.getItem("budapestRouteEndAccommodation") !== "false";
+    routeEndAccommodation.checked = localStorage.getItem(ROUTE_END_ACCOMMODATION_STORAGE_KEY) !== "false";
     routeEndAccommodation.addEventListener("change", () => {
-      localStorage.setItem("budapestRouteEndAccommodation", String(routeEndAccommodation.checked));
+      localStorage.setItem(ROUTE_END_ACCOMMODATION_STORAGE_KEY, String(routeEndAccommodation.checked));
       if (activeRouteDay) clearDayRoute();
       updateRouteControls();
       renderOfflineRouteStatus();
@@ -7616,7 +7636,7 @@ document.getElementById("navigationExpandBtn")?.addEventListener("click", () => 
   });
   bindMobileViewButton("mobileScrim", "map");
   document.getElementById("mobileLocateBtn").addEventListener("click", requestUserLocation);
-  document.getElementById("budapestBtn")?.addEventListener("click", centerMapOnTripDestination);
+  document.getElementById("destinationBtn")?.addEventListener("click", centerMapOnTripDestination);
 
   updateDistanceControls();
   updateRouteControls();
@@ -7805,14 +7825,14 @@ function setStatus(text) {
 
 function loadState() {
   try {
-    return JSON.parse(localStorage.getItem("budapestMapState")) || { places: {}, try: {} };
+    return JSON.parse(localStorage.getItem(MAP_STATE_STORAGE_KEY)) || { places: {}, try: {} };
   } catch {
     return { places: {}, try: {} };
   }
 }
 
 function saveState() {
-  localStorage.setItem("budapestMapState", JSON.stringify(state));
+  localStorage.setItem(MAP_STATE_STORAGE_KEY, JSON.stringify(state));
   scheduleSupabasePlanningSync();
 }
 
@@ -7874,7 +7894,7 @@ async function syncPlanningToSupabase() {
 
 function getCachedPosition(id) {
   try {
-    const cache = JSON.parse(localStorage.getItem("budapestGeocodeCache")) || {};
+    const cache = JSON.parse(localStorage.getItem(GEOCODE_CACHE_STORAGE_KEY)) || {};
     return cache[id] || null;
   } catch {
     return null;
@@ -7884,10 +7904,10 @@ function getCachedPosition(id) {
 function cachePosition(id, position) {
   let cache = {};
   try {
-    cache = JSON.parse(localStorage.getItem("budapestGeocodeCache")) || {};
+    cache = JSON.parse(localStorage.getItem(GEOCODE_CACHE_STORAGE_KEY)) || {};
   } catch {}
   cache[id] = position;
-  localStorage.setItem("budapestGeocodeCache", JSON.stringify(cache));
+  localStorage.setItem(GEOCODE_CACHE_STORAGE_KEY, JSON.stringify(cache));
 }
 
 function delay(ms) {
