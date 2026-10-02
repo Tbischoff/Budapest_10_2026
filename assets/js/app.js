@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.45.1";
+const APP_VERSION = "v1.46.0";
 
 
 function syncVersionLabels() {
@@ -915,8 +915,11 @@ async function bootstrap() {
     if (navigator.onLine === false) {
       const snapshot = loadOfflineTripSnapshot();
       if (!snapshot) throw new Error("Keine Offline-Reisedaten vorbereitet. Bitte einmal online „Offline-Daten vorbereiten“ ausführen.");
-      currentTripId = snapshot.currentTripId || null;
+      currentTripId = snapshot.currentTripId || getLastTripId() || null;
+      currentTrip = snapshot.currentTrip || currentTrip || null;
       currentTripDays = snapshot.currentTripDays || [];
+      if (snapshot.tripMapCenter?.lat && snapshot.tripMapCenter?.lng) tripMapCenter = { ...snapshot.tripMapCenter };
+      applyCurrentTripContext();
       state = snapshot.state || state;
       tryItems = snapshot.tryItems || [];
       activities = snapshot.activities || [];
@@ -2709,31 +2712,62 @@ function buildRouteRequestPoints(routeStops) {
   };
 }
 
-const OFFLINE_ROUTES_STORAGE_KEY = "budapestOfflineDayRoutesV1";
-const OFFLINE_TRIP_STORAGE_KEY = "budapestOfflineTripV1";
-const OFFLINE_WEATHER_STORAGE_KEY = "budapestOfflineWeatherV1";
+const LEGACY_OFFLINE_ROUTES_STORAGE_KEY = "budapestOfflineDayRoutesV1";
+const LEGACY_OFFLINE_TRIP_STORAGE_KEY = "budapestOfflineTripV1";
+const LEGACY_OFFLINE_WEATHER_STORAGE_KEY = "budapestOfflineWeatherV1";
+
+function tripScopedStorageKey(kind, tripId = currentTripId || getLastTripId()) {
+  return tripId ? `travelPlanner:${kind}:${tripId}` : null;
+}
+
+function offlineTripStorageKey(tripId) { return tripScopedStorageKey("offlineTripV2", tripId); }
+function offlineWeatherStorageKey(tripId) { return tripScopedStorageKey("offlineWeatherV2", tripId); }
+function offlineRoutesStorageKey(tripId) { return tripScopedStorageKey("offlineDayRoutesV2", tripId); }
 
 function saveOfflineTripSnapshot() {
   if (!placesData?.places) return false;
   const snapshot = {
     savedAt: new Date().toISOString(),
     currentTripId,
+    currentTrip: currentTrip ? { ...currentTrip } : null,
     currentTripDays,
+    tripMapCenter: tripMapCenter ? { ...tripMapCenter } : null,
     places: placesData.places,
     state,
     activities,
     tryItems
   };
-  localStorage.setItem(OFFLINE_TRIP_STORAGE_KEY, JSON.stringify(snapshot));
-  if (weatherForecast) localStorage.setItem(OFFLINE_WEATHER_STORAGE_KEY, JSON.stringify({savedAt:new Date().toISOString(),data:weatherForecast}));
+  const tripKey = offlineTripStorageKey();
+  if (!tripKey) return false;
+  localStorage.setItem(tripKey, JSON.stringify(snapshot));
+  const weatherKey = offlineWeatherStorageKey();
+  if (weatherForecast && weatherKey) localStorage.setItem(weatherKey, JSON.stringify({savedAt:new Date().toISOString(),data:weatherForecast}));
   return true;
 }
 
-function loadOfflineTripSnapshot() {
-  try { return JSON.parse(localStorage.getItem(OFFLINE_TRIP_STORAGE_KEY)) || null; } catch { return null; }
+function loadOfflineTripSnapshot(tripId = currentTripId || getLastTripId()) {
+  try {
+    const key = offlineTripStorageKey(tripId);
+    if (key) {
+      const scoped = JSON.parse(localStorage.getItem(key) || "null");
+      if (scoped) return scoped;
+    }
+    // Einmalige Lesekompatibilität für den alten Budapest-Snapshot.
+    const legacy = JSON.parse(localStorage.getItem(LEGACY_OFFLINE_TRIP_STORAGE_KEY) || "null");
+    return legacy && (!tripId || legacy.currentTripId === tripId) ? legacy : null;
+  } catch { return null; }
 }
-function loadOfflineWeatherSnapshot() {
-  try { return JSON.parse(localStorage.getItem(OFFLINE_WEATHER_STORAGE_KEY)) || null; } catch { return null; }
+function loadOfflineWeatherSnapshot(tripId = currentTripId || getLastTripId()) {
+  try {
+    const key = offlineWeatherStorageKey(tripId);
+    if (key) {
+      const scoped = JSON.parse(localStorage.getItem(key) || "null");
+      if (scoped) return scoped;
+    }
+    const legacyTrip = loadOfflineTripSnapshot(tripId);
+    if (!legacyTrip || legacyTrip.currentTripId !== tripId) return null;
+    return JSON.parse(localStorage.getItem(LEGACY_OFFLINE_WEATHER_STORAGE_KEY) || "null");
+  } catch { return null; }
 }
 function offlineSnapshotTime() {
   const trip = loadOfflineTripSnapshot();
@@ -2741,6 +2775,10 @@ function offlineSnapshotTime() {
 }
 
 const OFFLINE_MAP_URL = "./assets/maps/budapest.pmtiles";
+
+function isLegacyBudapestTrip() {
+  return /budapest/i.test(`${currentTrip?.destination || ""} ${currentTrip?.name || ""}`);
+}
 const OFFLINE_MAP_CACHE = "budapest-offline-map-v1";
 let offlineMap = null;
 let offlineMapReady = false;
@@ -3041,8 +3079,15 @@ function renderOfflineRouteOnMapLibre(cached) {
 
 
 function loadOfflineDayRoutes() {
-  try { return JSON.parse(localStorage.getItem(OFFLINE_ROUTES_STORAGE_KEY)) || {}; }
-  catch { return {}; }
+  try {
+    const key = offlineRoutesStorageKey();
+    if (!key) return {};
+    const scoped = JSON.parse(localStorage.getItem(key) || "null");
+    if (scoped) return scoped;
+    const legacyTrip = loadOfflineTripSnapshot();
+    if (legacyTrip?.currentTripId !== currentTripId) return {};
+    return JSON.parse(localStorage.getItem(LEGACY_OFFLINE_ROUTES_STORAGE_KEY) || "{}");
+  } catch { return {}; }
 }
 
 function saveOfflineDayRoute(dayId, route, routeStops) {
@@ -3057,7 +3102,9 @@ function saveOfflineDayRoute(dayId, route, routeStops) {
     path,
     stops: routeStops.map(stop => ({ id: stop.id, type: stop.type, name: stop.name, position: normalizeLatLng(stop.position) }))
   };
-  localStorage.setItem(OFFLINE_ROUTES_STORAGE_KEY, JSON.stringify(all));
+  const key = offlineRoutesStorageKey();
+  if (!key) return false;
+  localStorage.setItem(key, JSON.stringify(all));
   renderOfflineRouteStatus();
   return true;
 }
@@ -3109,12 +3156,15 @@ function renderOfflineRouteStatus() {
   }).join("");
   const times = Object.values(saved).map(item => new Date(item.savedAt).getTime()).filter(Number.isFinite);
   const updated = times.length ? new Date(Math.max(...times)).toLocaleString("de-DE", { dateStyle:"short", timeStyle:"short" }) : "";
-  const mapReady = offlineMapIsPrepared();
+  const mapReady = isLegacyBudapestTrip() && offlineMapIsPrepared();
   const tripSnapshot = loadOfflineTripSnapshot();
   const weatherSnapshot = loadOfflineWeatherSnapshot();
   const syncText = tripSnapshot?.savedAt ? new Date(tripSnapshot.savedAt).toLocaleString("de-DE",{dateStyle:"short",timeStyle:"short"}) : "";
   const dataRows = `<div>${tripSnapshot ? "✅" : "⚪"} Orte & Tagesplanung – ${tripSnapshot ? "gespeichert" : "nicht vorbereitet"}</div><div>${tripSnapshot?.activities ? "✅" : "⚪"} Aktivitäten – ${tripSnapshot?.activities ? "gespeichert" : "nicht vorbereitet"}</div><div>${weatherSnapshot ? "✅" : "⚪"} Wetter – ${weatherSnapshot ? "letzter Stand gespeichert" : "nicht gespeichert"}</div>`;
-  box.innerHTML = dataRows +  `<div>${mapReady ? "✅" : "⚪"} Budapest-Karte – ${mapReady ? "gespeichert" : "nicht vorbereitet"}</div>` + rows + (syncText ? `<small>Reisedaten zuletzt synchronisiert: ${escapeHtml(syncText)}</small>` : (updated ? `<small>Routen zuletzt aktualisiert: ${escapeHtml(updated)}</small>` : ""));
+  const mapRow = isLegacyBudapestTrip()
+    ? `<div>${mapReady ? "✅" : "⚪"} Offline-Karte – ${mapReady ? "gespeichert" : "nicht vorbereitet"}</div>`
+    : `<div>ℹ️ Offline-Karte – für ${escapeHtml(currentTrip?.destination || "dieses Reiseziel")} noch nicht verfügbar</div>`;
+  box.innerHTML = dataRows + mapRow + rows + (syncText ? `<small>Reisedaten zuletzt synchronisiert: ${escapeHtml(syncText)}</small>` : (updated ? `<small>Routen zuletzt aktualisiert: ${escapeHtml(updated)}</small>` : ""));
 }
 
 async function prepareOfflineRoutes() {
@@ -3126,10 +3176,8 @@ async function prepareOfflineRoutes() {
   if (button) { button.disabled = true; button.textContent = "⏳ Routen werden gespeichert …"; }
   let savedCount = 0, skippedCount = 0, failedCount = 0;
   try {
-    setStatus("Budapest-Offline-Karte wird gespeichert …");
-    await cacheBudapestOfflineMap();
+    setStatus(`Offline-Daten für ${currentTrip?.destination || "die Reise"} werden vorbereitet …`);
     saveOfflineTripSnapshot();
-    if (weatherForecast) localStorage.setItem(OFFLINE_WEATHER_STORAGE_KEY, JSON.stringify({savedAt:new Date().toISOString(),data:weatherForecast}));
     const Route = await ensureRoutesLibrary();
     for (const day of TRIP_DAYS) {
       const stops = getRoutingStopsForDay(day.id);
