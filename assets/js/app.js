@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.43.0";
+const APP_VERSION = "v1.44.0";
 
 
 function syncVersionLabels() {
@@ -43,6 +43,9 @@ const CONFIG = {
   initialZoom: 12
 };
 
+let tripMapCenter = { ...CONFIG.initialCenter };
+let tripDestinationCountryCode = "";
+
 const CATEGORY_ICONS = {
   food: "🍴",
   cafe: "☕",
@@ -83,6 +86,8 @@ function applyCurrentTripContext() {
 
   document.querySelectorAll("[data-trip-name]").forEach(el => { el.textContent = tripName; });
   document.querySelectorAll("[data-trip-destination]").forEach(el => { el.textContent = destination; });
+  document.querySelectorAll("[data-map-destination]").forEach(el => { el.textContent = destination; });
+  document.querySelectorAll("[data-map-destination-title]").forEach(el => { el.setAttribute("title", `Karte auf ${destination} zentrieren`); });
   document.querySelectorAll("[data-trip-try-toggle]").forEach(el => { el.setAttribute("aria-label", `In ${destination} probieren aufklappen`); });
   document.querySelectorAll("[data-trip-eyebrow]").forEach(el => {
     const first = TRIP_DAYS[0]?.id;
@@ -951,6 +956,7 @@ async function bootstrap() {
     wireControls();
 
     await (googleMapsLoadPromise || loadGoogleMaps());
+    await resolveTripDestination();
     initMap();
     await createMarkers();
     createActivityMarkers();
@@ -980,7 +986,7 @@ function loadGoogleMaps() {
       return;
     }
 
-    window.__initBudapestMap = async () => {
+    window.__initTravelPlannerMap = async () => {
       try {
         // v1.14.8: Beim normalen App-Start nur die Marker-Bibliothek laden.
         // Die Routes Library wird erst bei einer tatsächlichen Routenberechnung
@@ -997,7 +1003,7 @@ function loadGoogleMaps() {
     const script = document.createElement("script");
     script.src =
       `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(CONFIG.googleMapsApiKey)}` +
-      `&callback=__initBudapestMap&v=weekly&language=de&region=HU&loading=async`;
+      `&callback=__initTravelPlannerMap&v=weekly&language=de&loading=async`;
     script.async = true;
     script.defer = true;
     script.onerror = () => reject(new Error("Google Maps konnte nicht geladen werden."));
@@ -1007,22 +1013,52 @@ function loadGoogleMaps() {
 }
 
 
-function centerMapOnBudapest() {
-  // v1.33.8: Online- und Offline-Karte über denselben Budapest-Button steuern.
+async function resolveTripDestination() {
+  const destination = currentTrip?.destination?.trim();
+  if (!destination || !google?.maps) return tripMapCenter;
+  try {
+    const destinationGeocoder = new google.maps.Geocoder();
+    const response = await destinationGeocoder.geocode({ address: destination });
+    const result = response?.results?.[0];
+    const loc = result?.geometry?.location;
+    if (!loc) throw new Error("Kein Kartenpunkt gefunden.");
+    tripMapCenter = { lat: loc.lat(), lng: loc.lng() };
+    const country = result.address_components?.find(component => component.types?.includes("country"));
+    tripDestinationCountryCode = country?.short_name?.toUpperCase() || "";
+    updateMapDestinationButton();
+    return tripMapCenter;
+  } catch (error) {
+    console.warn("Reiseziel konnte nicht geocodiert werden:", destination, error);
+    updateMapDestinationButton();
+    return tripMapCenter;
+  }
+}
+
+function countryCodeToFlag(code) {
+  if (!/^[A-Z]{2}$/.test(code || "")) return "📍";
+  return String.fromCodePoint(...[...code].map(char => 127397 + char.charCodeAt(0)));
+}
+
+function updateMapDestinationButton() {
+  const destination = currentTrip?.destination || "Reiseziel";
+  document.querySelectorAll("[data-map-destination]").forEach(el => { el.textContent = destination; });
+  document.querySelectorAll("[data-map-destination-flag]").forEach(el => { el.textContent = countryCodeToFlag(tripDestinationCountryCode); });
+  document.querySelectorAll("[data-map-destination-title]").forEach(el => { el.setAttribute("title", `Karte auf ${destination} zentrieren`); });
+}
+
+function centerMapOnTripDestination() {
   startupAutoCenterCancelled = true;
   startupLocationCentered = true;
+  const destination = currentTrip?.destination || "Reiseziel";
   if (navigator.onLine === false && offlineMapReady && offlineMap) {
-    offlineMap.resize();
-    offlineMap.jumpTo({ center: [CONFIG.initialCenter.lng, CONFIG.initialCenter.lat], zoom: CONFIG.initialZoom });
-    setStatus("🟠 Offline · Karte auf Budapest zentriert.");
+    setStatus(`🟠 Offline · Die vorbereitete Offline-Karte ist derzeit noch Budapest-spezifisch.`);
     return;
   }
   if (!map) return;
-  map.setCenter(CONFIG.initialCenter);
+  map.setCenter(tripMapCenter);
   map.setZoom(CONFIG.initialZoom);
-  setStatus("Karte auf Budapest zentriert.");
+  setStatus(`Karte auf ${destination} zentriert.`);
 }
-
 function centerMapOnCurrentLocation({ silent = false, highAccuracy = true, recenter = true, startupFix = false } = {}) {
   if (!navigator.geolocation) {
     if (!silent) setStatus("Standortbestimmung wird von diesem Browser nicht unterstützt.");
@@ -1054,7 +1090,7 @@ function centerMapOnCurrentLocation({ silent = false, highAccuracy = true, recen
       if (!silent) setStatus("Karte auf deinen aktuellen Standort zentriert.");
     },
     () => {
-      if (!silent) setStatus("Standort nicht verfügbar. Karte bleibt auf Budapest.");
+      if (!silent) setStatus(`Standort nicht verfügbar. Karte bleibt auf ${currentTrip?.destination || "dem Reiseziel"}.`);
     },
     { enableHighAccuracy: highAccuracy, timeout: highAccuracy ? 8000 : 2500, maximumAge: highAccuracy ? 60000 : 300000 }
   );
@@ -1072,9 +1108,8 @@ async function initGooglePlaceAutocomplete() {
     const { PlaceAutocompleteElement } = await google.maps.importLibrary("places");
 
     googlePlaceAutocompleteElement = new PlaceAutocompleteElement({
-      includedRegionCodes: ["hu"],
       locationBias: {
-        center: CONFIG.initialCenter,
+        center: tripMapCenter,
         radius: 50000
       }
     });
@@ -1301,7 +1336,7 @@ function googleOpeningHoursText(place) {
 
 function initMap() {
   map = new google.maps.Map(document.getElementById("map"), {
-    center: CONFIG.initialCenter,
+    center: tripMapCenter,
     zoom: CONFIG.initialZoom,
     mapId: CONFIG.googleMapId || "DEMO_MAP_ID",
     // Heading/Rotation funktioniert bei einer per <div> erzeugten Google Map
@@ -1698,9 +1733,9 @@ async function createMarkers() {
   }
 }
 
-function isPlausibleBudapestPosition(position) {
+function isValidMapPosition(position) {
   const p = normalizeLatLng(position);
-  return !!p && p.lat >= 47.3 && p.lat <= 47.7 && p.lng >= 18.8 && p.lng <= 19.4;
+  return !!p && p.lat >= -90 && p.lat <= 90 && p.lng >= -180 && p.lng <= 180;
 }
 
 function geocodePlaceIdWithRetry(place, attempt = 0) {
@@ -1714,7 +1749,7 @@ function geocodePlaceIdWithRetry(place, attempt = 0) {
       if (status === "OK" && results?.length) {
         const result = results.find(item => {
           const loc = item.geometry?.location;
-          return loc && isPlausibleBudapestPosition({ lat: loc.lat(), lng: loc.lng() });
+          return loc && isValidMapPosition({ lat: loc.lat(), lng: loc.lng() });
         });
 
         if (result) {
@@ -1727,7 +1762,7 @@ function geocodePlaceIdWithRetry(place, attempt = 0) {
           return;
         }
 
-        console.warn("Place-ID außerhalb Budapest verworfen:", place.name);
+        console.warn("Place-ID ohne gültige Kartenposition verworfen:", place.name);
         resolve(null);
         return;
       }
@@ -1780,7 +1815,7 @@ function geocodePlaceWithRetry(place, attempt = 0) {
         if (status === "OK" && results?.length) {
           const result = results.find(item => {
             const loc = item.geometry?.location;
-            return loc && isPlausibleBudapestPosition({ lat: loc.lat(), lng: loc.lng() });
+            return loc && isValidMapPosition({ lat: loc.lat(), lng: loc.lng() });
           });
           if (result) {
             const loc = result.geometry.location;
@@ -6472,7 +6507,7 @@ async function initActivityPlaceAutocomplete() {
   const host = document.getElementById("activityPlaceAutocomplete");
   if (!host || activityPlaceAutocompleteElement || !google?.maps) return;
   const { PlaceAutocompleteElement } = await google.maps.importLibrary("places");
-  activityPlaceAutocompleteElement = new PlaceAutocompleteElement({ includedRegionCodes: ["hu"], locationBias: { center: CONFIG.initialCenter, radius: 50000 } });
+  activityPlaceAutocompleteElement = new PlaceAutocompleteElement({ locationBias: { center: tripMapCenter, radius: 50000 } });
   activityPlaceAutocompleteElement.placeholder = "Treffpunkt oder Adresse suchen …";
   host.appendChild(activityPlaceAutocompleteElement);
   activityPlaceAutocompleteElement.addEventListener("gmp-select", async event => {
@@ -7525,7 +7560,7 @@ document.getElementById("navigationExpandBtn")?.addEventListener("click", () => 
   });
   bindMobileViewButton("mobileScrim", "map");
   document.getElementById("mobileLocateBtn").addEventListener("click", requestUserLocation);
-  document.getElementById("budapestBtn").addEventListener("click", centerMapOnBudapest);
+  document.getElementById("budapestBtn")?.addEventListener("click", centerMapOnTripDestination);
 
   updateDistanceControls();
   updateRouteControls();
