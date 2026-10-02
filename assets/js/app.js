@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.45.0";
+const APP_VERSION = "v1.45.1";
 
 
 function syncVersionLabels() {
@@ -86,6 +86,7 @@ function applyCurrentTripContext() {
 
   document.querySelectorAll("[data-trip-name]").forEach(el => { el.textContent = tripName; });
   document.querySelectorAll("[data-trip-destination]").forEach(el => { el.textContent = destination; });
+  document.querySelectorAll("[data-trip-try-label]").forEach(el => { el.textContent = `In ${destination} probieren`; });
   document.querySelectorAll("[data-map-destination]").forEach(el => { el.textContent = destination; });
   document.querySelectorAll("[data-map-destination-title]").forEach(el => { el.setAttribute("title", `Karte auf ${destination} zentrieren`); });
   document.querySelectorAll("[data-trip-try-toggle]").forEach(el => { el.setAttribute("aria-label", `In ${destination} probieren aufklappen`); });
