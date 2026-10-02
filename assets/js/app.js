@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.40.2";
+const APP_VERSION = "v1.41.0";
 
 
 function syncVersionLabels() {
@@ -247,6 +247,10 @@ async function bootstrapAuth() {
     document.getElementById("logoutButton").addEventListener("click", handleLogout);
     document.getElementById("switchTripButton")?.addEventListener("click", handleSwitchTrip);
     document.getElementById("tripSelectionLogout")?.addEventListener("click", handleLogout);
+    document.getElementById("createTripButton")?.addEventListener("click", () => openTripEditor());
+    document.getElementById("tripEditorClose")?.addEventListener("click", closeTripEditor);
+    document.getElementById("tripEditorCancel")?.addEventListener("click", closeTripEditor);
+    document.getElementById("tripEditorForm")?.addEventListener("submit", saveTripEditor);
 
     const { data: { session }, error } = await supabaseClient.auth.getSession();
     if (error) throw error;
@@ -306,11 +310,14 @@ function renderTripSelection() {
   message.textContent = "";
 
   if (!availableTrips.length) {
-    message.textContent = "Für dein Benutzerkonto ist aktuell keine Reise freigegeben.";
+    message.textContent = "Noch keine Reise vorhanden. Lege deine erste Reise an.";
     return;
   }
 
   for (const trip of availableTrips) {
+    const row = document.createElement("div");
+    row.className = "trip-selection-row";
+
     const button = document.createElement("button");
     button.type = "button";
     button.className = "trip-selection-card";
@@ -318,7 +325,99 @@ function renderTripSelection() {
     const period = [formatTripSelectionDate(trip.start_date), formatTripSelectionDate(trip.end_date)].filter(Boolean).join(" – ");
     button.innerHTML = `<span class="trip-selection-card-main"><strong>${escapeHtml(trip.name || "Unbenannte Reise")}</strong>${destination}<small>${escapeHtml(period)}</small></span><span class="trip-selection-open">Öffnen ›</span>`;
     button.addEventListener("click", () => selectTrip(trip.id));
-    list.appendChild(button);
+
+    const actions = document.createElement("div");
+    actions.className = "trip-selection-actions";
+    const edit = document.createElement("button");
+    edit.type = "button";
+    edit.className = "trip-action-button";
+    edit.textContent = "Bearbeiten";
+    edit.addEventListener("click", () => openTripEditor(trip));
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.className = "trip-action-button trip-action-danger";
+    remove.textContent = "Löschen";
+    remove.addEventListener("click", () => deleteTripFromSelection(trip));
+    actions.append(edit, remove);
+    row.append(button, actions);
+    list.appendChild(row);
+  }
+}
+
+function openTripEditor(trip = null) {
+  const dialog = document.getElementById("tripEditorDialog");
+  const form = document.getElementById("tripEditorForm");
+  if (!dialog || !form) return;
+  form.reset();
+  document.getElementById("tripEditorId").value = trip?.id || "";
+  document.getElementById("tripEditorTitle").textContent = trip ? "Reise bearbeiten" : "Neue Reise";
+  document.getElementById("tripEditorName").value = trip?.name || "";
+  document.getElementById("tripEditorDestination").value = trip?.destination || "";
+  document.getElementById("tripEditorStartDate").value = trip?.start_date || "";
+  document.getElementById("tripEditorEndDate").value = trip?.end_date || "";
+  document.getElementById("tripEditorMessage").textContent = "";
+  dialog.showModal();
+}
+
+function closeTripEditor() {
+  document.getElementById("tripEditorDialog")?.close();
+}
+
+async function saveTripEditor(event) {
+  event.preventDefault();
+  const id = document.getElementById("tripEditorId").value;
+  const name = document.getElementById("tripEditorName").value.trim();
+  const destination = document.getElementById("tripEditorDestination").value.trim();
+  const startDate = document.getElementById("tripEditorStartDate").value;
+  const endDate = document.getElementById("tripEditorEndDate").value;
+  const message = document.getElementById("tripEditorMessage");
+  const save = document.getElementById("tripEditorSave");
+
+  if (endDate < startDate) {
+    message.textContent = "Das Enddatum darf nicht vor dem Startdatum liegen.";
+    return;
+  }
+
+  save.disabled = true;
+  message.textContent = id ? "Reise wird aktualisiert …" : "Reise wird angelegt …";
+  try {
+    const { error } = await supabaseClient.rpc(id ? "update_trip" : "create_trip", id ? {
+      p_trip_id: id, p_name: name, p_destination: destination, p_start_date: startDate, p_end_date: endDate
+    } : {
+      p_name: name, p_destination: destination, p_start_date: startDate, p_end_date: endDate
+    });
+    if (error) throw error;
+    closeTripEditor();
+    availableTrips = await loadAvailableTrips();
+    renderTripSelection();
+  } catch (error) {
+    console.error("Reise speichern:", error);
+    message.textContent = `Speichern fehlgeschlagen: ${error.message}`;
+  } finally {
+    save.disabled = false;
+  }
+}
+
+async function deleteTripFromSelection(trip) {
+  const confirmation = window.prompt(
+    `„${trip.name}“ wirklich löschen?\n\nDabei werden die Reiseplanung, Aktivitäten und Reisetage gelöscht.\nGib zum Bestätigen den Reisenamen ein:`
+  );
+  if (confirmation === null) return;
+  if (confirmation.trim() !== trip.name) {
+    window.alert("Der eingegebene Reisename stimmt nicht überein. Die Reise wurde nicht gelöscht.");
+    return;
+  }
+
+  const message = document.getElementById("tripSelectionMessage");
+  if (message) message.textContent = `„${trip.name}“ wird gelöscht …`;
+  try {
+    const { error } = await supabaseClient.rpc("delete_trip", { p_trip_id: trip.id });
+    if (error) throw error;
+    availableTrips = await loadAvailableTrips();
+    renderTripSelection();
+  } catch (error) {
+    console.error("Reise löschen:", error);
+    if (message) message.textContent = `Löschen fehlgeschlagen: ${error.message}`;
   }
 }
 
