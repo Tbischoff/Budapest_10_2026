@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.42.0";
+const APP_VERSION = "v1.42.1";
 
 
 function syncVersionLabels() {
@@ -736,22 +736,6 @@ async function loadTryItemsFromSupabase() {
   return data || [];
 }
 
-async function seedLegacyTryItemsIfNeeded() {
-  if (tryItems.length || !currentTripId) return;
-  const legacy = window.BUDAPEST_PLACES_DATA?.tryInBudapest || [];
-  if (!legacy.length) return;
-  const rows = legacy.map(item => ({
-    trip_id: currentTripId,
-    name: item.name,
-    category: "food",
-    note: item.notes || null,
-    tried: Boolean(item.done)
-  }));
-  const { data, error } = await supabaseClient.from("trip_try_items").insert(rows).select();
-  if (error) throw error;
-  tryItems = data || [];
-}
-
 async function refreshTryItemsFromSupabase() {
   try {
     tryItems = await loadTryItemsFromSupabase();
@@ -923,7 +907,6 @@ async function bootstrap() {
     const remote = await loadSupabaseTripData();
     tryItems = await loadTryItemsFromSupabase();
     activities = await loadActivitiesFromSupabase();
-    await seedLegacyTryItemsIfNeeded();
     placesData = {
       meta: JSON.parse(JSON.stringify(window.BUDAPEST_PLACES_DATA.meta)),
       tryInBudapest: JSON.parse(JSON.stringify(window.BUDAPEST_PLACES_DATA.tryInBudapest || [])),
