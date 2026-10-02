@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.42.3";
+const APP_VERSION = "v1.42.4";
 
 
 function syncVersionLabels() {
