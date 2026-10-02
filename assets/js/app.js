@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.41.1";
+const APP_VERSION = "v1.42.0";
 
 
 function syncVersionLabels() {
@@ -58,13 +58,38 @@ const CATEGORY_ICONS = {
   other: "•"
 };
 
-const TRIP_DAYS = [
-  { id: "2026-10-03", short: "Sa 03.10.", label: "Samstag, 03.10." },
-  { id: "2026-10-04", short: "So 04.10.", label: "Sonntag, 04.10." },
-  { id: "2026-10-05", short: "Mo 05.10.", label: "Montag, 05.10." },
-  { id: "2026-10-06", short: "Di 06.10.", label: "Dienstag, 06.10." },
-  { id: "2026-10-07", short: "Mi 07.10.", label: "Mittwoch, 07.10." }
-];
+let TRIP_DAYS = [];
+
+function buildTripDays(tripDays = []) {
+  const weekdayShort = new Intl.DateTimeFormat("de-DE", { weekday: "short" });
+  const weekdayLong = new Intl.DateTimeFormat("de-DE", { weekday: "long" });
+  const dayMonth = new Intl.DateTimeFormat("de-DE", { day: "2-digit", month: "2-digit" });
+  return tripDays.map(day => {
+    const date = new Date(`${day.day_date}T12:00:00`);
+    const shortWeekday = weekdayShort.format(date).replace(".", "");
+    return {
+      id: day.day_date,
+      dbId: day.id,
+      short: `${shortWeekday} ${dayMonth.format(date)}.`,
+      label: day.title?.trim() || `${weekdayLong.format(date)}, ${dayMonth.format(date)}.`
+    };
+  });
+}
+
+function applyCurrentTripContext() {
+  TRIP_DAYS = buildTripDays(currentTripDays);
+  const tripName = currentTrip?.name || "Travel Planner";
+  const destination = currentTrip?.destination || "Reise";
+
+  document.querySelectorAll("[data-trip-name]").forEach(el => { el.textContent = tripName; });
+  document.querySelectorAll("[data-trip-destination]").forEach(el => { el.textContent = destination; });
+  document.querySelectorAll("[data-trip-eyebrow]").forEach(el => {
+    const first = TRIP_DAYS[0]?.id;
+    const last = TRIP_DAYS[TRIP_DAYS.length - 1]?.id;
+    const period = first && last ? `${formatTripSelectionDate(first)} – ${formatTripSelectionDate(last)}` : "";
+    el.textContent = [destination, period].filter(Boolean).join(" · ");
+  });
+}
 
 let selectedDayFilter = "unplanned";
 let userPosition = null;
@@ -653,6 +678,7 @@ async function loadSupabaseTripData() {
 
   currentTripId = trip.id;
   currentTripDays = tripDays;
+  applyCurrentTripContext();
   const dayById = new Map(tripDays.map(day => [day.id, day.day_date]));
   const tpByPlaceId = new Map(tripPlaces.map(item => [item.place_id, item]));
 
@@ -4782,7 +4808,7 @@ function updateDayCounts() {
       button.textContent = `Offen (${unplanned})`;
     } else {
       const day = TRIP_DAYS.find(d => d.id === id);
-      const compact = day.short.replace(/\s\d{2}\.10\.$/, match => match.slice(0, 4));
+      const compact = day?.short || id;
       button.textContent = `${compact} (${counts[id] || 0})`;
     }
   });
