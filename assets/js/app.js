@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.44.0";
+const APP_VERSION = "v1.45.0";
 
 
 function syncVersionLabels() {
@@ -39,7 +39,7 @@ const CONFIG = {
   // Für GitHub Pages bitte unbedingt per HTTP-Referrer auf deine Domain beschränken.
   googleMapsApiKey: "AIzaSyCw_nRXt7NWjHw-lHTHZb8N8jmvl2iQFkg",
   googleMapId: "DEMO_MAP_ID",
-  initialCenter: { lat: 47.4979, lng: 19.0402 },
+  initialCenter: { lat: 50.1109, lng: 8.6821 },
   initialZoom: 12
 };
 
@@ -612,7 +612,6 @@ function subscribeToTripRealtime() {
 async function refreshTripPlacesFromSupabase() {
   try {
     suppressSupabaseSync = true;
-    weatherLoadPromise = loadBudapestWeather();
     const remote = await loadSupabaseTripData();
     for (const marker of markers.values()) marker.map = null;
     markers.clear();
@@ -938,7 +937,7 @@ async function bootstrap() {
       return;
     }
 
-    weatherLoadPromise = loadBudapestWeather();
+    weatherLoadPromise = loadTripWeather();
     const remote = await loadSupabaseTripData();
     tryItems = await loadTryItemsFromSupabase();
     activities = await loadActivitiesFromSupabase();
@@ -957,6 +956,7 @@ async function bootstrap() {
 
     await (googleMapsLoadPromise || loadGoogleMaps());
     await resolveTripDestination();
+    weatherLoadPromise = loadTripWeather();
     initMap();
     await createMarkers();
     createActivityMarkers();
@@ -1177,7 +1177,7 @@ async function initGooglePlaceAutocomplete() {
              <strong>Ort bereits vorhanden</strong>
              <span class="existing-place-name">${escapeHtml(place.displayName || existingPlace?.name || "Google-Ort")}</span>
              <span>${escapeHtml(place.formattedAddress || existingPlace?.address || "")}</span>
-             <span class="existing-place-hint">Dieser Ort ist bereits in deiner Budapest-Reise gespeichert.</span>
+             <span class="existing-place-hint">Dieser Ort ist bereits in dieser Reise gespeichert.</span>
            </div>`
         : existsInDatabase
           ? `<div class="existing-place-icon" aria-hidden="true">↗</div>
@@ -1185,7 +1185,7 @@ async function initGooglePlaceAutocomplete() {
                <strong>Ort bereits in der Datenbank</strong>
                <span class="existing-place-name">${escapeHtml(place.displayName || existingPlaceStatus?.place_name || "Google-Ort")}</span>
                <span>${escapeHtml(place.formattedAddress || "")}</span>
-               <span class="existing-place-hint">Der Ort wird beim Speichern mit dieser Budapest-Reise verknüpft – es wird kein Duplikat angelegt.</span>
+               <span class="existing-place-hint">Der Ort wird beim Speichern mit dieser Reise verknüpft – es wird kein Duplikat angelegt.</span>
              </div>`
           : `<strong>✓ ${escapeHtml(place.displayName || "Google-Ort ausgewählt")}</strong>
              <span>${escapeHtml(place.formattedAddress || "")}</span>
@@ -1281,7 +1281,7 @@ function focusExistingPlaceOnMap(place, { openInfo = true } = {}) {
     google.maps.event.trigger(map, "resize");
 
     if (!samePlaceStillVisible) {
-      // Für echte Ortswechsel (z. B. Deutschland -> Budapest) direkt setzen,
+      // Für echte Ortswechsel (z. B. Deutschland → Reiseziel) direkt setzen,
       // nicht animieren. So hängt das Ergebnis nicht vom bisherigen Viewport ab.
       map.setCenter(position);
       const currentZoom = Number(map.getZoom()) || 0;
@@ -1808,9 +1808,9 @@ function geocodePlaceGlobally(place, attempt = 0) {
 
 function geocodePlaceWithRetry(place, attempt = 0) {
   return new Promise(resolve => {
-    const query = [place.name, place.address, "Hungary"].filter(Boolean).join(", ");
+    const query = [place.name, place.address, currentTrip?.destination].filter(Boolean).join(", ");
     geocoder.geocode(
-      { address: query, region: "HU", componentRestrictions: { country: "HU" } },
+      { address: query },
       async (results, status) => {
         if (status === "OK" && results?.length) {
           const result = results.find(item => {
@@ -1822,7 +1822,7 @@ function geocodePlaceWithRetry(place, attempt = 0) {
             resolve({ lat: loc.lat(), lng: loc.lng(), googlePlaceId: result.place_id || null });
             return;
           }
-          console.warn("Geocoding außerhalb Budapest verworfen:", place.name);
+          console.warn("Geocoding ohne gültige Kartenposition verworfen:", place.name);
           resolve(null);
           return;
         }
@@ -1841,8 +1841,7 @@ function geocodePlaceWithRetry(place, attempt = 0) {
 function canGeocode(place) {
   const address = String(place.address || "").trim();
   if (!address || address.includes("Ort noch unklar") || place.status === "needs_identification") return false;
-  const normalized = address.toLowerCase().replace(/[.,]/g, "").trim();
-  return normalized !== "budapest";
+  return true;
 }
 
 
@@ -4499,8 +4498,9 @@ function plannedTransitTimeForStop(stop) {
   if (!clock) return null;
   const [year,month,day]=stop.plannedDate.split("-").map(Number);
   const [hour,minute]=clock.split(":").map(Number);
-  // Budapest is UTC+2 during the October 2026 trip (DST ends later in October).
-  const value=new Date(Date.UTC(year,month-1,day,hour-2,minute||0,0));
+  // Reisezeit ohne fest verdrahtete Budapest-Zeitzone. Google Routes erhält
+  // einen Date-Wert; die Anzeige selbst verwendet die Zeitzone des Reiseziels.
+  const value=new Date(year,month-1,day,hour,minute||0,0);
   const now=Date.now(), delta=value.getTime()-now;
   return delta >= -7*86400000 && delta <= 100*86400000 ? value : null;
 }
@@ -4539,7 +4539,7 @@ async function requestNavigationRoute(stops, origin) {
   // v1.14.7: Für die Live-Navigation immer nur den aktuell nächsten Stopp
   // berechnen. Der restliche Tagesplan bleibt in navigationStops erhalten und
   // wird erst nach Erreichen/Überspringen des aktuellen Stopps geroutet.
-  // Das vermeidet besonders bei Tests außerhalb Budapests eine teure Route
+  // Das vermeidet besonders bei Tests außerhalb des Reiseziels eine teure Route
   // vom aktuellen Standort über sämtliche Tagesstopps.
   const destination = stops[0].position;
   navigationMode = selectedNavigationMode();
@@ -5103,8 +5103,8 @@ function distanceToPlace(place) {
 
 function shouldDisplayPlaceDistance() {
   if (!userPosition) return false;
-  const budapestDistance = haversineDistanceKm(userPosition.lat, userPosition.lng, 47.4979, 19.0402);
-  return Number.isFinite(budapestDistance) && budapestDistance <= 100;
+  const destinationDistance = haversineDistanceKm(userPosition.lat, userPosition.lng, tripMapCenter.lat, tripMapCenter.lng);
+  return Number.isFinite(destinationDistance) && destinationDistance <= 100;
 }
 
 function haversineDistanceKm(lat1, lng1, lat2, lng2) {
@@ -5226,7 +5226,9 @@ function formatTransitClock(value) {
   if (!value) return "";
   const date=value instanceof Date ? value : new Date(value);
   if (Number.isNaN(date.getTime())) return "";
-  return new Intl.DateTimeFormat("de-DE",{hour:"2-digit",minute:"2-digit",timeZone:"Europe/Budapest"}).format(date);
+  const options={hour:"2-digit",minute:"2-digit"};
+  if(weatherForecast?.timezone) options.timeZone=weatherForecast.timezone;
+  return new Intl.DateTimeFormat("de-DE",options).format(date);
 }
 
 function transitStepSummary(step) {
@@ -5607,27 +5609,34 @@ async function showNextPlace() {
 }
 
 
-async function loadBudapestWeather() {
+async function loadTripWeather() {
   try {
-    const url = "https://api.open-meteo.com/v1/forecast?latitude=47.4979&longitude=19.0402&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m&hourly=temperature_2m,apparent_temperature,precipitation_probability,weather_code,wind_speed_10m&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=Europe%2FBudapest&forecast_days=16";
-    const response = await fetch(url);
+    const center = tripMapCenter;
+    if (!Number.isFinite(center?.lat) || !Number.isFinite(center?.lng)) throw new Error("Reiseziel-Koordinaten fehlen.");
+    const params = new URLSearchParams({
+      latitude: String(center.lat),
+      longitude: String(center.lng),
+      current: "temperature_2m,apparent_temperature,weather_code,wind_speed_10m",
+      hourly: "temperature_2m,apparent_temperature,precipitation_probability,weather_code,wind_speed_10m",
+      daily: "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max",
+      timezone: "auto",
+      forecast_days: "16"
+    });
+    const response = await fetch(`https://api.open-meteo.com/v1/forecast?${params.toString()}`);
     if (!response.ok) throw new Error(`Wetterdienst: HTTP ${response.status}`);
     weatherForecast = await response.json();
-    // Beim sehr frühen parallelen Wetterabruf können die Supabase-Reisedaten
-    // noch nicht initialisiert sein. Erst rendern, wenn die App-Daten bereit sind.
     if (placesData?.places) {
       renderTodayView();
       renderDayAgenda();
     }
     return weatherForecast;
   } catch (error) {
-    console.warn("Budapest-Wetter konnte nicht geladen werden:", error);
+    console.warn("Wetter für das Reiseziel konnte nicht geladen werden:", error);
     const cachedWeather = loadOfflineWeatherSnapshot();
     weatherForecast = cachedWeather?.data || null;
     return null;
   }
 }
-
 function weatherIcon(code) {
   const c = Number(code);
   if (c === 0) return "☀️";
@@ -5669,11 +5678,11 @@ function hourlyWeatherFor(dayId, time) {
 }
 
 
-function currentBudapestWeatherHtml() {
+function currentTripWeatherHtml() {
   const current = weatherForecast?.current;
   if (!current) return '<div class="weather-now-card muted">Aktuelles Wetter wird geladen …</div>';
   const today = dailyWeatherFor(weatherForecast?.daily?.time?.[0]);
-  return `<div class="weather-now-card"><div class="weather-now-icon">${weatherIcon(current.weather_code)}</div><div class="weather-now-main"><span>Budapest · aktuell</span><strong>${Math.round(Number(current.temperature_2m))} °C</strong><small>Gefühlt ${Math.round(Number(current.apparent_temperature))} °C · 💨 ${Math.round(Number(current.wind_speed_10m))} km/h${today ? ` · 💧 ${Math.round(Number(today.rain))}%` : ""}</small></div></div>`;
+  return `<div class="weather-now-card"><div class="weather-now-icon">${weatherIcon(current.weather_code)}</div><div class="weather-now-main"><span>${escapeHtml(currentTrip?.destination || "Reiseziel")} · aktuell</span><strong>${Math.round(Number(current.temperature_2m))} °C</strong><small>Gefühlt ${Math.round(Number(current.apparent_temperature))} °C · 💨 ${Math.round(Number(current.wind_speed_10m))} km/h${today ? ` · 💧 ${Math.round(Number(today.rain))}%` : ""}</small></div></div>`;
 }
 function weatherPeriodsHtml(dayId) {
   const periods=[["09:00","Morgens"],["13:00","Mittags"],["18:00","Abends"]];
@@ -5709,10 +5718,10 @@ function formatTodayDayTitle(day) {
   }).format(date);
 }
 
-function getBudapestClockMinutes(date = new Date()) {
-  const parts = new Intl.DateTimeFormat("de-DE", {
-    timeZone: "Europe/Budapest", hour: "2-digit", minute: "2-digit", hourCycle: "h23"
-  }).formatToParts(date);
+function getTripClockMinutes(date = new Date()) {
+  const options = { hour: "2-digit", minute: "2-digit", hourCycle: "h23" };
+  if (weatherForecast?.timezone) options.timeZone = weatherForecast.timezone;
+  const parts = new Intl.DateTimeFormat("de-DE", options).formatToParts(date);
   const hour = Number(parts.find(part => part.type === "hour")?.value || 0);
   const minute = Number(parts.find(part => part.type === "minute")?.value || 0);
   return hour * 60 + minute;
@@ -5726,7 +5735,7 @@ function whatNowRecommendation(day, stops, preview = false) {
     return { stop, status: time ? `Geplant für ${time} Uhr` : "Erster Programmpunkt", tone: "info" };
   }
 
-  const now = getBudapestClockMinutes();
+  const now = getTripClockMinutes();
   const candidates = stops.filter(stop => {
     if (stop.type === "place") return !(state.places[stop.id] || {}).visited;
     const end = minutesFromClock(stop.plannedEndTime);
@@ -5767,7 +5776,7 @@ function openingStatusNow(place, dayId) {
   if (!hours) return { rank: 2, kind: "unknown", label: "⚪ Öffnungszeit unbekannt", detail: "" };
   if (hours.closed) return { rank: 3, kind: "closed", label: "🔴 Heute geschlossen", detail: hours.text };
 
-  const now = getBudapestClockMinutes();
+  const now = getTripClockMinutes();
   const ranges = [...hours.text.matchAll(/(\d{1,2}):(\d{2})\s*[–-]\s*(\d{1,2}):(\d{2})/g)]
     .map(m => [Number(m[1]) * 60 + Number(m[2]), Number(m[3]) * 60 + Number(m[4])]);
 
@@ -5840,7 +5849,7 @@ function nearbyTodayCardHtml(dayId) {
 
 function freeTimeSuggestion(dayId, stops, preview = false) {
   if (preview || !userPosition) return null;
-  const now = getBudapestClockMinutes();
+  const now = getTripClockMinutes();
   const nextFixed = stops.find(stop => {
     const start = minutesFromClock(stop.plannedStartTime);
     if (start == null || start <= now) return false;
@@ -5886,7 +5895,7 @@ function freeTimeSuggestion(dayId, stops, preview = false) {
 function freeTimeCardHtml(dayId, stops, preview) {
   const free = freeTimeSuggestion(dayId, stops, preview);
   if (!free) return "";
-  const until = minutesFromClock(free.nextFixed.plannedStartTime) - getBudapestClockMinutes();
+  const until = minutesFromClock(free.nextFixed.plannedStartTime) - getTripClockMinutes();
   if (free.mode === "leave" || !free.suggestion) {
     return `<div class="free-time-card leave"><div class="free-time-kicker">⏱️ Nächster fester Punkt</div><strong>${escapeHtml(free.nextFixed.name)}</strong><div class="free-time-main">Noch ca. ${Math.max(0, until)} Min. · 🚶 etwa ${free.directWalk} Min. Weg</div><div class="free-time-advice">Aufbruch spätestens gegen <strong>${escapeHtml(free.leaveLabel)} Uhr</strong> empfohlen (inkl. 15 Min. Reserve).</div></div>`;
   }
@@ -5919,7 +5928,7 @@ function tripStatusOverviewHtml() {
   }).join("");
 
   return `<div class="trip-status-card">
-    <div class="trip-status-head"><div><div class="today-card-label">Reiseübersicht</div><div class="today-what-now-subtitle">Budapest auf einen Blick</div></div><span class="trip-status-total">${totalProgram} Programmpunkte</span></div>
+    <div class="trip-status-head"><div><div class="today-card-label">Reiseübersicht</div><div class="today-what-now-subtitle">${escapeHtml(currentTrip?.destination || "Reise")} auf einen Blick</div></div><span class="trip-status-total">${totalProgram} Programmpunkte</span></div>
     <div class="trip-status-summary">
       <span>📍 <strong>${plannedPlaces.length}</strong> geplant</span>
       <span>🎟️ <strong>${activities.length}</strong> Aktivitäten</span>
@@ -7910,7 +7919,7 @@ function initDesktopSidebarUi() {
 
 document.addEventListener("DOMContentLoaded", initDesktopSidebarUi);
 
-// v1.5.0 – Mobile Plan: "In Budapest probieren" is collapsible and closed by default.
+// Mobile Plan: Die Probierliste der aktuellen Reise ist einklappbar.
 function initMobileTryToggle() {
   const section = document.querySelector(".mobile-try-collapsible");
   const button = document.getElementById("mobileTryToggle");
@@ -7922,7 +7931,7 @@ function initMobileTryToggle() {
   const setExpanded = expanded => {
     section.classList.toggle("mobile-try-collapsed", !expanded);
     button.setAttribute("aria-expanded", String(expanded));
-    button.setAttribute("aria-label", `In Budapest probieren ${expanded ? "einklappen" : "aufklappen"}`);
+    button.setAttribute("aria-label", `In ${currentTrip?.destination || "der Reise"} probieren ${expanded ? "einklappen" : "aufklappen"}`);
 
     // Mobile uses an explicit inline display state. This avoids the desktop
     // collapsible rules from overriding the mobile section state.
