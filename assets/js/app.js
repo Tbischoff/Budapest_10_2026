@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.41.0";
+const APP_VERSION = "v1.41.1";
 
 
 function syncVersionLabels() {
@@ -251,6 +251,7 @@ async function bootstrapAuth() {
     document.getElementById("tripEditorClose")?.addEventListener("click", closeTripEditor);
     document.getElementById("tripEditorCancel")?.addEventListener("click", closeTripEditor);
     document.getElementById("tripEditorForm")?.addEventListener("submit", saveTripEditor);
+    document.getElementById("tripEditorStartDate")?.addEventListener("change", syncTripEditorDates);
 
     const { data: { session }, error } = await supabaseClient.auth.getSession();
     if (error) throw error;
@@ -355,8 +356,20 @@ function openTripEditor(trip = null) {
   document.getElementById("tripEditorDestination").value = trip?.destination || "";
   document.getElementById("tripEditorStartDate").value = trip?.start_date || "";
   document.getElementById("tripEditorEndDate").value = trip?.end_date || "";
+  syncTripEditorDates();
   document.getElementById("tripEditorMessage").textContent = "";
   dialog.showModal();
+}
+
+function syncTripEditorDates() {
+  const start = document.getElementById("tripEditorStartDate");
+  const end = document.getElementById("tripEditorEndDate");
+  if (!start || !end) return;
+
+  end.min = start.value || "";
+  if (start.value && (!end.value || end.value < start.value)) {
+    end.value = start.value;
+  }
 }
 
 function closeTripEditor() {
