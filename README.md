@@ -1,4 +1,4 @@
-# Travel Planner v1.40.2
+# Travel Planner v1.41.0
 
 Mobile Reise-PWA für die Budapest-Reise vom **03.–07.10.2026**. Die App verbindet Reiseplanung, gespeicherte Orte, Aktivitäten, Wetter, Öffnungszeiten, Tagesrouten, Live-Fußnavigation und Offline-Funktionen in einer Oberfläche.
 
@@ -14,7 +14,7 @@ Mobile Reise-PWA für die Budapest-Reise vom **03.–07.10.2026**. Die App verbi
 
 ## Version
 
-### v1.40.2 – Reiseauswahl
+### v1.41.0 – Reiseauswahl
 
 - Nach der Anmeldung werden die für den Benutzer freigegebenen Reisen angezeigt.
 - Die aktive Reise wird erst nach Auswahl über ihre `trip_id` geladen.
@@ -23,7 +23,7 @@ Mobile Reise-PWA für die Budapest-Reise vom **03.–07.10.2026**. Die App verbi
 
 
 
-### v1.40.2 – Automatische Mischroute
+### v1.41.0 – Automatische Mischroute
 - ✨ Automatisch vergleicht für jeden Abschnitt der Tagesroute eine echte Google-Fußroute mit einer ÖPNV-Verbindung.
 - ÖPNV wird gewählt, wenn er mindestens etwa fünf Minuten Zeitvorteil bietet; sonst bleibt der Abschnitt zu Fuß.
 - Die resultierende Tagesroute kann Fuß- und ÖPNV-Abschnitte kombinieren und gemeinsam auf der Karte darstellen.
