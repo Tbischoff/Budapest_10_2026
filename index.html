@@ -5,16 +5,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Travel Planner</title>
   <link rel="icon" href="assets/icons/favicon.svg" type="image/svg+xml" />
-  <link rel="manifest" href="manifest.webmanifest?v=1.45.0" />
+  <link rel="manifest" href="manifest.webmanifest?v=1.45.1" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maplibre-gl@5.11.0/dist/maplibre-gl.css" />
   <meta name="theme-color" content="#2f625d" />
   <meta name="mobile-web-app-capable" content="yes" />
-  <link rel="stylesheet" href="assets/css/style.css?v=1.45.0" />
+  <link rel="stylesheet" href="assets/css/style.css?v=1.45.1" />
 </head>
 <body>
   <div id="authGate" class="auth-gate">
     <form id="loginForm" class="auth-card">
-      <div class="eyebrow">Travel Planner · <span id="loginVersion">v1.45.0</span></div>
+      <div class="eyebrow">Travel Planner · <span id="loginVersion">v1.45.1</span></div>
       <h1>Travel Planner</h1>
       <p>Bitte anmelden, um den gemeinsamen Reisestand zu laden.</p>
       <label class="form-field"><span>E-Mail</span><input id="loginEmail" type="email" autocomplete="username" required></label>
@@ -23,7 +23,7 @@
       <div id="loginMessage" class="form-message" aria-live="polite"></div>
     </form>
     <section id="tripSelection" class="auth-card trip-selection is-hidden" aria-labelledby="tripSelectionTitle">
-      <div class="eyebrow">Travel Planner · <span class="app-version">v1.45.0</span></div>
+      <div class="eyebrow">Travel Planner · <span class="app-version">v1.45.1</span></div>
       <h1 id="tripSelectionTitle">Meine Reisen</h1>
       <p>Wähle die Reise aus, die du öffnen möchtest.</p>
       <button id="createTripButton" class="primary-button trip-create-button" type="button">＋ Neue Reise</button>
@@ -63,7 +63,7 @@
         <div>
           <div class="eyebrow" data-trip-eyebrow>Reise</div>
           <h1 data-trip-name>Travel Planner</h1>
-        <div class="mobile-header-meta"><div class="app-version">v1.45.0</div><div class="app-connectivity" data-app-connectivity>🟢 Online</div></div>
+        <div class="mobile-header-meta"><div class="app-version">v1.45.1</div><div class="app-connectivity" data-app-connectivity>🟢 Online</div></div>
         </div>
         <div class="account-actions">
           <button id="switchTripButton" class="text-button" type="button">Reise wechseln</button>
@@ -187,7 +187,7 @@
 
 
       <section class="panel desktop-collapsible desktop-secondary-section mobile-try-collapsible mobile-try-collapsed" data-desktop-section="try" data-mobile-view="plan">
-        <h2>In&nbsp;<span data-trip-destination>der Reise</span>&nbsp;probieren <button id="mobileTryToggle" class="mobile-try-toggle mobile-only" type="button" aria-expanded="false" aria-label="Probierliste aufklappen" data-trip-try-toggle><span aria-hidden="true">⌄</span></button></h2>
+        <h2><span data-trip-try-label>In der Reise probieren</span> <button id="mobileTryToggle" class="mobile-try-toggle mobile-only" type="button" aria-expanded="false" aria-label="Probierliste aufklappen" data-trip-try-toggle><span aria-hidden="true">⌄</span></button></h2>
         <div id="tryList"></div>
       </section>
 
@@ -449,6 +449,6 @@
   
   <script src="data/places.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@googlemaps/markerclusterer@2.6.2/dist/index.min.js"></script>
-  <script src="assets/js/app.js?v=1.45.0"></script>
+  <script src="assets/js/app.js?v=1.45.1"></script>
 </body>
 </html>
