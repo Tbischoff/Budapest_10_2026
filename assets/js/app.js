@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.42.4";
+const APP_VERSION = "v1.42.5";
 
 
 function syncVersionLabels() {
@@ -83,6 +83,7 @@ function applyCurrentTripContext() {
 
   document.querySelectorAll("[data-trip-name]").forEach(el => { el.textContent = tripName; });
   document.querySelectorAll("[data-trip-destination]").forEach(el => { el.textContent = destination; });
+  document.querySelectorAll("[data-trip-try-toggle]").forEach(el => { el.setAttribute("aria-label", `In ${destination} probieren aufklappen`); });
   document.querySelectorAll("[data-trip-eyebrow]").forEach(el => {
     const first = TRIP_DAYS[0]?.id;
     const last = TRIP_DAYS[TRIP_DAYS.length - 1]?.id;
