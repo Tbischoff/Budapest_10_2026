@@ -3765,6 +3765,7 @@ details.mobility-leg { display:block; }
 
 
 /* v1.40.0 · Reiseauswahl */
+.auth-card.is-hidden { display:none !important; }
 .trip-selection { width:min(520px, calc(100vw - 32px)); }
 .trip-selection-list { display:flex; flex-direction:column; gap:10px; margin:18px 0 10px; }
 .trip-selection-card {
