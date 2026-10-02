@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.42.5";
+const APP_VERSION = "v1.43.0";
 
 
 function syncVersionLabels() {
@@ -320,6 +320,22 @@ function formatTripSelectionDate(value) {
   return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" });
 }
 
+const LAST_TRIP_STORAGE_KEY = "travelPlannerLastTripId";
+
+function getLastTripId() {
+  try { return localStorage.getItem(LAST_TRIP_STORAGE_KEY); } catch { return null; }
+}
+
+function rememberLastTripId(tripId) {
+  try {
+    if (tripId) localStorage.setItem(LAST_TRIP_STORAGE_KEY, tripId);
+  } catch {}
+}
+
+function forgetLastTripId() {
+  try { localStorage.removeItem(LAST_TRIP_STORAGE_KEY); } catch {}
+}
+
 async function loadAvailableTrips() {
   const { data, error } = await supabaseClient
     .from("trips")
@@ -452,6 +468,7 @@ async function deleteTripFromSelection(trip) {
   try {
     const { error } = await supabaseClient.rpc("delete_trip", { p_trip_id: trip.id });
     if (error) throw error;
+    if (getLastTripId() === trip.id) forgetLastTripId();
     availableTrips = await loadAvailableTrips();
     renderTripSelection();
   } catch (error) {
@@ -477,6 +494,7 @@ async function selectTrip(tripId) {
   if (message) message.textContent = `„${trip.name}“ wird geladen …`;
   currentTripId = trip.id;
   currentTrip = trip;
+  rememberLastTripId(trip.id);
   try {
     document.getElementById("authGate").classList.add("is-hidden");
     await bootstrap();
@@ -544,7 +562,18 @@ async function handleLogout() {
 
 async function enterAuthenticatedApp(user) {
   currentUser = user;
-  await showTripSelection();
+  availableTrips = await loadAvailableTrips();
+  const lastTripId = getLastTripId();
+  const lastTrip = lastTripId ? availableTrips.find(item => item.id === lastTripId) : null;
+  if (lastTrip) {
+    await selectTrip(lastTrip.id);
+    return;
+  }
+  if (lastTripId) forgetLastTripId();
+  renderTripSelection();
+  document.getElementById("authGate").classList.remove("is-hidden");
+  document.getElementById("loginForm")?.classList.add("is-hidden");
+  document.getElementById("tripSelection")?.classList.remove("is-hidden");
 }
 
 
