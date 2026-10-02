@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.40.0";
+const APP_VERSION = "v1.40.2";
 
 
 function syncVersionLabels() {
@@ -245,13 +245,20 @@ async function bootstrapAuth() {
 
     document.getElementById("loginForm").addEventListener("submit", handleLogin);
     document.getElementById("logoutButton").addEventListener("click", handleLogout);
+    document.getElementById("switchTripButton")?.addEventListener("click", handleSwitchTrip);
     document.getElementById("tripSelectionLogout")?.addEventListener("click", handleLogout);
 
     const { data: { session }, error } = await supabaseClient.auth.getSession();
     if (error) throw error;
 
     if (session?.user) {
-      await enterAuthenticatedApp(session.user);
+      currentUser = session.user;
+      if (sessionStorage.getItem("travelPlannerShowTripSelection") === "1") {
+        sessionStorage.removeItem("travelPlannerShowTripSelection");
+        await showTripSelection();
+      } else {
+        await enterAuthenticatedApp(session.user);
+      }
     } else {
       showLogin();
     }
@@ -363,6 +370,29 @@ async function handleLogin(event) {
   } finally {
     button.disabled = false;
   }
+}
+
+async function handleSwitchTrip() {
+  if (realtimeChannel) {
+    await supabaseClient.removeChannel(realtimeChannel);
+    realtimeChannel = null;
+  }
+  window.clearTimeout(realtimeRefreshTimer);
+  window.clearTimeout(supabaseSyncTimer);
+
+  // Der aktive Reisekontext wird verworfen, die Anmeldung bleibt bestehen.
+  currentTripId = null;
+  currentTrip = null;
+  currentTripDays = [];
+  tryItems = [];
+  activities = [];
+  suppressSupabaseSync = true;
+
+  // Beim Öffnen einer anderen Reise wird die App bewusst neu initialisiert.
+  // Ein Reload verhindert, dass Marker, Listener oder Navigationszustände der
+  // vorherigen Reise in den nächsten Reisekontext übernommen werden.
+  sessionStorage.setItem("travelPlannerShowTripSelection", "1");
+  window.location.reload();
 }
 
 async function handleLogout() {
