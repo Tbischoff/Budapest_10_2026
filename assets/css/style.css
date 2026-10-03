@@ -3897,3 +3897,30 @@ body[data-trip-role="viewer"] [data-action="delete-place"] {
 .trip-selection-update small {
   color: #77807d;
 }
+
+
+/* v1.55.0 · Rollenübersicht in "Meine Reisen" */
+.trip-selection-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.trip-role-badge {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  padding: 3px 7px;
+  border-radius: 999px;
+  font-size: .72rem;
+  font-weight: 800;
+  line-height: 1.25;
+  white-space: nowrap;
+  background: rgba(47, 98, 93, .09);
+  color: #46615d;
+}
+.trip-role-badge.role-owner { background: rgba(181, 135, 36, .14); color: #765a18; }
+.trip-role-badge.role-editor { background: rgba(47, 98, 93, .12); color: #2f625d; }
+.trip-role-badge.role-viewer { background: rgba(100, 112, 108, .12); color: #596460; }
+.trip-role-badge.role-unknown,
+.trip-role-badge.is-loading { background: rgba(100, 112, 108, .08); color: #77807d; }
