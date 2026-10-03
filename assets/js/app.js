@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.48.0";
+const APP_VERSION = "v1.48.1";
 
 
 function syncVersionLabels() {
@@ -3020,7 +3020,9 @@ async function ensureOfflineMap() {
 }
 
 async function activateOfflineMap() {
-  if (!offlineMapIsPrepared()) return false;
+  // Ein vorhandener Reise-Snapshot reicht für die generische Orientierungskarte.
+  // So funktionieren auch Offline-Daten, die unmittelbar vor v1.48.1 vorbereitet wurden.
+  if (!offlineMapIsPrepared() && !loadOfflineTripSnapshot()) return false;
   const googleEl = document.getElementById("map");
   const offlineEl = document.getElementById("offlineMap");
   if (!offlineEl) return false;
@@ -3033,6 +3035,7 @@ async function activateOfflineMap() {
     return true;
   } catch (error) {
     console.warn("Offline-Karte:", error);
+    setStatus(`Offline-Karte konnte nicht angezeigt werden: ${error?.message || error}`);
     return false;
   }
 }
