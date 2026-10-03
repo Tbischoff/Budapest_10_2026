@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.51.1";
+const APP_VERSION = "v1.51.2";
 
 
 function syncVersionLabels() {
@@ -3135,7 +3135,7 @@ async function ensureOfflineMap() {
 
 async function activateOfflineMap() {
   // Ein vorhandener Reise-Snapshot reicht für die generische Orientierungskarte.
-  // So funktionieren auch Offline-Daten, die unmittelbar vor v1.51.1 vorbereitet wurden.
+  // So funktionieren auch Offline-Daten, die unmittelbar vor v1.51.2 vorbereitet wurden.
   if (!offlineMapIsPrepared() && !loadOfflineTripSnapshot()) return false;
   const googleEl = document.getElementById("map");
   const offlineEl = document.getElementById("offlineMap");
@@ -3334,7 +3334,7 @@ async function waitForOfflineMapJob(jobId, timeoutMs = 25 * 60 * 1000) {
     if (box) box.textContent = job?.status === "processing"
       ? "⏳ Offline-Karte wird erstellt …"
       : "⏳ Offline-Karte wartet auf die Verarbeitung …";
-    await new Promise(resolve => setTimeout(resolve, 5000));
+    await new Promise(resolve => setTimeout(resolve, 1500));
   }
   throw new Error("Die Kartenerstellung dauert länger als erwartet. Der Auftrag läuft möglicherweise noch.");
 }
