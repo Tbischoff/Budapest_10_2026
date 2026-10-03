@@ -3879,3 +3879,21 @@ body[data-trip-role="viewer"] [data-action="edit-place"],
 body[data-trip-role="viewer"] [data-action="delete-place"] {
   display:none !important;
 }
+
+
+/* v1.54.1 · Viewer-Zeit und Update in der Reiseauswahl */
+.viewer-time-display {
+  margin-top: 8px;
+  font-weight: 700;
+  color: #4f5d59;
+}
+.trip-selection-update {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding-top: 8px;
+}
+.trip-selection-update small {
+  color: #77807d;
+}
