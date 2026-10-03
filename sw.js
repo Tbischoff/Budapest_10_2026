@@ -1,4 +1,4 @@
-const CACHE_NAME = "travel-planner-v1.48.3";
+const CACHE_NAME = "travel-planner-v1.49.0";
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -11,6 +11,7 @@ const APP_SHELL = [
 const OPTIONAL_EXTERNAL = [
   "https://cdn.jsdelivr.net/npm/maplibre-gl@5.11.0/dist/maplibre-gl.css",
   "https://cdn.jsdelivr.net/npm/maplibre-gl@5.11.0/dist/maplibre-gl.js",
+  "https://cdn.jsdelivr.net/npm/pmtiles@4.5.0/dist/pmtiles.js",
   "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0",
   "https://cdn.jsdelivr.net/npm/@googlemaps/markerclusterer@2.6.2/dist/index.min.js"
 ];
