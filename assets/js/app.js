@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.50.1";
+const APP_VERSION = "v1.50.2";
 
 
 function syncVersionLabels() {
@@ -3135,7 +3135,7 @@ async function ensureOfflineMap() {
 
 async function activateOfflineMap() {
   // Ein vorhandener Reise-Snapshot reicht für die generische Orientierungskarte.
-  // So funktionieren auch Offline-Daten, die unmittelbar vor v1.50.1 vorbereitet wurden.
+  // So funktionieren auch Offline-Daten, die unmittelbar vor v1.50.2 vorbereitet wurden.
   if (!offlineMapIsPrepared() && !loadOfflineTripSnapshot()) return false;
   const googleEl = document.getElementById("map");
   const offlineEl = document.getElementById("offlineMap");
@@ -7868,11 +7868,14 @@ document.getElementById("navigationExpandBtn")?.addEventListener("click", () => 
   bindMobileViewButton("mobileNavPlaces", "places");
   bindMobileViewButton("mobileNavTools", "tools");
   const desktopToolsToggle=document.getElementById("desktopToolsToggle");
-  desktopToolsToggle?.addEventListener("click",()=>{
+  const toggleDesktopTools=()=>{
     const panel=document.querySelector(".tools-panel");
     const collapsed=panel?.classList.toggle("desktop-tools-collapsed");
-    desktopToolsToggle.setAttribute("aria-expanded",collapsed?"false":"true");
-    desktopToolsToggle.textContent=collapsed?"Aufklappen":"Einklappen";
+    desktopToolsToggle?.setAttribute("aria-expanded",collapsed?"false":"true");
+  };
+  desktopToolsToggle?.addEventListener("click",toggleDesktopTools);
+  desktopToolsToggle?.addEventListener("keydown",event=>{
+    if(event.key==="Enter"||event.key===" "){ event.preventDefault(); toggleDesktopTools(); }
   });
   bindMobileViewButton("mobileScrim", "map");
   document.getElementById("mobileLocateBtn").addEventListener("click", requestUserLocation);
