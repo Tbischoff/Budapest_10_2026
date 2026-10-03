@@ -3818,3 +3818,16 @@ details.mobility-leg { display:block; }
 @media (min-width:821px) {
   .desktop-tools-title-toggle { cursor:pointer; user-select:none; }
 }
+
+
+/* v1.53.0 · Reisemitglieder */
+.trip-members-list { display:flex; flex-direction:column; gap:8px; }
+.trip-member-row { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:11px 12px; border:1px solid rgba(47,98,93,.16); border-radius:11px; }
+.trip-member-row > div { min-width:0; display:flex; flex-direction:column; gap:2px; }
+.trip-member-row strong { overflow-wrap:anywhere; }
+.trip-member-row small { color:#77807d; }
+.trip-member-add-form { display:flex; align-items:flex-end; gap:10px; padding-top:4px; }
+.trip-member-add-form label { flex:1; display:flex; flex-direction:column; gap:6px; font-size:.9rem; font-weight:700; }
+.trip-member-add-form input { width:100%; box-sizing:border-box; padding:11px 12px; border:1px solid rgba(47,98,93,.25); border-radius:10px; font:inherit; background:#fff; }
+.trip-member-add-form button { flex:0 0 auto; }
+@media (max-width:520px) { .trip-member-add-form { flex-direction:column; align-items:stretch; } }
