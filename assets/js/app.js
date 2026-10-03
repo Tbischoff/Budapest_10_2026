@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.52.0";
+const APP_VERSION = "v1.53.0";
 
 
 function syncVersionLabels() {
@@ -329,6 +329,8 @@ async function bootstrapAuth() {
     document.getElementById("tripEditorCancel")?.addEventListener("click", closeTripEditor);
     document.getElementById("tripEditorForm")?.addEventListener("submit", saveTripEditor);
     document.getElementById("tripEditorStartDate")?.addEventListener("change", syncTripEditorDates);
+    document.getElementById("tripMembersClose")?.addEventListener("click", () => document.getElementById("tripMembersDialog")?.close());
+    document.getElementById("tripMemberAddForm")?.addEventListener("submit", addTripMember);
 
     const { data: { session }, error } = await supabaseClient.auth.getSession();
     if (error) throw error;
@@ -422,6 +424,11 @@ function renderTripSelection() {
 
     const actions = document.createElement("div");
     actions.className = "trip-selection-actions";
+    const members = document.createElement("button");
+    members.type = "button";
+    members.className = "trip-action-button";
+    members.textContent = "Mitglieder";
+    members.addEventListener("click", () => openTripMembers(trip));
     const edit = document.createElement("button");
     edit.type = "button";
     edit.className = "trip-action-button";
@@ -432,9 +439,93 @@ function renderTripSelection() {
     remove.className = "trip-action-button trip-action-danger";
     remove.textContent = "Löschen";
     remove.addEventListener("click", () => deleteTripFromSelection(trip));
-    actions.append(edit, remove);
+    actions.append(members, edit, remove);
     row.append(button, actions);
     list.appendChild(row);
+  }
+}
+
+let membersDialogTrip = null;
+
+async function loadTripMembers(tripId) {
+  const { data, error } = await supabaseClient.rpc("get_trip_members", { p_trip_id: tripId });
+  if (error) throw error;
+  return data || [];
+}
+
+async function openTripMembers(trip) {
+  membersDialogTrip = trip;
+  const dialog = document.getElementById("tripMembersDialog");
+  document.getElementById("tripMembersTitle").textContent = `Mitglieder · ${trip.name}`;
+  document.getElementById("tripMemberEmail").value = "";
+  document.getElementById("tripMembersMessage").textContent = "Mitglieder werden geladen …";
+  dialog.showModal();
+  await renderTripMembers();
+}
+
+async function renderTripMembers() {
+  if (!membersDialogTrip) return;
+  const list = document.getElementById("tripMembersList");
+  const message = document.getElementById("tripMembersMessage");
+  try {
+    const members = await loadTripMembers(membersDialogTrip.id);
+    const me = members.find(item => item.user_id === currentUser?.id);
+    const isOwner = me?.role === "owner";
+    list.innerHTML = "";
+    for (const member of members) {
+      const row = document.createElement("div");
+      row.className = "trip-member-row";
+      const own = member.user_id === currentUser?.id ? " · Du" : "";
+      const role = member.role === "owner" ? "Besitzer" : member.role === "viewer" ? "Betrachter" : "Mitglied";
+      row.innerHTML = `<div><strong>${escapeHtml(member.email || "Benutzer")}</strong><small>${role}${own}</small></div>`;
+      if (isOwner && member.role !== "owner") {
+        const remove = document.createElement("button");
+        remove.type = "button";
+        remove.className = "trip-action-button trip-action-danger";
+        remove.textContent = "Entfernen";
+        remove.addEventListener("click", () => removeTripMember(member));
+        row.appendChild(remove);
+      }
+      list.appendChild(row);
+    }
+    document.getElementById("tripMemberAddForm").hidden = !isOwner;
+    message.textContent = isOwner ? "Neue Mitglieder müssen bereits einen Travel-Planner-Account besitzen." : "Nur der Besitzer kann Mitglieder hinzufügen oder entfernen.";
+  } catch (error) {
+    console.error("Mitglieder laden:", error);
+    list.innerHTML = "";
+    message.textContent = `Mitglieder konnten nicht geladen werden: ${error.message}`;
+  }
+}
+
+async function addTripMember(event) {
+  event.preventDefault();
+  if (!membersDialogTrip) return;
+  const email = document.getElementById("tripMemberEmail").value.trim();
+  const button = document.getElementById("tripMemberAddButton");
+  const message = document.getElementById("tripMembersMessage");
+  button.disabled = true;
+  message.textContent = "Mitglied wird hinzugefügt …";
+  try {
+    const { error } = await supabaseClient.rpc("add_trip_member_by_email", { p_trip_id: membersDialogTrip.id, p_email: email });
+    if (error) throw error;
+    document.getElementById("tripMemberEmail").value = "";
+    await renderTripMembers();
+  } catch (error) {
+    console.error("Mitglied hinzufügen:", error);
+    message.textContent = `Hinzufügen fehlgeschlagen: ${error.message}`;
+  } finally { button.disabled = false; }
+}
+
+async function removeTripMember(member) {
+  if (!membersDialogTrip || !window.confirm(`${member.email} aus „${membersDialogTrip.name}“ entfernen?`)) return;
+  const message = document.getElementById("tripMembersMessage");
+  try {
+    const { error } = await supabaseClient.rpc("remove_trip_member", { p_trip_id: membersDialogTrip.id, p_user_id: member.user_id });
+    if (error) throw error;
+    await renderTripMembers();
+  } catch (error) {
+    console.error("Mitglied entfernen:", error);
+    message.textContent = `Entfernen fehlgeschlagen: ${error.message}`;
   }
 }
 
