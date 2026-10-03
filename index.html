@@ -14,7 +14,7 @@
 <body>
   <div id="authGate" class="auth-gate">
     <form id="loginForm" class="auth-card">
-      <div class="eyebrow">Travel Planner · <span id="loginVersion">v1.52.0</span></div>
+      <div class="eyebrow">Travel Planner · <span id="loginVersion">v1.53.0</span></div>
       <h1>Travel Planner</h1>
       <p>Bitte anmelden, um den gemeinsamen Reisestand zu laden.</p>
       <label class="form-field"><span>E-Mail</span><input id="loginEmail" type="email" autocomplete="username" required></label>
@@ -23,7 +23,7 @@
       <div id="loginMessage" class="form-message" aria-live="polite"></div>
     </form>
     <section id="tripSelection" class="auth-card trip-selection is-hidden" aria-labelledby="tripSelectionTitle">
-      <div class="eyebrow">Travel Planner · <span class="app-version">v1.52.0</span></div>
+      <div class="eyebrow">Travel Planner · <span class="app-version">v1.53.0</span></div>
       <h1 id="tripSelectionTitle">Meine Reisen</h1>
       <p>Wähle die Reise aus, die du öffnen möchtest.</p>
       <button id="createTripButton" class="primary-button trip-create-button" type="button">＋ Neue Reise</button>
@@ -31,6 +31,21 @@
       <div id="tripSelectionMessage" class="form-message" aria-live="polite"></div>
       <button id="tripSelectionLogout" class="text-button trip-selection-logout" type="button">Abmelden</button>
     </section>
+
+    <dialog id="tripMembersDialog" class="trip-editor-dialog trip-members-dialog">
+      <div class="trip-editor-form">
+        <div class="trip-editor-heading">
+          <div><div class="eyebrow">Reisemitglieder</div><h2 id="tripMembersTitle">Mitglieder verwalten</h2></div>
+          <button id="tripMembersClose" class="text-button" type="button" aria-label="Schließen">✕</button>
+        </div>
+        <div id="tripMembersList" class="trip-members-list"></div>
+        <form id="tripMemberAddForm" class="trip-member-add-form">
+          <label>E-Mail-Adresse<input id="tripMemberEmail" type="email" autocomplete="email" required placeholder="name@beispiel.de"></label>
+          <button id="tripMemberAddButton" class="primary-button" type="submit">Mitglied hinzufügen</button>
+        </form>
+        <div id="tripMembersMessage" class="form-message" aria-live="polite"></div>
+      </div>
+    </dialog>
 
     <dialog id="tripEditorDialog" class="trip-editor-dialog">
       <form id="tripEditorForm" class="trip-editor-form">
@@ -63,7 +78,7 @@
         <div>
           <div class="eyebrow" data-trip-eyebrow>Reise</div>
           <h1 data-trip-name>Travel Planner</h1>
-        <div class="mobile-header-meta"><div class="app-version">v1.52.0</div><div class="app-connectivity" data-app-connectivity>🟢 Online</div></div>
+        <div class="mobile-header-meta"><div class="app-version">v1.53.0</div><div class="app-connectivity" data-app-connectivity>🟢 Online</div></div>
         </div>
         <div class="account-actions">
           <button id="switchTripButton" class="text-button" type="button">Reise wechseln</button>
@@ -207,7 +222,7 @@
           <h3>🔄 App aktualisieren</h3>
           <p class="form-hint">Prüft, ob eine neuere Version des Travel Planners verfügbar ist.</p>
           <button id="checkAppUpdateBtn" class="secondary-button" type="button">🔎 Nach Updates suchen</button>
-          <div id="appUpdateStatus" class="app-update-status">Installiert: v1.52.0</div>
+          <div id="appUpdateStatus" class="app-update-status">Installiert: v1.53.0</div>
         </div>
         <div class="tools-card backup-section">
           <h3>💾 Datensicherung</h3>
@@ -455,7 +470,7 @@
   
   <script src="data/places.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@googlemaps/markerclusterer@2.6.2/dist/index.min.js"></script>
-  <script src="assets/js/app.js?v=1.52.0"></script>
+  <script src="assets/js/app.js?v=1.53.0"></script>
   <div id="appUpdateBanner" class="app-update-banner" hidden role="status" aria-live="polite">
     <div><strong>Neue App-Version verfügbar</strong><span>Die Aktualisierung ist bereit.</span></div>
     <button id="applyAppUpdateBtn" type="button">Jetzt aktualisieren</button>
