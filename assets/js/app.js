@@ -185,7 +185,7 @@ function migrateTripScopedLocalStorage(tripId = currentTripId || getLastTripId()
 
 function migrateLegacyLocalStorage() {
   const pairs = [
-    ["budapestActiveNavigation", NAV_SESSION_STORAGE_KEY],
+    ["budapestActiveNavigation", LEGACY_NAV_SESSION_STORAGE_KEY],
     ["budapestLastKnownLocation", LAST_LOCATION_STORAGE_KEY],
 
     ["budapestMobilityModeV1", "travelPlannerMobilityModeV1"]
