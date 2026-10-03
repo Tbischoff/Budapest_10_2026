@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.48.1";
+const APP_VERSION = "v1.48.2";
 
 
 function syncVersionLabels() {
@@ -3021,7 +3021,7 @@ async function ensureOfflineMap() {
 
 async function activateOfflineMap() {
   // Ein vorhandener Reise-Snapshot reicht für die generische Orientierungskarte.
-  // So funktionieren auch Offline-Daten, die unmittelbar vor v1.48.1 vorbereitet wurden.
+  // So funktionieren auch Offline-Daten, die unmittelbar vor v1.48.2 vorbereitet wurden.
   if (!offlineMapIsPrepared() && !loadOfflineTripSnapshot()) return false;
   const googleEl = document.getElementById("map");
   const offlineEl = document.getElementById("offlineMap");
