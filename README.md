@@ -1,4 +1,4 @@
-# Travel Planner v1.48.3
+# Travel Planner v1.49.0
 
 Mobile Reise-PWA für die Budapest-Reise vom **03.–07.10.2026**. Die App verbindet Reiseplanung, gespeicherte Orte, Aktivitäten, Wetter, Öffnungszeiten, Tagesrouten, Live-Fußnavigation und Offline-Funktionen in einer Oberfläche.
 
@@ -13,6 +13,12 @@ Mobile Reise-PWA für die Budapest-Reise vom **03.–07.10.2026**. Die App verbi
 - **Daten:** Supabase-Synchronisation für Orte, Reiseplanung und Aktivitäten.
 
 ## Version
+
+### v1.49.0 – Reisebezogene Offline-Karten
+- PMTiles-Kartenpakete werden pro Reise lokal in IndexedDB gespeichert.
+- Kartenpakete können unter Mehr → Werkzeuge importiert und entfernt werden.
+- MapLibre lädt im Flugmodus das zur ausgewählten Reise gehörende Paket.
+- Orte, Aktivitäten, Standort und vorbereitete Fußrouten werden über der Offline-Basiskarte dargestellt.
 
 ### v1.42.1 – Reiseauswahl
 
