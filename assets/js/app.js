@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.54.1";
+const APP_VERSION = "v1.55.0";
 
 
 function syncVersionLabels() {
@@ -419,7 +419,7 @@ function renderTripSelection() {
     button.className = "trip-selection-card";
     const destination = trip.destination ? `<span class="trip-selection-destination">${escapeHtml(trip.destination)}</span>` : "";
     const period = [formatTripSelectionDate(trip.start_date), formatTripSelectionDate(trip.end_date)].filter(Boolean).join(" – ");
-    button.innerHTML = `<span class="trip-selection-card-main"><strong>${escapeHtml(trip.name || "Unbenannte Reise")}</strong>${destination}<small>${escapeHtml(period)}</small></span><span class="trip-selection-open">Öffnen ›</span>`;
+    button.innerHTML = `<span class="trip-selection-card-main"><span class="trip-selection-title-row"><strong>${escapeHtml(trip.name || "Unbenannte Reise")}</strong><span class="trip-role-badge is-loading" data-trip-role-badge>…</span></span>${destination}<small>${escapeHtml(period)}</small></span><span class="trip-selection-open">Öffnen ›</span>`;
     button.addEventListener("click", () => selectTrip(trip.id));
 
     const actions = document.createElement("div");
@@ -447,12 +447,35 @@ function renderTripSelection() {
 }
 
 async function loadTripMembershipForCard(trip, editButton, deleteButton, actions) {
+  const row = actions.closest(".trip-selection-row");
+  const badge = row?.querySelector("[data-trip-role-badge]");
   try {
     const members = await loadTripMembers(trip.id);
     const me = members.find(item => item.user_id === currentUser?.id);
-    if (!me || me.role === "owner") return;
+    if (!me) {
+      if (badge) {
+        badge.textContent = "Kein Zugriff";
+        badge.className = "trip-role-badge role-unknown";
+      }
+      editButton.remove();
+      deleteButton.remove();
+      return;
+    }
 
-    // Geteilte Reisen dürfen nicht wie eigene Reisen bearbeitet/gelöscht werden.
+    const rolePresentation = {
+      owner: ["👑 Meine Reise", "role-owner"],
+      editor: ["✏️ Editor", "role-editor"],
+      viewer: ["👁️ Viewer", "role-viewer"]
+    };
+    const [label, roleClass] = rolePresentation[me.role] || [me.role || "Mitglied", "role-unknown"];
+    if (badge) {
+      badge.textContent = label;
+      badge.className = `trip-role-badge ${roleClass}`;
+    }
+
+    if (me.role === "owner") return;
+
+    // Nur Owner dürfen die Reise-Stammdaten bearbeiten oder die Reise löschen.
     editButton.remove();
     deleteButton.remove();
 
@@ -463,6 +486,10 @@ async function loadTripMembershipForCard(trip, editButton, deleteButton, actions
     leave.addEventListener("click", () => leaveSharedTrip(trip));
     actions.appendChild(leave);
   } catch (error) {
+    if (badge) {
+      badge.textContent = "Rolle unbekannt";
+      badge.className = "trip-role-badge role-unknown";
+    }
     console.warn("Mitgliedschaft für Reise konnte nicht bestimmt werden:", error);
   }
 }
