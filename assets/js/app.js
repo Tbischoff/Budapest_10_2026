@@ -2494,6 +2494,7 @@ async function handleAddPlace(event) {
 }
 
 async function removePlaceFromTrip(id) {
+  if (!requireTripEditPermission()) return;
   const place = placesData.places.find(p => p.id === id);
   if (!place?.supabaseId || !currentTripId) return;
   if (!confirm(`„${place.name}“ wirklich löschen?\n\nDer Ort wird aus dieser Reise UND aus der Ortsdatenbank gelöscht.`)) return;
@@ -2595,6 +2596,7 @@ function nextOrderForDay(dayId) {
 }
 
 function movePlaceInDay(id, direction) {
+  if (!requireTripEditPermission()) return;
   const item = state.places[id] || {};
   const dayId = item.plannedDay;
 
@@ -2685,6 +2687,7 @@ function formatPlannedTime(saved) {
 }
 
 function setPlannedTime(id, startTime, endTime) {
+  if (!requireTripEditPermission()) return false;
   const item = ensurePlaceState(id);
 
   const normalizedStart = normalizeTimeValue(startTime);
@@ -2728,6 +2731,7 @@ function setPlannedTime(id, startTime, endTime) {
 }
 
 function clearPlannedTime(id) {
+  if (!requireTripEditPermission()) return;
   const item = ensurePlaceState(id);
   delete item.startTime;
   delete item.endTime;
@@ -2741,6 +2745,15 @@ function clearPlannedTime(id) {
 }
 
 function plannedTimeEditorHtml(place, saved) {
+  if (!canEditTripContent()) {
+    const formatted = formatPlannedTime(saved);
+    return `
+      <div class="time-editor time-editor-disabled viewer-time-display">
+        <div class="time-editor-title">🕐 Uhrzeit / Zeitfenster</div>
+        <div class="time-editor-hint">${formatted ? escapeHtml(formatted) : "Keine Uhrzeit festgelegt."}</div>
+      </div>
+    `;
+  }
   if (!saved.plannedDay) {
     return `
       <div class="time-editor time-editor-disabled">
@@ -5501,6 +5514,7 @@ function resetPlaceSearchAfterPlanning() {
 }
 
 function setPlannedDay(id, dayId) {
+  if (!requireTripEditPermission()) return;
   const item = ensurePlaceState(id);
   const previousDay = item.plannedDay || "";
 
@@ -8011,6 +8025,10 @@ function wireControls() {
   document.addEventListener("change", event => {
     const actionElement = event.target.closest('[data-action="set-planned-day"]');
     if (!actionElement) return;
+    if (!requireTripEditPermission()) {
+      applyFilters();
+      return;
+    }
     setPlannedDay(actionElement.dataset.placeId, actionElement.value);
   });
   document.getElementById("exportBackupButton")?.addEventListener("click", exportBackup);
