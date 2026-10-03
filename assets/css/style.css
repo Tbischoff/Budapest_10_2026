@@ -3831,3 +3831,31 @@ details.mobility-leg { display:block; }
 .trip-member-add-form input { width:100%; box-sizing:border-box; padding:11px 12px; border:1px solid rgba(47,98,93,.25); border-radius:10px; font:inherit; background:#fff; }
 .trip-member-add-form button { flex:0 0 auto; }
 @media (max-width:520px) { .trip-member-add-form { flex-direction:column; align-items:stretch; } }
+
+
+/* v1.53.1 · Reiseauswahl bei vielen Reisen scrollbar */
+.auth-gate {
+  overflow-y:auto;
+  overscroll-behavior:contain;
+  align-items:start;
+}
+.auth-gate .auth-card {
+  margin:auto;
+}
+.trip-selection {
+  max-height:none;
+}
+@media (max-width:820px) {
+  .auth-gate {
+    display:flex;
+    justify-content:center;
+    align-items:flex-start;
+    padding-top:max(20px, env(safe-area-inset-top));
+    padding-bottom:max(20px, env(safe-area-inset-bottom));
+    -webkit-overflow-scrolling:touch;
+  }
+  .trip-selection {
+    flex:0 0 auto;
+    margin:auto 0;
+  }
+}
