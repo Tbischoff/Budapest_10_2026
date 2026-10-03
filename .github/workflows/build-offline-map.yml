@@ -131,15 +131,16 @@ jobs:
         run: |
           set -euo pipefail
           OBJECT_KEY="${{ inputs.trip_id }}/${{ inputs.job_id }}.pmtiles"
-          # Die Karten liegen typischerweise nur bei einigen 10 MB. Ein einzelner PUT ist
-          # gegen den Supabase-S3-Endpunkt deutlich schneller als der AWS-CLI-Multipart-Upload.
-          aws configure set default.s3.multipart_threshold 64MB
-          aws configure set default.s3.max_concurrent_requests 10
-          aws s3 cp "$OUTPUT_FILE" "s3://$BUCKET/$OBJECT_KEY" \
-            --endpoint-url "$S3_ENDPOINT" \
-            --region "$AWS_REGION" \
-            --content-type "application/octet-stream" \
-            --only-show-errors
+          # Native Supabase Storage API statt des S3-Kompatibilitätslayers.
+          # Bei unseren ~20-MB-PMTiles war der S3-Upload der mit Abstand langsamste Schritt.
+          curl --fail --silent --show-error \
+            --request POST \
+            "$SUPABASE_URL/storage/v1/object/$BUCKET/$OBJECT_KEY" \
+            -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
+            -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+            -H "Content-Type: application/octet-stream" \
+            --data-binary "@$OUTPUT_FILE" \
+            --output /dev/null
           FILE_SIZE="$(stat -c%s "$OUTPUT_FILE")"
           echo "object_key=$OBJECT_KEY" >> "$GITHUB_OUTPUT"
           echo "file_size=$FILE_SIZE" >> "$GITHUB_OUTPUT"
