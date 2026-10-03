@@ -44,6 +44,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
+      SUPABASE_URL: https://fjlezfzninkltblcctds.supabase.co
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
       S3_ENDPOINT: https://fjlezfzninkltblcctds.storage.supabase.co/storage/v1/s3
       AWS_DEFAULT_REGION: eu-central-1
       AWS_REGION: eu-central-1
@@ -53,15 +55,33 @@ jobs:
       OUTPUT_FILE: offline-map.pmtiles
 
     steps:
+      - name: Mark job processing
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error \
+            -X PATCH "$SUPABASE_URL/rest/v1/offline_map_jobs?id=eq.${{ inputs.job_id }}" \
+            -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
+            -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+            -H "Content-Type: application/json" \
+            -H "Prefer: return=minimal" \
+            --data '{"status":"processing","started_at":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"}'
+
       - name: Validate inputs
         shell: bash
         run: |
           set -euo pipefail
           python3 - <<'PY'
-          import math, os, uuid
+          import math, uuid
           vals = {}
-          for key in ("min_lon", "min_lat", "max_lon", "max_lat"):
-              vals[key] = float("${{ inputs[key] }}")
+          raw = {
+              "min_lon": "${{ inputs.min_lon }}",
+              "min_lat": "${{ inputs.min_lat }}",
+              "max_lon": "${{ inputs.max_lon }}",
+              "max_lat": "${{ inputs.max_lat }}"
+          }
+          for key, value in raw.items():
+              vals[key] = float(value)
               if not math.isfinite(vals[key]):
                   raise SystemExit(f"{key} is not finite")
           if not (-180 <= vals["min_lon"] < vals["max_lon"] <= 180):
@@ -105,6 +125,7 @@ jobs:
           ls -lh "$OUTPUT_FILE"
 
       - name: Upload PMTiles to Supabase Storage
+        id: upload
         shell: bash
         run: |
           set -euo pipefail
@@ -114,4 +135,46 @@ jobs:
             --region "$AWS_REGION" \
             --content-type "application/octet-stream" \
             --only-show-errors
-          echo "Uploaded s3://$BUCKET/$OBJECT_KEY"
+          FILE_SIZE="$(stat -c%s "$OUTPUT_FILE")"
+          echo "object_key=$OBJECT_KEY" >> "$GITHUB_OUTPUT"
+          echo "file_size=$FILE_SIZE" >> "$GITHUB_OUTPUT"
+
+      - name: Mark job ready
+        shell: bash
+        run: |
+          set -euo pipefail
+          OBJECT_KEY="${{ steps.upload.outputs.object_key }}"
+          FILE_SIZE="${{ steps.upload.outputs.file_size }}"
+          FILE_NAME="${{ inputs.job_id }}.pmtiles"
+          BODY="$(jq -nc \
+            --arg status "ready" \
+            --arg map_url "$OBJECT_KEY" \
+            --arg file_name "$FILE_NAME" \
+            --argjson file_size "$FILE_SIZE" \
+            --arg completed_at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            '{status:$status,map_url:$map_url,file_name:$file_name,file_size:$file_size,completed_at:$completed_at,error_message:null}')"
+          curl --fail --silent --show-error \
+            -X PATCH "$SUPABASE_URL/rest/v1/offline_map_jobs?id=eq.${{ inputs.job_id }}" \
+            -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
+            -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+            -H "Content-Type: application/json" \
+            -H "Prefer: return=minimal" \
+            --data "$BODY"
+
+      - name: Mark job failed
+        if: failure()
+        shell: bash
+        run: |
+          ERROR_MESSAGE="GitHub Actions konnte die Offline-Karte nicht erstellen oder speichern."
+          BODY="$(jq -nc \
+            --arg status "failed" \
+            --arg error_message "$ERROR_MESSAGE" \
+            --arg completed_at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            '{status:$status,error_message:$error_message,completed_at:$completed_at}')"
+          curl --silent --show-error \
+            -X PATCH "$SUPABASE_URL/rest/v1/offline_map_jobs?id=eq.${{ inputs.job_id }}" \
+            -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
+            -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+            -H "Content-Type: application/json" \
+            -H "Prefer: return=minimal" \
+            --data "$BODY" || true
