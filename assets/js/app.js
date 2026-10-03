@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.49.0";
+const APP_VERSION = "v1.49.1";
 
 
 function syncVersionLabels() {
@@ -3135,7 +3135,7 @@ async function ensureOfflineMap() {
 
 async function activateOfflineMap() {
   // Ein vorhandener Reise-Snapshot reicht für die generische Orientierungskarte.
-  // So funktionieren auch Offline-Daten, die unmittelbar vor v1.49.0 vorbereitet wurden.
+  // So funktionieren auch Offline-Daten, die unmittelbar vor v1.49.1 vorbereitet wurden.
   if (!offlineMapIsPrepared() && !loadOfflineTripSnapshot()) return false;
   const googleEl = document.getElementById("map");
   const offlineEl = document.getElementById("offlineMap");
@@ -8157,12 +8157,48 @@ document.addEventListener("DOMContentLoaded", initMobileTryToggle);
 let appUpdateRegistration = null;
 let appUpdateReloadPending = false;
 
-function showAppUpdateAvailable(registration) {
+function parseAppVersion(value) {
+  const match = String(value || "").match(/v?(\d+)\.(\d+)\.(\d+)/i);
+  return match ? match.slice(1).map(Number) : null;
+}
+function isNewerAppVersion(candidate, current = APP_VERSION) {
+  const a = parseAppVersion(candidate), b = parseAppVersion(current);
+  if (!a || !b) return false;
+  for (let i = 0; i < 3; i++) {
+    if (a[i] !== b[i]) return a[i] > b[i];
+  }
+  return false;
+}
+function hideAppUpdateAvailable() {
+  const banner = document.getElementById("appUpdateBanner");
+  if (banner) banner.hidden = true;
+}
+function getServiceWorkerVersion(worker, timeout = 900) {
+  return new Promise(resolve => {
+    if (!worker) return resolve(null);
+    const channel = new MessageChannel();
+    const timer = setTimeout(() => resolve(null), timeout);
+    channel.port1.onmessage = event => {
+      clearTimeout(timer);
+      resolve(event.data?.version || null);
+    };
+    try { worker.postMessage({ type: "GET_VERSION" }, [channel.port2]); }
+    catch { clearTimeout(timer); resolve(null); }
+  });
+}
+async function showAppUpdateAvailable(registration) {
   appUpdateRegistration = registration || appUpdateRegistration;
+  const worker = appUpdateRegistration?.waiting || appUpdateRegistration?.installing;
+  const candidateVersion = await getServiceWorkerVersion(worker);
+  if (!candidateVersion || !isNewerAppVersion(candidateVersion)) {
+    hideAppUpdateAvailable();
+    return false;
+  }
   const banner = document.getElementById("appUpdateBanner");
   if (banner) banner.hidden = false;
   const status = document.getElementById("appUpdateStatus");
-  if (status) status.textContent = "Neue Version verfügbar – bereit zur Installation.";
+  if (status) status.textContent = `Neue Version ${candidateVersion} verfügbar – bereit zur Installation.`;
+  return true;
 }
 
 async function checkForAppUpdate({ manual = false } = {}) {
@@ -8181,13 +8217,12 @@ async function checkForAppUpdate({ manual = false } = {}) {
       if (status) status.textContent = "Update-Dienst wird eingerichtet …";
       return;
     }
+    appUpdateRegistration = registration;
     if (manual && status) status.textContent = "Suche nach neuer Version …";
     await registration.update();
-    if (registration.waiting) {
-      showAppUpdateAvailable(registration);
-    } else if (manual && status) {
-      status.textContent = `Installiert: ${APP_VERSION} · keine neuere Version gefunden.`;
-    }
+    if (registration.waiting && await showAppUpdateAvailable(registration)) return;
+    hideAppUpdateAvailable();
+    if (manual && status) status.textContent = `Installiert: ${APP_VERSION} · keine neuere Version gefunden.`;
   } catch (error) {
     console.warn("Update-Prüfung:", error);
     if (status) status.textContent = "Update-Prüfung fehlgeschlagen. Bitte später erneut versuchen.";
@@ -8219,6 +8254,11 @@ async function applyAppUpdate() {
   const status = document.getElementById("appUpdateStatus");
   if (status) status.textContent = "Aktualisierung wird installiert …";
   worker.postMessage({ type: "SKIP_WAITING" });
+  // Android/Chrome liefert controllerchange gelegentlich verspätet oder gar nicht
+  // an die geöffnete PWA. Dann erzwingen wir nach kurzer Wartezeit den Neustart.
+  setTimeout(() => {
+    if (appUpdateReloadPending) window.location.reload();
+  }, 1800);
 }
 
 function initPwaOfflineMode() {
