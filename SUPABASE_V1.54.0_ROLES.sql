@@ -2,6 +2,16 @@
 -- Rollenmodell: owner / editor / viewer
 -- Einmal im Supabase SQL Editor ausführen.
 
+
+-- Ältere Datenbankstände besitzen teils noch einen CHECK-Constraint,
+-- der nur owner/editor zulässt. Für v1.54.0 wird er auf viewer erweitert.
+alter table public.trip_members
+  drop constraint if exists trip_members_role_check;
+
+alter table public.trip_members
+  add constraint trip_members_role_check
+  check (role in ('owner','editor','viewer'));
+
 create or replace function public.can_edit_trip(p_trip_id uuid)
 returns boolean
 language sql
