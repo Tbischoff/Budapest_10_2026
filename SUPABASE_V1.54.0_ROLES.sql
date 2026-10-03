@@ -18,7 +18,7 @@ as $$
   );
 $$;
 
-create or replace function public.is_trip_owner(p_trip_id uuid)
+create or replace function public.is_trip_owner(check_trip_id uuid)
 returns boolean
 language sql
 stable
@@ -28,7 +28,7 @@ as $$
   select exists (
     select 1
     from public.trip_members tm
-    where tm.trip_id = p_trip_id
+    where tm.trip_id = check_trip_id
       and tm.user_id = auth.uid()
       and tm.role = 'owner'
   );
