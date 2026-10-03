@@ -18,21 +18,8 @@ as $$
   );
 $$;
 
-create or replace function public.is_trip_owner(check_trip_id uuid)
-returns boolean
-language sql
-stable
-security definer
-set search_path = public
-as $$
-  select exists (
-    select 1
-    from public.trip_members tm
-    where tm.trip_id = check_trip_id
-      and tm.user_id = auth.uid()
-      and tm.role = 'owner'
-  );
-$$;
+-- is_trip_owner(uuid) existiert bereits aus der bisherigen Datenbankstruktur
+-- und wird von v1.54.0 unverändert weiterverwendet.
 
 create or replace function public.set_trip_member_role(
   p_trip_id uuid,
