@@ -1,9 +1,10 @@
 -- Travel Planner v1.55.0
--- Bereinigung der verworfenen Trigger-Loesung und Auslesen von create_trip().
+-- Owner-Zuweisung bei neuen Reisen
 --
--- Die Trigger-Funktion kann bereits durch einen vorherigen, teilweise
--- erfolgreichen Lauf entfernt worden sein. Die Bereinigung ist daher
--- idempotent.
+-- Die bestehende create_trip()-Funktion setzt den Ersteller bereits korrekt
+-- auf role = 'owner'. Es ist daher kein zusaetzlicher Trigger erforderlich.
+-- Dieses Skript entfernt nur noch eventuelle Reste der verworfenen
+-- Trigger-Loesung. create_trip() bleibt unveraendert.
 
 drop trigger if exists v155_ensure_trip_creator_owner on public.trips;
 
@@ -15,12 +16,7 @@ begin
 end
 $$;
 
--- Vorhandene create_trip-Funktion(en) samt exakter Signatur und Definition.
+-- Kontrollausgabe: create_trip() muss den Ersteller als Owner anlegen.
 select
-  pg_get_function_identity_arguments(proc.oid) as function_arguments,
-  pg_get_functiondef(proc.oid) as function_definition
-from pg_catalog.pg_proc as proc
-join pg_catalog.pg_namespace as ns
-  on ns.oid = proc.pronamespace
-where ns.nspname = 'public'
-  and proc.proname = 'create_trip';
+  pg_get_functiondef('public.create_trip(text,text,date,date)'::regprocedure)
+  as create_trip_definition;
