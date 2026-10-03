@@ -1,16 +1,20 @@
 -- Travel Planner v1.55.0
--- Owner-Absicherung fuer neu angelegte Reisen.
+-- Bereinigung der verworfenen Trigger-Loesung und Auslesen von create_trip().
 --
--- create_trip(...) legt die Mitgliedschaft bereits an. Deshalb greifen wir
--- nicht mehr mit einem zweiten Trigger in denselben Ablauf ein.
--- Stattdessen wird die bestehende create_trip-Funktion separat geprüft bzw.
--- bei Bedarf gezielt angepasst. Dieses Skript entfernt den fehlerhaften
--- v1.55-Trigger wieder sicher.
+-- Die Trigger-Funktion kann bereits durch einen vorherigen, teilweise
+-- erfolgreichen Lauf entfernt worden sein. Deshalb ist die Bereinigung
+-- absichtlich idempotent und bricht in diesem Fall nicht ab.
 
 drop trigger if exists v155_ensure_trip_creator_owner on public.trips;
-drop function if exists public.ensure_trip_creator_owner();
 
--- Kontrolle: Welche create_trip-Signatur ist aktuell installiert?
+do $$
+begin
+  if to_regprocedure('public.ensure_trip_creator_owner()') is not null then
+    execute 'drop function public.ensure_trip_creator_owner()';
+  end if;
+end
+$$;
+
 select
   p.oid::regprocedure::text as function_signature,
   pg_get_functiondef(p.oid) as function_definition
