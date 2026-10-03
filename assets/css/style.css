@@ -3804,3 +3804,11 @@ details.mobility-leg { display:block; }
   .trip-editor-dates { grid-template-columns:1fr; }
   .trip-editor-form { padding:18px; }
 }
+
+/* v1.48.3 – In-App-Updates */
+.app-update-status{margin-top:8px;color:var(--muted);font-size:12px}
+.app-update-banner{position:fixed;left:50%;bottom:86px;transform:translateX(-50%);z-index:10000;width:min(92vw,520px);display:flex;align-items:center;justify-content:space-between;gap:14px;padding:14px 16px;border-radius:16px;background:#fff;box-shadow:0 10px 35px rgba(0,0,0,.22);border:1px solid var(--border)}
+.app-update-banner[hidden]{display:none}
+.app-update-banner div{display:grid;gap:2px}.app-update-banner span{font-size:12px;color:var(--muted)}
+.app-update-banner button{border:0;border-radius:12px;padding:11px 14px;background:var(--accent);color:#fff;font-weight:700;white-space:nowrap}
+@media(min-width:821px){.app-update-banner{bottom:24px}}
