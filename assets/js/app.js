@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.53.1";
+const APP_VERSION = "v1.53.2";
 
 
 function syncVersionLabels() {
@@ -440,8 +440,47 @@ function renderTripSelection() {
     remove.textContent = "Löschen";
     remove.addEventListener("click", () => deleteTripFromSelection(trip));
     actions.append(members, edit, remove);
+    loadTripMembershipForCard(trip, edit, remove, actions);
     row.append(button, actions);
     list.appendChild(row);
+  }
+}
+
+async function loadTripMembershipForCard(trip, editButton, deleteButton, actions) {
+  try {
+    const members = await loadTripMembers(trip.id);
+    const me = members.find(item => item.user_id === currentUser?.id);
+    if (!me || me.role === "owner") return;
+
+    // Geteilte Reisen dürfen nicht wie eigene Reisen bearbeitet/gelöscht werden.
+    editButton.remove();
+    deleteButton.remove();
+
+    const leave = document.createElement("button");
+    leave.type = "button";
+    leave.className = "trip-action-button trip-action-danger";
+    leave.textContent = "Reise verlassen";
+    leave.addEventListener("click", () => leaveSharedTrip(trip));
+    actions.appendChild(leave);
+  } catch (error) {
+    console.warn("Mitgliedschaft für Reise konnte nicht bestimmt werden:", error);
+  }
+}
+
+async function leaveSharedTrip(trip) {
+  if (!window.confirm(`„${trip.name}“ verlassen? Du hast danach keinen Zugriff mehr auf diese Reise.`)) return;
+  const message = document.getElementById("tripSelectionMessage");
+  if (message) message.textContent = `„${trip.name}“ wird verlassen …`;
+  try {
+    const { error } = await supabaseClient.rpc("leave_trip", { p_trip_id: trip.id });
+    if (error) throw error;
+    if (getLastTripId() === trip.id) forgetLastTripId();
+    availableTrips = await loadAvailableTrips();
+    renderTripSelection();
+    if (message) message.textContent = `Du hast „${trip.name}“ verlassen.`;
+  } catch (error) {
+    console.error("Reise verlassen:", error);
+    if (message) message.textContent = `Reise konnte nicht verlassen werden: ${error.message}`;
   }
 }
 
