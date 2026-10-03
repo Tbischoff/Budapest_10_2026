@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.55.0";
+const APP_VERSION = "v1.55.1";
 
 
 function syncVersionLabels() {
@@ -390,12 +390,21 @@ function forgetLastTripId() {
 }
 
 async function loadAvailableTrips() {
-  const { data, error } = await supabaseClient
-    .from("trips")
-    .select("id,name,destination,start_date,end_date,updated_at")
-    .order("start_date", { ascending: false });
-  if (error) throw error;
-  return data || [];
+  const [{ data: trips, error: tripsError }, { data: memberships, error: membershipsError }] = await Promise.all([
+    supabaseClient
+      .from("trips")
+      .select("id,name,destination,start_date,end_date,updated_at")
+      .order("start_date", { ascending: false }),
+    supabaseClient
+      .from("trip_members")
+      .select("trip_id,role")
+      .eq("user_id", currentUser.id)
+  ]);
+  if (tripsError) throw tripsError;
+  if (membershipsError) throw membershipsError;
+
+  const roleByTrip = new Map((memberships || []).map(item => [item.trip_id, item.role]));
+  return (trips || []).map(trip => ({ ...trip, current_user_role: roleByTrip.get(trip.id) || null }));
 }
 
 function renderTripSelection() {
@@ -419,7 +428,13 @@ function renderTripSelection() {
     button.className = "trip-selection-card";
     const destination = trip.destination ? `<span class="trip-selection-destination">${escapeHtml(trip.destination)}</span>` : "";
     const period = [formatTripSelectionDate(trip.start_date), formatTripSelectionDate(trip.end_date)].filter(Boolean).join(" – ");
-    button.innerHTML = `<span class="trip-selection-card-main"><span class="trip-selection-title-row"><strong>${escapeHtml(trip.name || "Unbenannte Reise")}</strong><span class="trip-role-badge is-loading" data-trip-role-badge>…</span></span>${destination}<small>${escapeHtml(period)}</small></span><span class="trip-selection-open">Öffnen ›</span>`;
+    const rolePresentation = {
+      owner: ["👑 Meine Reise", "role-owner"],
+      editor: ["✏️ Editor", "role-editor"],
+      viewer: ["👁️ Viewer", "role-viewer"]
+    };
+    const [roleLabel, roleClass] = rolePresentation[trip.current_user_role] || ["Rolle unbekannt", "role-unknown"];
+    button.innerHTML = `<span class="trip-selection-card-main"><span class="trip-selection-title-row"><strong>${escapeHtml(trip.name || "Unbenannte Reise")}</strong><span class="trip-role-badge ${roleClass}" data-trip-role-badge>${escapeHtml(roleLabel)}</span></span>${destination}<small>${escapeHtml(period)}</small></span><span class="trip-selection-open">Öffnen ›</span>`;
     button.addEventListener("click", () => selectTrip(trip.id));
 
     const actions = document.createElement("div");
@@ -447,50 +462,20 @@ function renderTripSelection() {
 }
 
 async function loadTripMembershipForCard(trip, editButton, deleteButton, actions) {
-  const row = actions.closest(".trip-selection-row");
-  const badge = row?.querySelector("[data-trip-role-badge]");
-  try {
-    const members = await loadTripMembers(trip.id);
-    const me = members.find(item => item.user_id === currentUser?.id);
-    if (!me) {
-      if (badge) {
-        badge.textContent = "Kein Zugriff";
-        badge.className = "trip-role-badge role-unknown";
-      }
-      editButton.remove();
-      deleteButton.remove();
-      return;
-    }
+  const role = trip.current_user_role;
+  if (role === "owner") return;
 
-    const rolePresentation = {
-      owner: ["👑 Meine Reise", "role-owner"],
-      editor: ["✏️ Editor", "role-editor"],
-      viewer: ["👁️ Viewer", "role-viewer"]
-    };
-    const [label, roleClass] = rolePresentation[me.role] || [me.role || "Mitglied", "role-unknown"];
-    if (badge) {
-      badge.textContent = label;
-      badge.className = `trip-role-badge ${roleClass}`;
-    }
+  // Nur Owner dürfen Reise-Stammdaten bearbeiten oder die Reise löschen.
+  editButton.remove();
+  deleteButton.remove();
 
-    if (me.role === "owner") return;
-
-    // Nur Owner dürfen die Reise-Stammdaten bearbeiten oder die Reise löschen.
-    editButton.remove();
-    deleteButton.remove();
-
+  if (role === "editor" || role === "viewer") {
     const leave = document.createElement("button");
     leave.type = "button";
     leave.className = "trip-action-button trip-action-danger";
     leave.textContent = "Reise verlassen";
     leave.addEventListener("click", () => leaveSharedTrip(trip));
     actions.appendChild(leave);
-  } catch (error) {
-    if (badge) {
-      badge.textContent = "Rolle unbekannt";
-      badge.className = "trip-role-badge role-unknown";
-    }
-    console.warn("Mitgliedschaft für Reise konnte nicht bestimmt werden:", error);
   }
 }
 
