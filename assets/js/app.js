@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.48.2";
+const APP_VERSION = "v1.48.3";
 
 
 function syncVersionLabels() {
@@ -3021,7 +3021,7 @@ async function ensureOfflineMap() {
 
 async function activateOfflineMap() {
   // Ein vorhandener Reise-Snapshot reicht für die generische Orientierungskarte.
-  // So funktionieren auch Offline-Daten, die unmittelbar vor v1.48.2 vorbereitet wurden.
+  // So funktionieren auch Offline-Daten, die unmittelbar vor v1.48.3 vorbereitet wurden.
   if (!offlineMapIsPrepared() && !loadOfflineTripSnapshot()) return false;
   const googleEl = document.getElementById("map");
   const offlineEl = document.getElementById("offlineMap");
@@ -8013,8 +8013,88 @@ document.addEventListener("DOMContentLoaded", initMobileTryToggle);
 
 
 
+let appUpdateRegistration = null;
+let appUpdateReloadPending = false;
+
+function showAppUpdateAvailable(registration) {
+  appUpdateRegistration = registration || appUpdateRegistration;
+  const banner = document.getElementById("appUpdateBanner");
+  if (banner) banner.hidden = false;
+  const status = document.getElementById("appUpdateStatus");
+  if (status) status.textContent = "Neue Version verfügbar – bereit zur Installation.";
+}
+
+async function checkForAppUpdate({ manual = false } = {}) {
+  const status = document.getElementById("appUpdateStatus");
+  if (!("serviceWorker" in navigator)) {
+    if (status) status.textContent = "Updates werden von diesem Browser nicht unterstützt.";
+    return;
+  }
+  if (navigator.onLine === false) {
+    if (status) status.textContent = "Update-Prüfung benötigt eine Internetverbindung.";
+    return;
+  }
+  try {
+    const registration = appUpdateRegistration || await navigator.serviceWorker.getRegistration("./");
+    if (!registration) {
+      if (status) status.textContent = "Update-Dienst wird eingerichtet …";
+      return;
+    }
+    if (manual && status) status.textContent = "Suche nach neuer Version …";
+    await registration.update();
+    if (registration.waiting) {
+      showAppUpdateAvailable(registration);
+    } else if (manual && status) {
+      status.textContent = `Installiert: ${APP_VERSION} · keine neuere Version gefunden.`;
+    }
+  } catch (error) {
+    console.warn("Update-Prüfung:", error);
+    if (status) status.textContent = "Update-Prüfung fehlgeschlagen. Bitte später erneut versuchen.";
+  }
+}
+
+function watchServiceWorkerRegistration(registration) {
+  appUpdateRegistration = registration;
+  if (registration.waiting) showAppUpdateAvailable(registration);
+  registration.addEventListener("updatefound", () => {
+    const worker = registration.installing;
+    if (!worker) return;
+    worker.addEventListener("statechange", () => {
+      if (worker.state === "installed" && navigator.serviceWorker.controller) {
+        showAppUpdateAvailable(registration);
+      }
+    });
+  });
+}
+
+async function applyAppUpdate() {
+  const registration = appUpdateRegistration || await navigator.serviceWorker.getRegistration("./");
+  const worker = registration?.waiting;
+  if (!worker) {
+    await checkForAppUpdate({ manual: true });
+    return;
+  }
+  appUpdateReloadPending = true;
+  const status = document.getElementById("appUpdateStatus");
+  if (status) status.textContent = "Aktualisierung wird installiert …";
+  worker.postMessage({ type: "SKIP_WAITING" });
+}
+
 function initPwaOfflineMode() {
-  if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(error => console.warn("Service Worker:", error));
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+      if (!appUpdateReloadPending) return;
+      appUpdateReloadPending = false;
+      window.location.reload();
+    });
+    navigator.serviceWorker.register("./sw.js").then(registration => {
+      watchServiceWorkerRegistration(registration);
+      // Beim normalen Start einmal im Hintergrund prüfen.
+      registration.update().catch(() => {});
+    }).catch(error => console.warn("Service Worker:", error));
+  }
+  document.getElementById("checkAppUpdateBtn")?.addEventListener("click", () => checkForAppUpdate({ manual: true }));
+  document.getElementById("applyAppUpdateBtn")?.addEventListener("click", applyAppUpdate);
   const refreshOfflineUi = async () => {
     const offline = navigator.onLine === false;
     document.documentElement.classList.toggle("app-offline", offline);
