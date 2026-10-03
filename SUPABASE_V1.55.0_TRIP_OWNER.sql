@@ -2,8 +2,8 @@
 -- Bereinigung der verworfenen Trigger-Loesung und Auslesen von create_trip().
 --
 -- Die Trigger-Funktion kann bereits durch einen vorherigen, teilweise
--- erfolgreichen Lauf entfernt worden sein. Deshalb ist die Bereinigung
--- absichtlich idempotent und bricht in diesem Fall nicht ab.
+-- erfolgreichen Lauf entfernt worden sein. Die Bereinigung ist daher
+-- idempotent.
 
 drop trigger if exists v155_ensure_trip_creator_owner on public.trips;
 
@@ -15,10 +15,12 @@ begin
 end
 $$;
 
+-- Vorhandene create_trip-Funktion(en) samt exakter Signatur und Definition.
 select
-  p.oid::regprocedure::text as function_signature,
-  pg_get_functiondef(p.oid) as function_definition
-from pg_proc p
-join pg_namespace n on n.oid = p.pronamespace
-where n.nspname = 'public'
-  and p.proname = 'create_trip';
+  pg_get_function_identity_arguments(proc.oid) as function_arguments,
+  pg_get_functiondef(proc.oid) as function_definition
+from pg_catalog.pg_proc as proc
+join pg_catalog.pg_namespace as ns
+  on ns.oid = proc.pronamespace
+where ns.nspname = 'public'
+  and proc.proname = 'create_trip';
