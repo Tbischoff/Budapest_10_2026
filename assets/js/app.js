@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.54.0";
+const APP_VERSION = "v1.54.1";
 
 
 function syncVersionLabels() {
@@ -2148,7 +2148,7 @@ function openPlace(place) {
       ${userPosition && distanceToPlace(place) != null
         ? `<div class="info-distance">📍 ${escapeHtml(formatDistance(distanceToPlace(place)))} Luftlinie entfernt</div>`
         : ""}
-      ${saved.plannedDay && formatPlannedTime(saved)
+      ${canEditTripContent() && saved.plannedDay && formatPlannedTime(saved)
         ? `<div class="info-time">🕐 ${escapeHtml(formatPlannedTime(saved))}</div>`
         : ""}
       ${place.notes ? `<div class="info-note">${escapeHtml(place.notes)}</div>` : ""}
@@ -2746,13 +2746,8 @@ function clearPlannedTime(id) {
 
 function plannedTimeEditorHtml(place, saved) {
   if (!canEditTripContent()) {
-    const formatted = formatPlannedTime(saved);
-    return `
-      <div class="time-editor time-editor-disabled viewer-time-display">
-        <div class="time-editor-title">🕐 Uhrzeit / Zeitfenster</div>
-        <div class="time-editor-hint">${formatted ? escapeHtml(formatted) : "--:--"}</div>
-      </div>
-    `;
+    const formatted = formatPlannedTime(saved) || "--:--";
+    return `<div class="viewer-time-display">🕐 ${escapeHtml(formatted)}</div>`;
   }
   if (!saved.plannedDay) {
     return `
@@ -8610,6 +8605,11 @@ function isNewerAppVersion(candidate, current = APP_VERSION) {
   }
   return false;
 }
+function setAppUpdateStatus(message) {
+  document.querySelectorAll("[data-app-update-status]").forEach(el => { el.textContent = message; });
+  const legacy = document.getElementById("appUpdateStatus");
+  if (legacy) legacy.textContent = message;
+}
 function hideAppUpdateAvailable() {
   const banner = document.getElementById("appUpdateBanner");
   if (banner) banner.hidden = true;
@@ -8638,24 +8638,24 @@ async function showAppUpdateAvailable(registration) {
   const banner = document.getElementById("appUpdateBanner");
   if (banner) banner.hidden = false;
   const status = document.getElementById("appUpdateStatus");
-  if (status) status.textContent = `Neue Version ${candidateVersion} verfügbar – bereit zur Installation.`;
+  setAppUpdateStatus(`Neue Version ${candidateVersion} verfügbar – bereit zur Installation.`);
   return true;
 }
 
 async function checkForAppUpdate({ manual = false } = {}) {
   const status = document.getElementById("appUpdateStatus");
   if (!("serviceWorker" in navigator)) {
-    if (status) status.textContent = "Updates werden von diesem Browser nicht unterstützt.";
+    setAppUpdateStatus("Updates werden von diesem Browser nicht unterstützt.");
     return;
   }
   if (navigator.onLine === false) {
-    if (status) status.textContent = "Update-Prüfung benötigt eine Internetverbindung.";
+    setAppUpdateStatus("Update-Prüfung benötigt eine Internetverbindung.");
     return;
   }
   try {
     const registration = appUpdateRegistration || await navigator.serviceWorker.getRegistration("./");
     if (!registration) {
-      if (status) status.textContent = "Update-Dienst wird eingerichtet …";
+      setAppUpdateStatus("Update-Dienst wird eingerichtet …");
       return;
     }
     appUpdateRegistration = registration;
@@ -8666,7 +8666,7 @@ async function checkForAppUpdate({ manual = false } = {}) {
     if (manual && status) status.textContent = `Installiert: ${APP_VERSION} · keine neuere Version gefunden.`;
   } catch (error) {
     console.warn("Update-Prüfung:", error);
-    if (status) status.textContent = "Update-Prüfung fehlgeschlagen. Bitte später erneut versuchen.";
+    setAppUpdateStatus("Update-Prüfung fehlgeschlagen. Bitte später erneut versuchen.");
   }
 }
 
@@ -8686,7 +8686,7 @@ function watchServiceWorkerRegistration(registration) {
 
 async function applyAppUpdate() {
   const status = document.getElementById("appUpdateStatus");
-  if (status) status.textContent = "Aktualisierung wird installiert …";
+  setAppUpdateStatus("Aktualisierung wird installiert …");
   appUpdateReloadPending = true;
   try {
     const registration = appUpdateRegistration || await navigator.serviceWorker.getRegistration("./");
@@ -8701,7 +8701,7 @@ async function applyAppUpdate() {
   } catch (error) {
     appUpdateReloadPending = false;
     console.warn("App-Aktualisierung:", error);
-    if (status) status.textContent = "Aktualisierung fehlgeschlagen. Bitte erneut versuchen.";
+    setAppUpdateStatus("Aktualisierung fehlgeschlagen. Bitte erneut versuchen.");
   }
 }
 
