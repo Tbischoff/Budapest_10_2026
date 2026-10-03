@@ -1,10 +1,11 @@
 -- Travel Planner v1.55.0
 -- Absicherung: Der Ersteller einer Reise ist immer Owner.
 --
--- Diese Migration ersetzt create_trip(...) bewusst nicht, weil die bestehende
--- Funktion je nach installierter Datenbankversion weitere Initialisierung
--- (z. B. Reisetage) enthalten kann. Stattdessen korrigiert ein Trigger die
--- Mitgliedschaft unmittelbar nach dem Anlegen einer Reise.
+-- Wichtig: create_trip(...) legt die Mitgliedschaft bereits selbst an.
+-- Deshalb darf der Owner-Trigger nicht sofort nach INSERT auf trips laufen:
+-- sonst kollidiert er mit dem anschließenden INSERT von create_trip.
+-- Als DEFERRABLE Constraint Trigger läuft die Absicherung erst am Ende
+-- der Transaktion und kann die vorhandene Mitgliedschaft auf Owner setzen.
 
 create or replace function public.ensure_trip_creator_owner()
 returns trigger
@@ -28,7 +29,8 @@ $$;
 
 drop trigger if exists v155_ensure_trip_creator_owner on public.trips;
 
-create trigger v155_ensure_trip_creator_owner
+create constraint trigger v155_ensure_trip_creator_owner
 after insert on public.trips
+deferrable initially deferred
 for each row
 execute function public.ensure_trip_creator_owner();
