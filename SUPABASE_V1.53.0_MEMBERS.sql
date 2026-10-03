@@ -67,3 +67,29 @@ end; $$;
 grant execute on function public.get_trip_members(uuid) to authenticated;
 grant execute on function public.add_trip_member_by_email(uuid,text) to authenticated;
 grant execute on function public.remove_trip_member(uuid,uuid) to authenticated;
+
+
+-- v1.53.2: Ein normales Mitglied darf eine geteilte Reise selbst verlassen.
+create or replace function public.leave_trip(p_trip_id uuid)
+returns void language plpgsql security definer set search_path = public, auth
+as $$
+begin
+  if not exists (
+    select 1 from public.trip_members tm
+    where tm.trip_id=p_trip_id and tm.user_id=auth.uid()
+  ) then
+    raise exception 'Du bist kein Mitglied dieser Reise';
+  end if;
+
+  if exists (
+    select 1 from public.trip_members tm
+    where tm.trip_id=p_trip_id and tm.user_id=auth.uid() and tm.role='owner'
+  ) then
+    raise exception 'Der Besitzer kann die eigene Reise nicht verlassen';
+  end if;
+
+  delete from public.trip_members
+  where trip_id=p_trip_id and user_id=auth.uid();
+end; $$;
+
+grant execute on function public.leave_trip(uuid) to authenticated;
