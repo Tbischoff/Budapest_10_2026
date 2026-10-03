@@ -1,36 +1,20 @@
 -- Travel Planner v1.55.0
--- Absicherung: Der Ersteller einer Reise ist immer Owner.
+-- Owner-Absicherung fuer neu angelegte Reisen.
 --
--- Wichtig: create_trip(...) legt die Mitgliedschaft bereits selbst an.
--- Deshalb darf der Owner-Trigger nicht sofort nach INSERT auf trips laufen:
--- sonst kollidiert er mit dem anschließenden INSERT von create_trip.
--- Als DEFERRABLE Constraint Trigger läuft die Absicherung erst am Ende
--- der Transaktion und kann die vorhandene Mitgliedschaft auf Owner setzen.
-
-create or replace function public.ensure_trip_creator_owner()
-returns trigger
-language plpgsql
-security definer
-set search_path = public
-as $$
-begin
-  if auth.uid() is null then
-    return new;
-  end if;
-
-  insert into public.trip_members (trip_id, user_id, role)
-  values (new.id, auth.uid(), 'owner')
-  on conflict (trip_id, user_id)
-  do update set role = 'owner';
-
-  return new;
-end;
-$$;
+-- create_trip(...) legt die Mitgliedschaft bereits an. Deshalb greifen wir
+-- nicht mehr mit einem zweiten Trigger in denselben Ablauf ein.
+-- Stattdessen wird die bestehende create_trip-Funktion separat geprüft bzw.
+-- bei Bedarf gezielt angepasst. Dieses Skript entfernt den fehlerhaften
+-- v1.55-Trigger wieder sicher.
 
 drop trigger if exists v155_ensure_trip_creator_owner on public.trips;
+drop function if exists public.ensure_trip_creator_owner();
 
-create constraint trigger v155_ensure_trip_creator_owner
-after insert on public.trips
-deferrable initially deferred
-for each row
-execute function public.ensure_trip_creator_owner();
+-- Kontrolle: Welche create_trip-Signatur ist aktuell installiert?
+select
+  p.oid::regprocedure::text as function_signature,
+  pg_get_functiondef(p.oid) as function_definition
+from pg_proc p
+join pg_namespace n on n.oid = p.pronamespace
+where n.nspname = 'public'
+  and p.proname = 'create_trip';
