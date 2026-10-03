@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.53.3";
+const APP_VERSION = "v1.54.0";
 
 
 function syncVersionLabels() {
@@ -484,6 +484,30 @@ async function leaveSharedTrip(trip) {
   }
 }
 
+let currentTripRole = null;
+
+function canEditTripContent() {
+  return currentTripRole === "owner" || currentTripRole === "editor";
+}
+
+function isTripOwner() {
+  return currentTripRole === "owner";
+}
+
+function requireTripEditPermission(message = "Als Betrachter kannst du diese Reise nur ansehen.") {
+  if (canEditTripContent()) return true;
+  setStatus(`👁️ ${message}`);
+  return false;
+}
+
+async function loadCurrentTripRole(tripId = currentTripId) {
+  if (!tripId || !currentUser) return null;
+  const members = await loadTripMembers(tripId);
+  currentTripRole = members.find(item => item.user_id === currentUser.id)?.role || null;
+  document.body.dataset.tripRole = currentTripRole || "";
+  return currentTripRole;
+}
+
 let membersDialogTrip = null;
 
 async function loadTripMembers(tripId) {
@@ -518,12 +542,21 @@ async function renderTripMembers() {
       const role = member.role === "owner" ? "Besitzer" : member.role === "viewer" ? "Betrachter" : "Mitglied";
       row.innerHTML = `<div><strong>${escapeHtml(member.email || "Benutzer")}</strong><small>${role}${own}</small></div>`;
       if (isOwner && member.role !== "owner") {
+        const controls = document.createElement("div");
+        controls.className = "trip-member-controls";
+        const roleSelect = document.createElement("select");
+        roleSelect.className = "trip-member-role";
+        roleSelect.setAttribute("aria-label", `Rolle von ${member.email || "Mitglied"}`);
+        roleSelect.innerHTML = '<option value="editor">Editor</option><option value="viewer">Viewer</option>';
+        roleSelect.value = member.role === "viewer" ? "viewer" : "editor";
+        roleSelect.addEventListener("change", () => changeTripMemberRole(member, roleSelect.value));
         const remove = document.createElement("button");
         remove.type = "button";
         remove.className = "trip-action-button trip-action-danger";
         remove.textContent = "Entfernen";
         remove.addEventListener("click", () => removeTripMember(member));
-        row.appendChild(remove);
+        controls.append(roleSelect, remove);
+        row.appendChild(controls);
       }
       list.appendChild(row);
     }
@@ -553,6 +586,25 @@ async function addTripMember(event) {
     console.error("Mitglied hinzufügen:", error);
     message.textContent = `Hinzufügen fehlgeschlagen: ${error.message}`;
   } finally { button.disabled = false; }
+}
+
+async function changeTripMemberRole(member, role) {
+  if (!membersDialogTrip || !["editor", "viewer"].includes(role)) return;
+  const message = document.getElementById("tripMembersMessage");
+  try {
+    const { error } = await supabaseClient.rpc("set_trip_member_role", {
+      p_trip_id: membersDialogTrip.id,
+      p_user_id: member.user_id,
+      p_role: role
+    });
+    if (error) throw error;
+    message.textContent = `${member.email} ist jetzt ${role === "viewer" ? "Viewer" : "Editor"}.`;
+    await renderTripMembers();
+  } catch (error) {
+    console.error("Rolle ändern:", error);
+    message.textContent = `Rolle konnte nicht geändert werden: ${error.message}`;
+    await renderTripMembers();
+  }
 }
 
 async function removeTripMember(member) {
@@ -680,6 +732,7 @@ async function selectTrip(tripId) {
   state = loadState();
   try {
     document.getElementById("authGate").classList.add("is-hidden");
+    await loadCurrentTripRole(trip.id);
     await bootstrap();
     subscribeToTripRealtime();
   } catch (error) {
@@ -722,6 +775,8 @@ async function handleSwitchTrip() {
   // Der aktive Reisekontext wird verworfen, die Anmeldung bleibt bestehen.
   currentTripId = null;
   currentTrip = null;
+  currentTripRole = null;
+  document.body.dataset.tripRole = "";
   currentTripDays = [];
   tryItems = [];
   activities = [];
@@ -976,7 +1031,7 @@ function renderTryList() {
   const triedCount = tryItems.filter(item => item.tried).length;
   const summary = document.createElement("div");
   summary.className = "try-summary";
-  summary.innerHTML = `<div><strong>${triedCount} von ${tryItems.length}</strong> probiert</div><button id="addTryItemBtn" class="secondary-button compact-button" type="button">＋ Hinzufügen</button>`;
+  summary.innerHTML = `<div><strong>${triedCount} von ${tryItems.length}</strong> probiert</div>${canEditTripContent() ? '<button id="addTryItemBtn" class="secondary-button compact-button" type="button">＋ Hinzufügen</button>' : '<span class="viewer-badge">👁️ Nur ansehen</span>'}`;
   container.appendChild(summary);
   const progress = document.createElement("div");
   progress.className = "try-progress";
@@ -1000,6 +1055,7 @@ function renderTryList() {
     const checkbox = document.createElement("input");
     checkbox.type = "checkbox";
     checkbox.checked = Boolean(item.tried);
+    checkbox.disabled = !canEditTripContent();
     checkbox.addEventListener("change", () => setTryItemTried(item.id, checkbox.checked));
     const text = document.createElement("span");
     text.className = "try-item-text";
@@ -1011,12 +1067,14 @@ function renderTryList() {
     edit.setAttribute("aria-label", `${item.name} bearbeiten`);
     edit.textContent = "✎";
     edit.addEventListener("click", () => openTryItemDialog(item));
-    row.append(main, edit);
+    row.append(main);
+    if (canEditTripContent()) row.append(edit);
     container.appendChild(row);
   }
 }
 
 function openTryItemDialog(item = null) {
+  if (!requireTripEditPermission()) return;
   editingTryItemId = item?.id || null;
   document.getElementById("tryDialogTitle").textContent = item ? "Eintrag bearbeiten" : "Zum Probieren hinzufügen";
   document.getElementById("tryItemName").value = item?.name || "";
@@ -1064,6 +1122,7 @@ async function handleTryItemSubmit(event) {
 }
 
 async function setTryItemTried(id, tried) {
+  if (!requireTripEditPermission()) { renderTryListFresh(); return; }
   const old = tryItems.find(item => item.id === id);
   if (old) old.tried = tried;
   renderTryListFresh();
@@ -1076,6 +1135,7 @@ async function setTryItemTried(id, tried) {
 }
 
 async function deleteTryItem() {
+  if (!requireTripEditPermission()) return;
   if (!editingTryItemId) return;
   const item = tryItems.find(row => row.id === editingTryItemId);
   if (!window.confirm(`„${item?.name || "Eintrag"}“ wirklich löschen?`)) return;
@@ -2166,6 +2226,7 @@ function openPlace(place) {
 
 
 function openAddPlaceDialog() {
+  if (!requireTripEditPermission()) return;
   const dialog = document.getElementById("addPlaceDialog");
   const form = document.getElementById("addPlaceForm");
   editingPlaceId = null;
@@ -2181,6 +2242,7 @@ function openAddPlaceDialog() {
 }
 
 function openEditPlaceDialog(id) {
+  if (!requireTripEditPermission()) return;
   const place = placesData.places.find(p => p.id === id);
   if (!place) return;
   editingPlaceId = id;
@@ -2216,6 +2278,7 @@ function closeAddPlaceDialog() {
 }
 
 async function handleAddPlace(event) {
+  if (!requireTripEditPermission()) { event.preventDefault(); return; }
   event.preventDefault();
   const submitButton = document.getElementById("savePlaceBtn");
   const message = document.getElementById("placeFormMessage");
@@ -7099,6 +7162,7 @@ function resetActivityForm() {
 }
 
 function openActivityDialog(activityId = null) {
+  if (!requireTripEditPermission()) return;
   resetActivityForm();
   const dialog = document.getElementById("activityDialog");
   if (activityId) {
@@ -7123,6 +7187,7 @@ function openActivityDialog(activityId = null) {
 function closeActivityDialog() { document.getElementById("activityDialog")?.close(); resetActivityForm(); }
 
 async function handleActivitySubmit(event) {
+  if (!requireTripEditPermission()) { event.preventDefault(); return; }
   event.preventDefault();
   const message = document.getElementById("activityFormMessage");
   const existing = editingActivityId ? activities.find(item => item.id === editingActivityId) : null;
@@ -7159,6 +7224,7 @@ async function handleActivitySubmit(event) {
 }
 
 async function deleteActivity() {
+  if (!requireTripEditPermission()) return;
   if (!editingActivityId) return;
   const activity = activities.find(item => item.id === editingActivityId);
   if (!confirm(`„${activity?.name || "Aktivität"}“ wirklich löschen?`)) return;
@@ -7290,7 +7356,7 @@ function renderDayAgenda() {
     const place = getAccommodationPlace();
     if (place) focusExistingPlaceOnMap(place);
   });
-  wireAgendaDragAndDrop(container, selectedDay.id);
+  if (canEditTripContent()) wireAgendaDragAndDrop(container, selectedDay.id);
   loadTransitLegsForDay(selectedDay.id);
   container.querySelectorAll(".agenda-item[data-place-id]").forEach(item => item.addEventListener("click", event => {
     if (event.target.closest("[data-action],.agenda-drag-handle")) return;
@@ -8274,6 +8340,7 @@ function closeMobileSidebar() {
 }
 
 function toggleVisited(id) {
+  if (!requireTripEditPermission()) return;
   const item = ensurePlaceState(id);
   item.visited = !item.visited;
   saveState();
@@ -8312,6 +8379,7 @@ function loadState() {
 }
 
 function saveState() {
+  if (!canEditTripContent()) return;
   localStorage.setItem(mapStateStorageKey(), JSON.stringify(state));
   scheduleSupabasePlanningSync();
 }
@@ -8328,6 +8396,7 @@ function normalizeDbTime(value) {
 }
 
 async function syncPlanningToSupabase() {
+  if (!canEditTripContent()) return;
   if (supabaseSyncInProgress) {
     supabaseSyncQueued = true;
     return;
