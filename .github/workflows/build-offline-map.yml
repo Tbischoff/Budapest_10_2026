@@ -53,6 +53,7 @@ jobs:
       AWS_SECRET_ACCESS_KEY: ${{ secrets.SUPABASE_S3_SECRET_ACCESS_KEY }}
       BUCKET: offline-maps
       OUTPUT_FILE: offline-map.pmtiles
+      AWS_CLI_FILE_ENCODING: UTF-8
 
     steps:
       - name: Mark job processing
@@ -130,6 +131,10 @@ jobs:
         run: |
           set -euo pipefail
           OBJECT_KEY="${{ inputs.trip_id }}/${{ inputs.job_id }}.pmtiles"
+          # Die Karten liegen typischerweise nur bei einigen 10 MB. Ein einzelner PUT ist
+          # gegen den Supabase-S3-Endpunkt deutlich schneller als der AWS-CLI-Multipart-Upload.
+          aws configure set default.s3.multipart_threshold 64MB
+          aws configure set default.s3.max_concurrent_requests 10
           aws s3 cp "$OUTPUT_FILE" "s3://$BUCKET/$OBJECT_KEY" \
             --endpoint-url "$S3_ENDPOINT" \
             --region "$AWS_REGION" \
