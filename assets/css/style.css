@@ -3859,3 +3859,23 @@ details.mobility-leg { display:block; }
     margin:auto 0;
   }
 }
+
+
+/* v1.54.0 · Rollenmodell */
+.trip-member-controls { display:flex; align-items:center; gap:8px; flex-wrap:wrap; justify-content:flex-end; }
+.trip-member-role { padding:7px 9px; border:1px solid rgba(47,98,93,.25); border-radius:9px; background:#fff; font:inherit; }
+.viewer-badge { font-size:.82rem; color:#77807d; font-weight:700; }
+
+/* Viewer: Reise vollständig lesbar, gemeinsame Reisedaten aber nicht veränderbar. */
+body[data-trip-role="viewer"] #desktopAddPlaceBtn,
+body[data-trip-role="viewer"] #addPlaceBtn,
+body[data-trip-role="viewer"] #resetStateBtn,
+body[data-trip-role="viewer"] #navigationMarkVisitedBtn,
+body[data-trip-role="viewer"] .activity-add-button,
+body[data-trip-role="viewer"] .agenda-drag-handle,
+body[data-trip-role="viewer"] .agenda-visited-button,
+body[data-trip-role="viewer"] .agenda-activity-menu,
+body[data-trip-role="viewer"] [data-action="edit-place"],
+body[data-trip-role="viewer"] [data-action="delete-place"] {
+  display:none !important;
+}
