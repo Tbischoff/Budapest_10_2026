@@ -1,0 +1,117 @@
+name: Build offline map
+
+on:
+  workflow_dispatch:
+    inputs:
+      job_id:
+        description: "offline_map_jobs UUID"
+        required: true
+        type: string
+      trip_id:
+        description: "Trip UUID"
+        required: true
+        type: string
+      destination:
+        description: "Destination label"
+        required: true
+        type: string
+      min_lon:
+        required: true
+        type: string
+      min_lat:
+        required: true
+        type: string
+      max_lon:
+        required: true
+        type: string
+      max_lat:
+        required: true
+        type: string
+      max_zoom:
+        required: false
+        default: "15"
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: offline-map-${{ inputs.trip_id }}
+  cancel-in-progress: false
+
+jobs:
+  build-map:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      S3_ENDPOINT: https://fjlezfzninkltblcctds.storage.supabase.co/storage/v1/s3
+      AWS_DEFAULT_REGION: eu-central-1
+      AWS_REGION: eu-central-1
+      AWS_ACCESS_KEY_ID: ${{ secrets.SUPABASE_S3_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.SUPABASE_S3_SECRET_ACCESS_KEY }}
+      BUCKET: offline-maps
+      OUTPUT_FILE: offline-map.pmtiles
+
+    steps:
+      - name: Validate inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import math, os, uuid
+          vals = {}
+          for key in ("min_lon", "min_lat", "max_lon", "max_lat"):
+              vals[key] = float("${{ inputs[key] }}")
+              if not math.isfinite(vals[key]):
+                  raise SystemExit(f"{key} is not finite")
+          if not (-180 <= vals["min_lon"] < vals["max_lon"] <= 180):
+              raise SystemExit("Invalid longitude bounds")
+          if not (-90 <= vals["min_lat"] < vals["max_lat"] <= 90):
+              raise SystemExit("Invalid latitude bounds")
+          zoom = int("${{ inputs.max_zoom }}")
+          if not 1 <= zoom <= 18:
+              raise SystemExit("Invalid max_zoom")
+          uuid.UUID("${{ inputs.job_id }}")
+          uuid.UUID("${{ inputs.trip_id }}")
+          PY
+
+      - name: Determine Protomaps build
+        id: build
+        shell: bash
+        run: |
+          set -euo pipefail
+          for offset in 0 1 2 3 4 5 6 7; do
+            BUILD_DATE="$(date -u -d "-$offset day" +%Y%m%d)"
+            URL="https://build.protomaps.com/${BUILD_DATE}.pmtiles"
+            if curl --fail --silent --show-error --range 0-0 --output /dev/null "$URL"; then
+              echo "date=$BUILD_DATE" >> "$GITHUB_OUTPUT"
+              echo "url=$URL" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          done
+          echo "No recent Protomaps daily build found" >&2
+          exit 1
+
+      - name: Extract PMTiles
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm -v "$PWD:/data" \
+            ghcr.io/protomaps/go-pmtiles@sha256:06574f01f55a78f78f887bc7ebf729a5c093c0d6e17d9876300cfcb0758b59d3 \
+            extract "${{ steps.build.outputs.url }}" "/data/$OUTPUT_FILE" \
+            --bbox="${{ inputs.min_lon }},${{ inputs.min_lat }},${{ inputs.max_lon }},${{ inputs.max_lat }}" \
+            --maxzoom="${{ inputs.max_zoom }}"
+          test -s "$OUTPUT_FILE"
+          ls -lh "$OUTPUT_FILE"
+
+      - name: Upload PMTiles to Supabase Storage
+        shell: bash
+        run: |
+          set -euo pipefail
+          OBJECT_KEY="${{ inputs.trip_id }}/${{ inputs.job_id }}.pmtiles"
+          aws s3 cp "$OUTPUT_FILE" "s3://$BUCKET/$OBJECT_KEY" \
+            --endpoint-url "$S3_ENDPOINT" \
+            --region "$AWS_REGION" \
+            --content-type "application/octet-stream" \
+            --only-show-errors
+          echo "Uploaded s3://$BUCKET/$OBJECT_KEY"
