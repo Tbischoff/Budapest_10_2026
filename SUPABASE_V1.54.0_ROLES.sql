@@ -71,43 +71,80 @@ grant execute on function public.can_edit_trip(uuid) to authenticated;
 grant execute on function public.is_trip_owner(uuid) to authenticated;
 grant execute on function public.set_trip_member_role(uuid,uuid,text) to authenticated;
 
--- Zusätzliche restriktive RLS-Regeln: bestehende Leserechte bleiben unverändert,
--- Schreibzugriffe benötigen aber mindestens Editor-Rechte.
+-- Schreibschutz für Editor/Owner, ohne SELECT für Viewer zu blockieren.
+-- Alte v1.54.0-ALL-Policies werden entfernt, da RESTRICTIVE + ALL auch SELECT eingeschränkt hat.
+
 drop policy if exists "v154_trip_places_write" on public.trip_places;
-create policy "v154_trip_places_write"
-on public.trip_places
-as restrictive
-for all
-to authenticated
+drop policy if exists "v154_trip_places_insert" on public.trip_places;
+drop policy if exists "v154_trip_places_update" on public.trip_places;
+drop policy if exists "v154_trip_places_delete" on public.trip_places;
+
+create policy "v154_trip_places_insert"
+on public.trip_places as restrictive for insert to authenticated
+with check (public.can_edit_trip(trip_id));
+
+create policy "v154_trip_places_update"
+on public.trip_places as restrictive for update to authenticated
 using (public.can_edit_trip(trip_id))
 with check (public.can_edit_trip(trip_id));
+
+create policy "v154_trip_places_delete"
+on public.trip_places as restrictive for delete to authenticated
+using (public.can_edit_trip(trip_id));
 
 drop policy if exists "v154_trip_activities_write" on public.trip_activities;
-create policy "v154_trip_activities_write"
-on public.trip_activities
-as restrictive
-for all
-to authenticated
+drop policy if exists "v154_trip_activities_insert" on public.trip_activities;
+drop policy if exists "v154_trip_activities_update" on public.trip_activities;
+drop policy if exists "v154_trip_activities_delete" on public.trip_activities;
+
+create policy "v154_trip_activities_insert"
+on public.trip_activities as restrictive for insert to authenticated
+with check (public.can_edit_trip(trip_id));
+
+create policy "v154_trip_activities_update"
+on public.trip_activities as restrictive for update to authenticated
 using (public.can_edit_trip(trip_id))
 with check (public.can_edit_trip(trip_id));
+
+create policy "v154_trip_activities_delete"
+on public.trip_activities as restrictive for delete to authenticated
+using (public.can_edit_trip(trip_id));
 
 drop policy if exists "v154_trip_try_items_write" on public.trip_try_items;
-create policy "v154_trip_try_items_write"
-on public.trip_try_items
-as restrictive
-for all
-to authenticated
+drop policy if exists "v154_trip_try_items_insert" on public.trip_try_items;
+drop policy if exists "v154_trip_try_items_update" on public.trip_try_items;
+drop policy if exists "v154_trip_try_items_delete" on public.trip_try_items;
+
+create policy "v154_trip_try_items_insert"
+on public.trip_try_items as restrictive for insert to authenticated
+with check (public.can_edit_trip(trip_id));
+
+create policy "v154_trip_try_items_update"
+on public.trip_try_items as restrictive for update to authenticated
 using (public.can_edit_trip(trip_id))
 with check (public.can_edit_trip(trip_id));
 
+create policy "v154_trip_try_items_delete"
+on public.trip_try_items as restrictive for delete to authenticated
+using (public.can_edit_trip(trip_id));
+
 drop policy if exists "v154_trip_days_write" on public.trip_days;
-create policy "v154_trip_days_write"
-on public.trip_days
-as restrictive
-for all
-to authenticated
+drop policy if exists "v154_trip_days_insert" on public.trip_days;
+drop policy if exists "v154_trip_days_update" on public.trip_days;
+drop policy if exists "v154_trip_days_delete" on public.trip_days;
+
+create policy "v154_trip_days_insert"
+on public.trip_days as restrictive for insert to authenticated
+with check (public.can_edit_trip(trip_id));
+
+create policy "v154_trip_days_update"
+on public.trip_days as restrictive for update to authenticated
 using (public.can_edit_trip(trip_id))
 with check (public.can_edit_trip(trip_id));
+
+create policy "v154_trip_days_delete"
+on public.trip_days as restrictive for delete to authenticated
+using (public.can_edit_trip(trip_id));
 
 -- Reisedaten selbst dürfen nur vom Owner geändert/gelöscht werden.
 -- SELECT wird durch die bestehenden Policies geregelt.
