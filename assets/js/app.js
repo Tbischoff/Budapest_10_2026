@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.49.1";
+const APP_VERSION = "v1.50.0";
 
 
 function syncVersionLabels() {
@@ -3135,7 +3135,7 @@ async function ensureOfflineMap() {
 
 async function activateOfflineMap() {
   // Ein vorhandener Reise-Snapshot reicht für die generische Orientierungskarte.
-  // So funktionieren auch Offline-Daten, die unmittelbar vor v1.49.1 vorbereitet wurden.
+  // So funktionieren auch Offline-Daten, die unmittelbar vor v1.50.0 vorbereitet wurden.
   if (!offlineMapIsPrepared() && !loadOfflineTripSnapshot()) return false;
   const googleEl = document.getElementById("map");
   const offlineEl = document.getElementById("offlineMap");
@@ -3284,6 +3284,112 @@ function renderOfflineRouteStatus() {
   const mapMeta = offlineMapPackageMeta();
   const mapRow = `<div>${mapReady ? "✅" : "⚪"} Offline-Karte – ${mapReady ? `${escapeHtml(mapMeta?.name || "Kartenpaket")} gespeichert` : "kein Kartenpaket"}</div>`;
   box.innerHTML = dataRows + mapRow + rows + (syncText ? `<small>Reisedaten zuletzt synchronisiert: ${escapeHtml(syncText)}</small>` : (updated ? `<small>Routen zuletzt aktualisiert: ${escapeHtml(updated)}</small>` : ""));
+}
+
+function offlineMapBuildBounds() {
+  const coords = [];
+  const add = (lat, lon) => {
+    lat = Number(lat); lon = Number(lon);
+    if (Number.isFinite(lat) && Number.isFinite(lon) && lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180) {
+      coords.push([lon, lat]);
+    }
+  };
+  (placesData?.places || []).forEach(place => add(place.latitude ?? place.lat, place.longitude ?? place.lng ?? place.lon));
+  (activities || []).forEach(activity => add(activity.latitude ?? activity.lat, activity.longitude ?? activity.lng ?? activity.lon));
+
+  if (!coords.length) {
+    const lat = Number(tripMapCenter?.lat) || CONFIG.initialCenter.lat;
+    const lon = Number(tripMapCenter?.lng) || CONFIG.initialCenter.lng;
+    return { min_lon: lon - 0.12, min_lat: lat - 0.09, max_lon: lon + 0.12, max_lat: lat + 0.09 };
+  }
+
+  const lons = coords.map(item => item[0]);
+  const lats = coords.map(item => item[1]);
+  let minLon = Math.min(...lons), maxLon = Math.max(...lons);
+  let minLat = Math.min(...lats), maxLat = Math.max(...lats);
+  const lonPad = Math.max(0.025, (maxLon - minLon) * 0.18);
+  const latPad = Math.max(0.02, (maxLat - minLat) * 0.18);
+  return {
+    min_lon: Math.max(-180, minLon - lonPad),
+    min_lat: Math.max(-90, minLat - latPad),
+    max_lon: Math.min(180, maxLon + lonPad),
+    max_lat: Math.min(90, maxLat + latPad)
+  };
+}
+
+async function waitForOfflineMapJob(jobId, timeoutMs = 25 * 60 * 1000) {
+  const started = Date.now();
+  while (Date.now() - started < timeoutMs) {
+    const { data: job, error } = await supabaseClient
+      .from("offline_map_jobs")
+      .select("id,status,map_url,file_name,file_size,error_message")
+      .eq("id", jobId)
+      .single();
+    if (error) throw error;
+    if (job?.status === "ready") return job;
+    if (job?.status === "failed") throw new Error(job.error_message || "Die Offline-Karte konnte nicht erstellt werden.");
+    const box = document.getElementById("offlineMapBuildStatus");
+    if (box) box.textContent = job?.status === "processing"
+      ? "⏳ Offline-Karte wird erstellt …"
+      : "⏳ Offline-Karte wartet auf die Verarbeitung …";
+    await new Promise(resolve => setTimeout(resolve, 5000));
+  }
+  throw new Error("Die Kartenerstellung dauert länger als erwartet. Der Auftrag läuft möglicherweise noch.");
+}
+
+async function buildOfflineMapPackage() {
+  if (navigator.onLine === false) {
+    setStatus("Die Offline-Karte kann nur mit Internetverbindung erstellt werden.");
+    return;
+  }
+  if (!currentTripId || !supabaseClient) {
+    setStatus("Bitte zuerst eine Reise auswählen.");
+    return;
+  }
+
+  const button = document.getElementById("buildOfflineMapBtn");
+  const box = document.getElementById("offlineMapBuildStatus");
+  const originalText = button?.textContent || "🗺️ Offline-Karte erstellen";
+  try {
+    if (button) { button.disabled = true; button.textContent = "⏳ Auftrag wird gestartet …"; }
+    if (box) box.textContent = "⏳ Kartenausschnitt wird vorbereitet …";
+
+    const bounds = offlineMapBuildBounds();
+    const payload = {
+      trip_id: currentTripId,
+      destination: currentTrip?.destination || currentTrip?.name || "Reise",
+      ...bounds,
+      max_zoom: 15
+    };
+
+    const { data, error } = await supabaseClient.functions.invoke("prepare-offline-map", { body: payload });
+    if (error) throw error;
+    if (!data?.job_id) throw new Error(data?.error || "Die Kartenerstellung konnte nicht gestartet werden.");
+
+    if (box) box.textContent = "⏳ Offline-Karte wurde angefordert …";
+    if (button) button.textContent = "⏳ Karte wird erstellt …";
+
+    const job = await waitForOfflineMapJob(data.job_id);
+    if (!job.map_url) throw new Error("Der Kartenauftrag ist fertig, enthält aber keine Datei.");
+
+    const { data: blob, error: downloadError } = await supabaseClient.storage
+      .from("offline-maps")
+      .download(job.map_url);
+    if (downloadError || !blob) throw downloadError || new Error("Kartenpaket konnte nicht heruntergeladen werden.");
+
+    const fileName = job.file_name || `${data.job_id}.pmtiles`;
+    const file = new File([blob], fileName, { type: "application/octet-stream" });
+    await importOfflineMapPackage(file);
+    if (box) box.textContent = `✅ Offline-Karte erstellt und gespeichert · ${formatOfflineMapBytes(file.size)}`;
+    setStatus("Offline-Karte wurde erstellt und auf diesem Gerät gespeichert.");
+  } catch (error) {
+    console.error("Offline-Karte erstellen:", error);
+    const message = error?.message || "Unbekannter Fehler";
+    if (box) box.textContent = `❌ ${message}`;
+    setStatus(`Offline-Karte konnte nicht erstellt werden: ${message}`);
+  } finally {
+    if (button) { button.disabled = false; button.textContent = originalText; }
+  }
 }
 
 async function prepareOfflineRoutes() {
@@ -7605,6 +7711,7 @@ function wireControls() {
   document.getElementById("mobileDistanceSortBtn")?.addEventListener("click", toggleDistanceSort);
   document.getElementById("routeToggleBtn").addEventListener("click", toggleDayRoute);
   document.getElementById("prepareOfflineRoutesBtn")?.addEventListener("click", prepareOfflineRoutes);
+  document.getElementById("buildOfflineMapBtn")?.addEventListener("click", buildOfflineMapPackage);
   document.getElementById("importOfflineMapBtn")?.addEventListener("click", () => document.getElementById("offlineMapFileInput")?.click());
   document.getElementById("offlineMapFileInput")?.addEventListener("change", async event => {
     const file = event.target.files?.[0];
