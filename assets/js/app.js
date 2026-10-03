@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.53.2";
+const APP_VERSION = "v1.53.3";
 
 
 function syncVersionLabels() {
@@ -1294,10 +1294,15 @@ async function initGooglePlaceAutocomplete() {
   try {
     const { PlaceAutocompleteElement } = await google.maps.importLibrary("places");
 
+    // v1.53.3: Google-Ortssuche auf das aktuelle Reiseziel und dessen
+    // Umgebung beschränken. Anders als locationBias ist locationRestriction
+    // eine echte Suchgrenze.
     googlePlaceAutocompleteElement = new PlaceAutocompleteElement({
-      locationBias: {
-        center: tripMapCenter,
-        radius: 50000
+      locationRestriction: {
+        west: tripMapCenter.lng - 0.65,
+        east: tripMapCenter.lng + 0.65,
+        south: tripMapCenter.lat - 0.45,
+        north: tripMapCenter.lat + 0.45
       }
     });
     googlePlaceAutocompleteElement.placeholder = "Restaurant, Café, Sehenswürdigkeit …";
@@ -7046,7 +7051,14 @@ async function initActivityPlaceAutocomplete() {
   const host = document.getElementById("activityPlaceAutocomplete");
   if (!host || activityPlaceAutocompleteElement || !google?.maps) return;
   const { PlaceAutocompleteElement } = await google.maps.importLibrary("places");
-  activityPlaceAutocompleteElement = new PlaceAutocompleteElement({ locationBias: { center: tripMapCenter, radius: 50000 } });
+  activityPlaceAutocompleteElement = new PlaceAutocompleteElement({
+    locationRestriction: {
+      west: tripMapCenter.lng - 0.65,
+      east: tripMapCenter.lng + 0.65,
+      south: tripMapCenter.lat - 0.45,
+      north: tripMapCenter.lat + 0.45
+    }
+  });
   activityPlaceAutocompleteElement.placeholder = "Treffpunkt oder Adresse suchen …";
   host.appendChild(activityPlaceAutocompleteElement);
   activityPlaceAutocompleteElement.addEventListener("gmp-select", async event => {
