@@ -1,13 +1,13 @@
-const APP_VERSION = "v1.53.1";
-const CACHE_NAME = "travel-planner-v1.53.1";
+const APP_VERSION = "v1.53.2";
+const CACHE_NAME = "travel-planner-v1.53.2";
 const APP_SHELL = [
   "./",
   "./index.html",
-  "./assets/css/style.css?v=1.53.1",
-  "./assets/js/app.js?v=1.53.1",
+  "./assets/css/style.css?v=1.53.2",
+  "./assets/js/app.js?v=1.53.2",
   "./data/places.js",
   "./assets/icons/favicon.svg",
-  "./manifest.webmanifest?v=1.53.1"
+  "./manifest.webmanifest?v=1.53.2"
 ];
 const OPTIONAL_EXTERNAL = [
   "https://cdn.jsdelivr.net/npm/maplibre-gl@5.11.0/dist/maplibre-gl.css",
