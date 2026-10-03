@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.50.0";
+const APP_VERSION = "v1.50.1";
 
 
 function syncVersionLabels() {
@@ -3135,7 +3135,7 @@ async function ensureOfflineMap() {
 
 async function activateOfflineMap() {
   // Ein vorhandener Reise-Snapshot reicht für die generische Orientierungskarte.
-  // So funktionieren auch Offline-Daten, die unmittelbar vor v1.50.0 vorbereitet wurden.
+  // So funktionieren auch Offline-Daten, die unmittelbar vor v1.50.1 vorbereitet wurden.
   if (!offlineMapIsPrepared() && !loadOfflineTripSnapshot()) return false;
   const googleEl = document.getElementById("map");
   const offlineEl = document.getElementById("offlineMap");
@@ -3362,7 +3362,14 @@ async function buildOfflineMapPackage() {
       max_zoom: 15
     };
 
-    const { data, error } = await supabaseClient.functions.invoke("prepare-offline-map", { body: payload });
+    const { data: { session }, error: sessionError } = await supabaseClient.auth.getSession();
+    if (sessionError) throw sessionError;
+    if (!session?.access_token) throw new Error("Die Anmeldung ist abgelaufen. Bitte erneut anmelden.");
+
+    const { data, error } = await supabaseClient.functions.invoke("prepare-offline-map", {
+      body: payload,
+      headers: { Authorization: `Bearer ${session.access_token}` }
+    });
     if (error) throw error;
     if (!data?.job_id) throw new Error(data?.error || "Die Kartenerstellung konnte nicht gestartet werden.");
 
