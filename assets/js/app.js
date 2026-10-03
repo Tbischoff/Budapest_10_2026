@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.51.2";
+const APP_VERSION = "v1.52.0";
 
 
 function syncVersionLabels() {
@@ -152,19 +152,42 @@ let navigationLastPositionAt = 0;
 let navigationLastAccuracy = Infinity;
 const NAV_CACHED_POSITION_MAX_AGE_MS = 60000;
 const NAV_CACHED_POSITION_MAX_ACCURACY = 50;
-const NAV_SESSION_STORAGE_KEY = "travelPlannerActiveNavigation";
+const LEGACY_NAV_SESSION_STORAGE_KEY = "travelPlannerActiveNavigation";
 const LAST_LOCATION_STORAGE_KEY = "travelPlannerLastKnownLocation";
-const MAP_STATE_STORAGE_KEY = "travelPlannerMapState";
-const ROUTE_END_ACCOMMODATION_STORAGE_KEY = "travelPlannerRouteEndAccommodation";
-const GEOCODE_CACHE_STORAGE_KEY = "travelPlannerGeocodeCache";
+const LEGACY_MAP_STATE_STORAGE_KEY = "travelPlannerMapState";
+const LEGACY_ROUTE_END_ACCOMMODATION_STORAGE_KEY = "travelPlannerRouteEndAccommodation";
+const LEGACY_GEOCODE_CACHE_STORAGE_KEY = "travelPlannerGeocodeCache";
+
+function activeTripStorageKey(kind, tripId = currentTripId || getLastTripId()) {
+  return tripId ? `travelPlanner:${kind}:${tripId}` : null;
+}
+function mapStateStorageKey(tripId) { return activeTripStorageKey("mapStateV2", tripId); }
+function routeEndAccommodationStorageKey(tripId) { return activeTripStorageKey("routeEndAccommodationV2", tripId); }
+function geocodeCacheStorageKey(tripId) { return activeTripStorageKey("geocodeCacheV2", tripId); }
+function navigationSessionStorageKey(tripId) { return activeTripStorageKey("activeNavigationV2", tripId); }
+
+function migrateTripScopedLocalStorage(tripId = currentTripId || getLastTripId()) {
+  if (!tripId) return;
+  const pairs = [
+    [LEGACY_MAP_STATE_STORAGE_KEY, mapStateStorageKey(tripId)],
+    [LEGACY_ROUTE_END_ACCOMMODATION_STORAGE_KEY, routeEndAccommodationStorageKey(tripId)],
+    [LEGACY_GEOCODE_CACHE_STORAGE_KEY, geocodeCacheStorageKey(tripId)],
+    [LEGACY_NAV_SESSION_STORAGE_KEY, navigationSessionStorageKey(tripId)]
+  ];
+  for (const [legacyKey, scopedKey] of pairs) {
+    try {
+      if (scopedKey && localStorage.getItem(scopedKey) === null && localStorage.getItem(legacyKey) !== null) {
+        localStorage.setItem(scopedKey, localStorage.getItem(legacyKey));
+      }
+    } catch {}
+  }
+}
 
 function migrateLegacyLocalStorage() {
   const pairs = [
     ["budapestActiveNavigation", NAV_SESSION_STORAGE_KEY],
     ["budapestLastKnownLocation", LAST_LOCATION_STORAGE_KEY],
-    [MAP_STATE_STORAGE_KEY, MAP_STATE_STORAGE_KEY],
-    [ROUTE_END_ACCOMMODATION_STORAGE_KEY, ROUTE_END_ACCOMMODATION_STORAGE_KEY],
-    [GEOCODE_CACHE_STORAGE_KEY, GEOCODE_CACHE_STORAGE_KEY],
+
     ["budapestMobilityModeV1", "travelPlannerMobilityModeV1"]
   ];
   for (const [legacyKey, newKey] of pairs) {
@@ -523,6 +546,8 @@ async function selectTrip(tripId) {
   currentTripId = trip.id;
   currentTrip = trip;
   rememberLastTripId(trip.id);
+  migrateTripScopedLocalStorage(trip.id);
+  state = loadState();
   try {
     document.getElementById("authGate").classList.add("is-hidden");
     await bootstrap();
@@ -691,7 +716,7 @@ async function refreshPlanningFromSupabase() {
       else delete saved.endTime;
     }
 
-    localStorage.setItem(MAP_STATE_STORAGE_KEY, JSON.stringify(state));
+    localStorage.setItem(mapStateStorageKey(), JSON.stringify(state));
     applyFilters();
     updateDistanceControls();
     updateRouteControls();
@@ -714,17 +739,24 @@ async function loadSupabaseTripData() {
   if (tripError) throw tripError;
   currentTrip = trip;
 
-  const { data: dbPlaces, error: placesError } = await supabaseClient
-    .from("places")
-    .select("*")
-    .order("name");
-  if (placesError) throw placesError;
-
   const { data: tripPlaces, error: tpError } = await supabaseClient
     .from("trip_places")
     .select("place_id,trip_day_id,planned_order,planned_time,planned_end_time,visited")
     .eq("trip_id", trip.id);
   if (tpError) throw tpError;
+
+  // Multi-Trip: Nur Orte der aktiven Reise laden statt die komplette globale Ortsdatenbank.
+  const tripPlaceIds = [...new Set((tripPlaces || []).map(item => item.place_id).filter(Boolean))];
+  let dbPlaces = [];
+  if (tripPlaceIds.length) {
+    const { data, error: placesError } = await supabaseClient
+      .from("places")
+      .select("*")
+      .in("id", tripPlaceIds)
+      .order("name");
+    if (placesError) throw placesError;
+    dbPlaces = data || [];
+  }
 
   const { data: tripDays, error: daysError } = await supabaseClient
     .from("trip_days")
@@ -1470,7 +1502,7 @@ function accommodationStop() {
 
 function routeEndsAtAccommodation() {
   const checkbox = document.getElementById("routeEndAccommodation");
-  return checkbox ? checkbox.checked : localStorage.getItem(ROUTE_END_ACCOMMODATION_STORAGE_KEY) !== "false";
+  return checkbox ? checkbox.checked : localStorage.getItem(routeEndAccommodationStorageKey()) !== "false";
 }
 
 function getRoutingStopsForDay(dayId) {
@@ -2215,7 +2247,7 @@ async function handleAddPlace(event) {
       ps.plannedDay = selectedTripDay;
       ps.plannedOrder = nextOrder;
       ps.visited = false;
-      localStorage.setItem(MAP_STATE_STORAGE_KEY, JSON.stringify(state));
+      localStorage.setItem(mapStateStorageKey(), JSON.stringify(state));
     }
     cachePosition(draft.id, position);
     const marker = createPlaceMarker(draft, position, map);
@@ -2284,7 +2316,7 @@ async function removePlaceFromTrip(id) {
   markers.delete(id);
   placesData.places = placesData.places.filter(item => item.id !== id);
   delete state.places[id];
-  localStorage.setItem(MAP_STATE_STORAGE_KEY, JSON.stringify(state));
+  localStorage.setItem(mapStateStorageKey(), JSON.stringify(state));
   if (previousDay) normalizeDayOrder(previousDay);
   applyFilters();
   updateRouteControls();
@@ -4106,7 +4138,7 @@ function saveNavigationSession() {
   try {
     const stops = remainingNavigationStops().map(serializeNavigationStop).filter(Boolean);
     if (!stops.length) return;
-    localStorage.setItem(NAV_SESSION_STORAGE_KEY, JSON.stringify({
+    localStorage.setItem(navigationSessionStorageKey(), JSON.stringify({
       version: 1,
       savedAt: Date.now(),
       testMode: navigationTestMode,
@@ -4121,12 +4153,12 @@ function saveNavigationSession() {
 }
 
 function clearNavigationSession() {
-  try { localStorage.removeItem(NAV_SESSION_STORAGE_KEY); } catch (_) {}
+  try { localStorage.removeItem(navigationSessionStorageKey()); } catch (_) {}
 }
 
 function loadNavigationSession() {
   try {
-    const data = JSON.parse(localStorage.getItem(NAV_SESSION_STORAGE_KEY) || "null");
+    const data = JSON.parse(localStorage.getItem(navigationSessionStorageKey()) || "null");
     if (!data || !Array.isArray(data.stops) || !data.stops.length) return null;
     data.stops = data.stops.map(stop => ({ ...stop, position: normalizeLatLng(stop.position) })).filter(stop => stop.position);
     return data.stops.length ? data : null;
@@ -7724,7 +7756,7 @@ async function importBackupFile(file) {
     }
 
     // Lokale Altstände dürfen den frisch restaurierten Cloud-Stand nicht überlagern.
-    localStorage.removeItem(MAP_STATE_STORAGE_KEY);
+    localStorage.removeItem(mapStateStorageKey());
     setStatus("📥 Supabase-Backup wiederhergestellt. App wird neu geladen …");
     window.setTimeout(() => window.location.reload(), 600);
   } catch (error) {
@@ -7825,9 +7857,9 @@ function wireControls() {
   }
   const routeEndAccommodation = document.getElementById("routeEndAccommodation");
   if (routeEndAccommodation) {
-    routeEndAccommodation.checked = localStorage.getItem(ROUTE_END_ACCOMMODATION_STORAGE_KEY) !== "false";
+    routeEndAccommodation.checked = localStorage.getItem(routeEndAccommodationStorageKey()) !== "false";
     routeEndAccommodation.addEventListener("change", () => {
-      localStorage.setItem(ROUTE_END_ACCOMMODATION_STORAGE_KEY, String(routeEndAccommodation.checked));
+      localStorage.setItem(routeEndAccommodationStorageKey(), String(routeEndAccommodation.checked));
       if (activeRouteDay) clearDayRoute();
       updateRouteControls();
       renderOfflineRouteStatus();
@@ -8130,14 +8162,15 @@ function setStatus(text) {
 
 function loadState() {
   try {
-    return JSON.parse(localStorage.getItem(MAP_STATE_STORAGE_KEY)) || { places: {}, try: {} };
+    const key = mapStateStorageKey();
+    return key ? (JSON.parse(localStorage.getItem(key)) || { places: {}, try: {} }) : { places: {}, try: {} };
   } catch {
     return { places: {}, try: {} };
   }
 }
 
 function saveState() {
-  localStorage.setItem(MAP_STATE_STORAGE_KEY, JSON.stringify(state));
+  localStorage.setItem(mapStateStorageKey(), JSON.stringify(state));
   scheduleSupabasePlanningSync();
 }
 
@@ -8199,7 +8232,7 @@ async function syncPlanningToSupabase() {
 
 function getCachedPosition(id) {
   try {
-    const cache = JSON.parse(localStorage.getItem(GEOCODE_CACHE_STORAGE_KEY)) || {};
+    const cache = JSON.parse(localStorage.getItem(geocodeCacheStorageKey())) || {};
     return cache[id] || null;
   } catch {
     return null;
@@ -8209,10 +8242,10 @@ function getCachedPosition(id) {
 function cachePosition(id, position) {
   let cache = {};
   try {
-    cache = JSON.parse(localStorage.getItem(GEOCODE_CACHE_STORAGE_KEY)) || {};
+    cache = JSON.parse(localStorage.getItem(geocodeCacheStorageKey())) || {};
   } catch {}
   cache[id] = position;
-  localStorage.setItem(GEOCODE_CACHE_STORAGE_KEY, JSON.stringify(cache));
+  localStorage.setItem(geocodeCacheStorageKey(), JSON.stringify(cache));
 }
 
 function delay(ms) {
