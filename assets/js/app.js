@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.51.0";
+const APP_VERSION = "v1.51.1";
 
 
 function syncVersionLabels() {
@@ -3135,7 +3135,7 @@ async function ensureOfflineMap() {
 
 async function activateOfflineMap() {
   // Ein vorhandener Reise-Snapshot reicht für die generische Orientierungskarte.
-  // So funktionieren auch Offline-Daten, die unmittelbar vor v1.51.0 vorbereitet wurden.
+  // So funktionieren auch Offline-Daten, die unmittelbar vor v1.51.1 vorbereitet wurden.
   if (!offlineMapIsPrepared() && !loadOfflineTripSnapshot()) return false;
   const googleEl = document.getElementById("map");
   const offlineEl = document.getElementById("offlineMap");
@@ -3282,7 +3282,8 @@ function renderOfflineRouteStatus() {
   const syncText = tripSnapshot?.savedAt ? new Date(tripSnapshot.savedAt).toLocaleString("de-DE",{dateStyle:"short",timeStyle:"short"}) : "";
   const dataRows = `<div>${tripSnapshot ? "✅" : "⚪"} Orte & Tagesplanung – ${tripSnapshot ? "gespeichert" : "nicht vorbereitet"}</div><div>${tripSnapshot?.activities ? "✅" : "⚪"} Aktivitäten – ${tripSnapshot?.activities ? "gespeichert" : "nicht vorbereitet"}</div><div>${weatherSnapshot ? "✅" : "⚪"} Wetter – ${weatherSnapshot ? "letzter Stand gespeichert" : "nicht gespeichert"}</div>`;
   const mapMeta = offlineMapPackageMeta();
-  const mapRow = `<div>${mapReady ? "✅" : "⚪"} Offline-Karte – ${mapReady ? `${escapeHtml(mapMeta?.name || "Kartenpaket")} gespeichert` : "kein Kartenpaket"}</div>`;
+  const offlineMapLabel = currentTrip?.destination ? `${currentTrip.destination} Offline-Karte` : "Offline-Karte";
+  const mapRow = `<div>${mapReady ? "✅" : "⚪"} Offline-Karte – ${mapReady ? `${escapeHtml(offlineMapLabel)} gespeichert` : "kein Kartenpaket"}</div>`;
   box.innerHTML = dataRows + mapRow + rows + (syncText ? `<small>Reisedaten zuletzt synchronisiert: ${escapeHtml(syncText)}</small>` : (updated ? `<small>Routen zuletzt aktualisiert: ${escapeHtml(updated)}</small>` : ""));
   updateOfflinePrepareButton();
 }
