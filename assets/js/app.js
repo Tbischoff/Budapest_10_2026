@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.48.3";
+const APP_VERSION = "v1.49.0";
 
 
 function syncVersionLabels() {
@@ -2795,15 +2795,106 @@ function offlineSnapshotTime() {
   return trip?.savedAt || null;
 }
 
-const OFFLINE_MAP_PREPARED_KIND = "offlineMapV2";
+const OFFLINE_MAP_PREPARED_KIND = "offlineMapV3";
+const OFFLINE_MAP_PACKAGE_META_KIND = "offlineMapPackageV1";
+const OFFLINE_MAP_DB = "travelPlannerOfflineMaps";
+const OFFLINE_MAP_STORE = "packages";
 let offlineMap = null;
 let offlineMapReady = false;
 let offlineSelectedMarker = null;
+let offlinePmtilesProtocol = null;
 
 function offlineMapPreparedKey(tripId = currentTripId || getLastTripId()) {
   return tripScopedStorageKey(OFFLINE_MAP_PREPARED_KIND, tripId);
 }
-
+function offlineMapPackageMetaKey(tripId = currentTripId || getLastTripId()) {
+  return tripScopedStorageKey(OFFLINE_MAP_PACKAGE_META_KIND, tripId);
+}
+function offlineMapPackageMeta(tripId = currentTripId || getLastTripId()) {
+  const key = offlineMapPackageMetaKey(tripId);
+  try { return key ? JSON.parse(localStorage.getItem(key) || "null") : null; }
+  catch { return null; }
+}
+function openOfflineMapDb() {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(OFFLINE_MAP_DB, 1);
+    request.onupgradeneeded = () => {
+      if (!request.result.objectStoreNames.contains(OFFLINE_MAP_STORE)) request.result.createObjectStore(OFFLINE_MAP_STORE);
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error || new Error("Offline-Kartenspeicher konnte nicht geöffnet werden."));
+  });
+}
+async function putOfflineMapPackage(tripId, file) {
+  const db = await openOfflineMapDb();
+  await new Promise((resolve, reject) => {
+    const tx = db.transaction(OFFLINE_MAP_STORE, "readwrite");
+    tx.objectStore(OFFLINE_MAP_STORE).put(file, tripId);
+    tx.oncomplete = resolve;
+    tx.onerror = () => reject(tx.error || new Error("Kartenpaket konnte nicht gespeichert werden."));
+  });
+  db.close();
+}
+async function getOfflineMapPackage(tripId = currentTripId || getLastTripId()) {
+  if (!tripId) return null;
+  const db = await openOfflineMapDb();
+  const result = await new Promise((resolve, reject) => {
+    const tx = db.transaction(OFFLINE_MAP_STORE, "readonly");
+    const request = tx.objectStore(OFFLINE_MAP_STORE).get(tripId);
+    request.onsuccess = () => resolve(request.result || null);
+    request.onerror = () => reject(request.error);
+  });
+  db.close();
+  return result;
+}
+async function deleteOfflineMapPackage(tripId = currentTripId || getLastTripId()) {
+  if (!tripId) return;
+  const db = await openOfflineMapDb();
+  await new Promise((resolve, reject) => {
+    const tx = db.transaction(OFFLINE_MAP_STORE, "readwrite");
+    tx.objectStore(OFFLINE_MAP_STORE).delete(tripId);
+    tx.oncomplete = resolve;
+    tx.onerror = () => reject(tx.error);
+  });
+  db.close();
+  const key = offlineMapPackageMetaKey(tripId);
+  if (key) localStorage.removeItem(key);
+}
+function formatOfflineMapBytes(bytes) {
+  const value = Number(bytes) || 0;
+  if (value >= 1024 * 1024) return `${(value / (1024 * 1024)).toFixed(1)} MB`;
+  return `${Math.max(1, Math.round(value / 1024))} KB`;
+}
+function renderOfflineMapPackageStatus() {
+  const box = document.getElementById("offlineMapPackageStatus");
+  const remove = document.getElementById("removeOfflineMapBtn");
+  const meta = offlineMapPackageMeta();
+  if (box) box.textContent = meta
+    ? `Gespeichert: ${meta.name} · ${formatOfflineMapBytes(meta.size)}`
+    : "Noch kein PMTiles-Kartenpaket für diese Reise gespeichert.";
+  if (remove) remove.hidden = !meta;
+}
+async function importOfflineMapPackage(file) {
+  if (!currentTripId) throw new Error("Bitte zuerst eine Reise auswählen.");
+  if (!file || !/\.pmtiles$/i.test(file.name)) throw new Error("Bitte eine .pmtiles-Datei auswählen.");
+  if (!window.pmtiles?.PMTiles || !window.pmtiles?.FileSource) throw new Error("PMTiles-Bibliothek ist nicht geladen.");
+  const sourceFile = file instanceof File ? file : new File([file], file.name || "map.pmtiles");
+  const archive = new pmtiles.PMTiles(new pmtiles.FileSource(sourceFile));
+  const header = await archive.getHeader();
+  await putOfflineMapPackage(currentTripId, sourceFile);
+  const key = offlineMapPackageMetaKey();
+  localStorage.setItem(key, JSON.stringify({
+    name: sourceFile.name,
+    size: sourceFile.size,
+    savedAt: new Date().toISOString(),
+    minZoom: header.minZoom,
+    maxZoom: header.maxZoom,
+    bounds: [header.minLon, header.minLat, header.maxLon, header.maxLat]
+  }));
+  prepareOfflineMapContext();
+  renderOfflineMapPackageStatus();
+  renderOfflineRouteStatus();
+}
 function prepareOfflineMapContext() {
   const key = offlineMapPreparedKey();
   if (!key) return false;
@@ -2814,26 +2905,35 @@ function prepareOfflineMapContext() {
   }));
   return true;
 }
-
 function offlineMapIsPrepared() {
   const key = offlineMapPreparedKey();
-  if (!key) return false;
+  if (!key || !offlineMapPackageMeta()) return false;
   try { return Boolean(JSON.parse(localStorage.getItem(key) || "null")); }
   catch { return false; }
 }
-
 function offlineMapContext() {
   const key = offlineMapPreparedKey();
   try { return key ? JSON.parse(localStorage.getItem(key) || "null") : null; }
   catch { return null; }
 }
-
-function offlineBaseStyle() {
+function offlineBaseStyle(sourceKey) {
   return {
     version: 8,
-    sources: {},
+    sources: {
+      basemap: {
+        type: "vector",
+        url: `pmtiles://${sourceKey}`,
+        attribution: "© OpenStreetMap contributors"
+      }
+    },
     layers: [
-      { id:"background", type:"background", paint:{ "background-color":"#eef1ed" } }
+      { id:"background", type:"background", paint:{ "background-color":"#eef1ed" } },
+      { id:"earth", type:"fill", source:"basemap", "source-layer":"earth", paint:{ "fill-color":"#eef1ed" } },
+      { id:"water", type:"fill", source:"basemap", "source-layer":"water", paint:{ "fill-color":"#b9d9e8" } },
+      { id:"landuse", type:"fill", source:"basemap", "source-layer":"landuse", paint:{ "fill-color":"#dfe8d8", "fill-opacity":0.55 } },
+      { id:"buildings", type:"fill", source:"basemap", "source-layer":"buildings", minzoom:13, paint:{ "fill-color":"#ddd8d0", "fill-outline-color":"#c9c2b8" } },
+      { id:"roads", type:"line", source:"basemap", "source-layer":"roads", paint:{ "line-color":"#ffffff", "line-width":["interpolate",["linear"],["zoom"],10,0.7,14,2.4,17,6] } },
+      { id:"boundaries", type:"line", source:"basemap", "source-layer":"boundaries", paint:{ "line-color":"#9ba7a3", "line-width":1, "line-dasharray":[3,2] } }
     ]
   };
 }
@@ -2995,13 +3095,27 @@ function highlightOfflineMarker(id, kind) {
 async function ensureOfflineMap() {
   if (offlineMapReady && offlineMap) return offlineMap;
   if (!window.maplibregl) throw new Error("Offline-Kartenbibliothek ist nicht geladen.");
+  if (!window.pmtiles?.Protocol || !window.pmtiles?.PMTiles || !window.pmtiles?.FileSource) throw new Error("PMTiles-Unterstützung ist nicht geladen.");
   const offlineEl = document.getElementById("offlineMap");
   if (!offlineEl) throw new Error("Offline-Kartencontainer fehlt.");
+  const packageFile = await getOfflineMapPackage();
+  if (!packageFile) throw new Error("Für diese Reise ist noch kein Kartenpaket gespeichert.");
+  const meta = offlineMapPackageMeta();
+  const file = packageFile instanceof File
+    ? packageFile
+    : new File([packageFile], meta?.name || "offline-map.pmtiles", { type:"application/octet-stream" });
+  const source = new pmtiles.FileSource(file);
+  const archive = new pmtiles.PMTiles(source);
+  if (!offlinePmtilesProtocol) {
+    offlinePmtilesProtocol = new pmtiles.Protocol();
+    maplibregl.addProtocol("pmtiles", offlinePmtilesProtocol.tile);
+  }
+  offlinePmtilesProtocol.add(archive);
   const prepared = offlineMapContext();
   const center = prepared?.center || tripMapCenter;
   offlineMap = new maplibregl.Map({
     container: offlineEl,
-    style: offlineBaseStyle(),
+    style: offlineBaseStyle(source.getKey()),
     center: [Number(center.lng), Number(center.lat)],
     zoom: 12,
     attributionControl: true
@@ -3021,7 +3135,7 @@ async function ensureOfflineMap() {
 
 async function activateOfflineMap() {
   // Ein vorhandener Reise-Snapshot reicht für die generische Orientierungskarte.
-  // So funktionieren auch Offline-Daten, die unmittelbar vor v1.48.3 vorbereitet wurden.
+  // So funktionieren auch Offline-Daten, die unmittelbar vor v1.49.0 vorbereitet wurden.
   if (!offlineMapIsPrepared() && !loadOfflineTripSnapshot()) return false;
   const googleEl = document.getElementById("map");
   const offlineEl = document.getElementById("offlineMap");
@@ -3167,7 +3281,8 @@ function renderOfflineRouteStatus() {
   const weatherSnapshot = loadOfflineWeatherSnapshot();
   const syncText = tripSnapshot?.savedAt ? new Date(tripSnapshot.savedAt).toLocaleString("de-DE",{dateStyle:"short",timeStyle:"short"}) : "";
   const dataRows = `<div>${tripSnapshot ? "✅" : "⚪"} Orte & Tagesplanung – ${tripSnapshot ? "gespeichert" : "nicht vorbereitet"}</div><div>${tripSnapshot?.activities ? "✅" : "⚪"} Aktivitäten – ${tripSnapshot?.activities ? "gespeichert" : "nicht vorbereitet"}</div><div>${weatherSnapshot ? "✅" : "⚪"} Wetter – ${weatherSnapshot ? "letzter Stand gespeichert" : "nicht gespeichert"}</div>`;
-  const mapRow = `<div>${mapReady ? "✅" : "⚪"} Offline-Orientierungskarte – ${mapReady ? "vorbereitet" : "nicht vorbereitet"}</div>`;
+  const mapMeta = offlineMapPackageMeta();
+  const mapRow = `<div>${mapReady ? "✅" : "⚪"} Offline-Karte – ${mapReady ? `${escapeHtml(mapMeta?.name || "Kartenpaket")} gespeichert` : "kein Kartenpaket"}</div>`;
   box.innerHTML = dataRows + mapRow + rows + (syncText ? `<small>Reisedaten zuletzt synchronisiert: ${escapeHtml(syncText)}</small>` : (updated ? `<small>Routen zuletzt aktualisiert: ${escapeHtml(updated)}</small>` : ""));
 }
 
@@ -3181,7 +3296,7 @@ async function prepareOfflineRoutes() {
   let savedCount = 0, skippedCount = 0, failedCount = 0;
   try {
     setStatus(`Offline-Daten für ${currentTrip?.destination || "die Reise"} werden vorbereitet …`);
-    prepareOfflineMapContext();
+    if (offlineMapPackageMeta()) prepareOfflineMapContext();
     saveOfflineTripSnapshot();
     const Route = await ensureRoutesLibrary();
     for (const day of TRIP_DAYS) {
@@ -7490,6 +7605,32 @@ function wireControls() {
   document.getElementById("mobileDistanceSortBtn")?.addEventListener("click", toggleDistanceSort);
   document.getElementById("routeToggleBtn").addEventListener("click", toggleDayRoute);
   document.getElementById("prepareOfflineRoutesBtn")?.addEventListener("click", prepareOfflineRoutes);
+  document.getElementById("importOfflineMapBtn")?.addEventListener("click", () => document.getElementById("offlineMapFileInput")?.click());
+  document.getElementById("offlineMapFileInput")?.addEventListener("change", async event => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    try {
+      setStatus("Kartenpaket wird geprüft und gespeichert …");
+      await importOfflineMapPackage(file);
+      setStatus(`Offline-Kartenpaket für ${currentTrip?.destination || "die Reise"} gespeichert.`);
+    } catch (error) {
+      console.warn("Kartenpaket:", error);
+      setStatus(`Kartenpaket konnte nicht importiert werden: ${error?.message || error}`);
+    } finally {
+      event.target.value = "";
+    }
+  });
+  document.getElementById("removeOfflineMapBtn")?.addEventListener("click", async () => {
+    try {
+      await deleteOfflineMapPackage();
+      if (offlineMap) { offlineMap.remove(); offlineMap = null; offlineMapReady = false; }
+      renderOfflineMapPackageStatus();
+      renderOfflineRouteStatus();
+      setStatus("Offline-Kartenpaket entfernt.");
+    } catch (error) {
+      setStatus(`Kartenpaket konnte nicht entfernt werden: ${error?.message || error}`);
+    }
+  });
   renderOfflineRouteStatus();
   document.getElementById("routeGoogleBtn").addEventListener("click", () => openDayRouteInGoogleMaps());
   document.getElementById("routeStartMode").addEventListener("change", event => setRouteStartMode(event.target.value));
@@ -8115,3 +8256,5 @@ function initPwaOfflineMode() {
   refreshOfflineUi();
 }
 document.addEventListener("DOMContentLoaded", initPwaOfflineMode);
+
+document.addEventListener("DOMContentLoaded", renderOfflineMapPackageStatus);
