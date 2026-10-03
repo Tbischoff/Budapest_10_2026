@@ -1,4 +1,5 @@
-const CACHE_NAME = "travel-planner-v1.49.0";
+const APP_VERSION = "v1.49.1";
+const CACHE_NAME = "travel-planner-v1.49.1";
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -81,5 +82,11 @@ self.addEventListener("fetch", event => {
 });
 
 self.addEventListener("message", event => {
-  if (event.data?.type === "SKIP_WAITING") self.skipWaiting();
+  if (event.data?.type === "SKIP_WAITING") {
+    self.skipWaiting();
+    return;
+  }
+  if (event.data?.type === "GET_VERSION" && event.ports?.[0]) {
+    event.ports[0].postMessage({ version: APP_VERSION });
+  }
 });
