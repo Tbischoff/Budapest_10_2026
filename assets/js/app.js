@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.47.0";
+const APP_VERSION = "v1.48.0";
 
 
 function syncVersionLabels() {
@@ -1075,7 +1075,8 @@ function centerMapOnTripDestination() {
   startupLocationCentered = true;
   const destination = currentTrip?.destination || "Reiseziel";
   if (navigator.onLine === false && offlineMapReady && offlineMap) {
-    setStatus(`🟠 Offline · Für dieses Reiseziel ist derzeit keine Offline-Karte vorbereitet.`);
+    offlineMap.jumpTo({ center: [tripMapCenter.lng, tripMapCenter.lat], zoom: CONFIG.initialZoom });
+    setStatus(`🟠 Offline · Karte auf ${destination} zentriert.`);
     return;
   }
   if (!map) return;
@@ -2794,63 +2795,45 @@ function offlineSnapshotTime() {
   return trip?.savedAt || null;
 }
 
-const OFFLINE_MAP_URL = "./assets/maps/budapest.pmtiles";
-
-function isLegacyBudapestTrip() {
-  return /budapest/i.test(`${currentTrip?.destination || ""} ${currentTrip?.name || ""}`);
-}
-const OFFLINE_MAP_CACHE = "budapest-offline-map-v1";
+const OFFLINE_MAP_PREPARED_KIND = "offlineMapV2";
 let offlineMap = null;
 let offlineMapReady = false;
 let offlineSelectedMarker = null;
 
+function offlineMapPreparedKey(tripId = currentTripId || getLastTripId()) {
+  return tripScopedStorageKey(OFFLINE_MAP_PREPARED_KIND, tripId);
+}
 
-async function cacheBudapestOfflineMap() {
-  const cache = await caches.open(OFFLINE_MAP_CACHE);
-  const response = await fetch(OFFLINE_MAP_URL, { cache: "no-store" });
-  if (!response.ok) throw new Error(`Offline-Karte: HTTP ${response.status}`);
-  await cache.put(OFFLINE_MAP_URL, response.clone());
-  localStorage.setItem("budapestOfflineMapReady", JSON.stringify({ savedAt: new Date().toISOString() }));
+function prepareOfflineMapContext() {
+  const key = offlineMapPreparedKey();
+  if (!key) return false;
+  localStorage.setItem(key, JSON.stringify({
+    savedAt: new Date().toISOString(),
+    center: { ...tripMapCenter },
+    destination: currentTrip?.destination || ""
+  }));
   return true;
 }
 
 function offlineMapIsPrepared() {
-  return Boolean(localStorage.getItem("budapestOfflineMapReady"));
+  const key = offlineMapPreparedKey();
+  if (!key) return false;
+  try { return Boolean(JSON.parse(localStorage.getItem(key) || "null")); }
+  catch { return false; }
+}
+
+function offlineMapContext() {
+  const key = offlineMapPreparedKey();
+  try { return key ? JSON.parse(localStorage.getItem(key) || "null") : null; }
+  catch { return null; }
 }
 
 function offlineBaseStyle() {
-  const roadWidth = ["interpolate",["linear"],["zoom"],10,0.7,13,1.6,16,4.2];
-  const roadCasingWidth = ["interpolate",["linear"],["zoom"],10,2.5,13,3.4,16,6.0];
   return {
     version: 8,
-    sources: {
-      budapest: { type: "vector", url: `pmtiles://${new URL(OFFLINE_MAP_URL, location.href).href}` }
-    },
+    sources: {},
     layers: [
-      { id:"background", type:"background", paint:{ "background-color":"#f7f5ef" } },
-      { id:"landuse", type:"fill", source:"budapest", "source-layer":"landuse", paint:{ "fill-color":"#e8eee2", "fill-opacity":0.78 } },
-      { id:"water", type:"fill", source:"budapest", "source-layer":"water", paint:{ "fill-color":"#acd4e6" } },
-      { id:"water-outline", type:"line", source:"budapest", "source-layer":"water", paint:{ "line-color":"#8fc3d9", "line-width":1 } },
-      { id:"buildings", type:"fill", source:"budapest", "source-layer":"buildings", minzoom:13, paint:{ "fill-color":"#e1dbd2", "fill-outline-color":"#cfc7bc" } },
-      { id:"roads-casing", type:"line", source:"budapest", "source-layer":"roads", minzoom:10, layout:{"line-cap":"round","line-join":"round"}, paint:{ "line-color":"#c9c4bb", "line-width":roadCasingWidth } },
-      { id:"roads", type:"line", source:"budapest", "source-layer":"roads", minzoom:10, layout:{"line-cap":"round","line-join":"round"}, paint:{ "line-color":"#ffffff", "line-width":roadWidth } },
-      { id:"road-labels", type:"symbol", source:"budapest", "source-layer":"roads", minzoom:14, layout:{
-          "symbol-placement":"line",
-          "text-field":["coalesce",["get","name:de"],["get","name"],""],
-          "text-font":["Roboto","Arial","sans-serif"],
-          "text-size":["interpolate",["linear"],["zoom"],14,9,16,12.5,18,14],
-          "text-letter-spacing":0.01,
-          "text-max-angle":30,
-          "text-padding":8,
-          "symbol-spacing":360
-        }, paint:{ "text-color":"#68645e","text-halo-color":"#ffffff","text-halo-width":2 } },
-      { id:"place-labels", type:"symbol", source:"budapest", "source-layer":"places", minzoom:11, layout:{
-          "text-field":["coalesce",["get","name:de"],["get","name"],""],
-          "text-font":["Roboto","Arial","sans-serif"],
-          "text-size":["interpolate",["linear"],["zoom"],11,11,15,14],
-          "text-padding":8,
-          "text-allow-overlap":false
-        }, paint:{ "text-color":"#454b49","text-halo-color":"#f7f5ef","text-halo-width":2 } },
+      { id:"background", type:"background", paint:{ "background-color":"#eef1ed" } }
     ]
   };
 }
@@ -3011,15 +2994,15 @@ function highlightOfflineMarker(id, kind) {
 
 async function ensureOfflineMap() {
   if (offlineMapReady && offlineMap) return offlineMap;
-  if (!window.maplibregl || !window.pmtiles) throw new Error("Offline-Kartenbibliothek ist nicht geladen.");
+  if (!window.maplibregl) throw new Error("Offline-Kartenbibliothek ist nicht geladen.");
   const offlineEl = document.getElementById("offlineMap");
   if (!offlineEl) throw new Error("Offline-Kartencontainer fehlt.");
-  const protocol = new pmtiles.Protocol();
-  try { maplibregl.addProtocol("pmtiles", protocol.tile); } catch {}
+  const prepared = offlineMapContext();
+  const center = prepared?.center || tripMapCenter;
   offlineMap = new maplibregl.Map({
     container: offlineEl,
     style: offlineBaseStyle(),
-    center: [19.0402, 47.4979],
+    center: [Number(center.lng), Number(center.lat)],
     zoom: 12,
     attributionControl: true
   });
@@ -3176,14 +3159,12 @@ function renderOfflineRouteStatus() {
   }).join("");
   const times = Object.values(saved).map(item => new Date(item.savedAt).getTime()).filter(Number.isFinite);
   const updated = times.length ? new Date(Math.max(...times)).toLocaleString("de-DE", { dateStyle:"short", timeStyle:"short" }) : "";
-  const mapReady = isLegacyBudapestTrip() && offlineMapIsPrepared();
+  const mapReady = offlineMapIsPrepared();
   const tripSnapshot = loadOfflineTripSnapshot();
   const weatherSnapshot = loadOfflineWeatherSnapshot();
   const syncText = tripSnapshot?.savedAt ? new Date(tripSnapshot.savedAt).toLocaleString("de-DE",{dateStyle:"short",timeStyle:"short"}) : "";
   const dataRows = `<div>${tripSnapshot ? "✅" : "⚪"} Orte & Tagesplanung – ${tripSnapshot ? "gespeichert" : "nicht vorbereitet"}</div><div>${tripSnapshot?.activities ? "✅" : "⚪"} Aktivitäten – ${tripSnapshot?.activities ? "gespeichert" : "nicht vorbereitet"}</div><div>${weatherSnapshot ? "✅" : "⚪"} Wetter – ${weatherSnapshot ? "letzter Stand gespeichert" : "nicht gespeichert"}</div>`;
-  const mapRow = isLegacyBudapestTrip()
-    ? `<div>${mapReady ? "✅" : "⚪"} Offline-Karte – ${mapReady ? "gespeichert" : "nicht vorbereitet"}</div>`
-    : `<div>ℹ️ Offline-Karte – für ${escapeHtml(currentTrip?.destination || "dieses Reiseziel")} noch nicht verfügbar</div>`;
+  const mapRow = `<div>${mapReady ? "✅" : "⚪"} Offline-Orientierungskarte – ${mapReady ? "vorbereitet" : "nicht vorbereitet"}</div>`;
   box.innerHTML = dataRows + mapRow + rows + (syncText ? `<small>Reisedaten zuletzt synchronisiert: ${escapeHtml(syncText)}</small>` : (updated ? `<small>Routen zuletzt aktualisiert: ${escapeHtml(updated)}</small>` : ""));
 }
 
@@ -3197,6 +3178,7 @@ async function prepareOfflineRoutes() {
   let savedCount = 0, skippedCount = 0, failedCount = 0;
   try {
     setStatus(`Offline-Daten für ${currentTrip?.destination || "die Reise"} werden vorbereitet …`);
+    prepareOfflineMapContext();
     saveOfflineTripSnapshot();
     const Route = await ensureRoutesLibrary();
     for (const day of TRIP_DAYS) {
