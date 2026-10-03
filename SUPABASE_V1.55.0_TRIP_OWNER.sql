@@ -20,3 +20,9 @@ $$;
 select
   pg_get_functiondef('public.create_trip(text,text,date,date)'::regprocedure)
   as create_trip_definition;
+
+
+-- v1.55.1: Die Reiseauswahl liest die eigene Rolle direkt aus trip_members.
+-- RLS entscheidet weiterhin, welche Zeilen sichtbar sind; authenticated
+-- benötigt dafür zusätzlich das Tabellenrecht SELECT.
+grant select on table public.trip_members to authenticated;
