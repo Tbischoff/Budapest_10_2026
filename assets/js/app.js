@@ -2750,7 +2750,7 @@ function plannedTimeEditorHtml(place, saved) {
     return `
       <div class="time-editor time-editor-disabled viewer-time-display">
         <div class="time-editor-title">🕐 Uhrzeit / Zeitfenster</div>
-        <div class="time-editor-hint">${formatted ? escapeHtml(formatted) : "Keine Uhrzeit festgelegt."}</div>
+        <div class="time-editor-hint">${formatted ? escapeHtml(formatted) : "--:--"}</div>
       </div>
     `;
   }
