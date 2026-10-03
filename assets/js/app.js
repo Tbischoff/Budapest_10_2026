@@ -1,5 +1,5 @@
 
-const APP_VERSION = "v1.50.3";
+const APP_VERSION = "v1.51.0";
 
 
 function syncVersionLabels() {
@@ -3135,7 +3135,7 @@ async function ensureOfflineMap() {
 
 async function activateOfflineMap() {
   // Ein vorhandener Reise-Snapshot reicht für die generische Orientierungskarte.
-  // So funktionieren auch Offline-Daten, die unmittelbar vor v1.50.3 vorbereitet wurden.
+  // So funktionieren auch Offline-Daten, die unmittelbar vor v1.51.0 vorbereitet wurden.
   if (!offlineMapIsPrepared() && !loadOfflineTripSnapshot()) return false;
   const googleEl = document.getElementById("map");
   const offlineEl = document.getElementById("offlineMap");
@@ -3284,6 +3284,7 @@ function renderOfflineRouteStatus() {
   const mapMeta = offlineMapPackageMeta();
   const mapRow = `<div>${mapReady ? "✅" : "⚪"} Offline-Karte – ${mapReady ? `${escapeHtml(mapMeta?.name || "Kartenpaket")} gespeichert` : "kein Kartenpaket"}</div>`;
   box.innerHTML = dataRows + mapRow + rows + (syncText ? `<small>Reisedaten zuletzt synchronisiert: ${escapeHtml(syncText)}</small>` : (updated ? `<small>Routen zuletzt aktualisiert: ${escapeHtml(updated)}</small>` : ""));
+  updateOfflinePrepareButton();
 }
 
 function offlineMapBuildBounds() {
@@ -3347,7 +3348,7 @@ async function buildOfflineMapPackage() {
     return;
   }
 
-  const button = document.getElementById("buildOfflineMapBtn");
+  const button = document.getElementById("prepareOfflineRoutesBtn");
   const box = document.getElementById("offlineMapBuildStatus");
   const originalText = button?.textContent || "🗺️ Offline-Karte erstellen";
   try {
@@ -3374,7 +3375,7 @@ async function buildOfflineMapPackage() {
     if (!data?.job_id) throw new Error(data?.error || "Die Kartenerstellung konnte nicht gestartet werden.");
 
     if (box) box.textContent = "⏳ Offline-Karte wurde angefordert …";
-    if (button) button.textContent = "⏳ Karte wird erstellt …";
+    if (button) button.textContent = "⏳ Offline-Karte wird erstellt …";
 
     const job = await waitForOfflineMapJob(data.job_id);
     if (!job.map_url) throw new Error("Der Kartenauftrag ist fertig, enthält aber keine Datei.");
@@ -3396,7 +3397,92 @@ async function buildOfflineMapPackage() {
     setStatus(`Offline-Karte konnte nicht erstellt werden: ${message}`);
   } finally {
     if (button) { button.disabled = false; button.textContent = originalText; }
+    updateOfflinePrepareButton();
   }
+}
+
+function offlineRouteMatchesCurrentPlan(dayId, cached) {
+  const stops = getRoutingStopsForDay(dayId);
+  if (stops.length < 2 || stops.length > 27) return true;
+  if (!cached?.stops || cached.stops.length !== stops.length) return false;
+  return stops.every((stop, index) => {
+    const saved = cached.stops[index];
+    const currentPos = normalizeLatLng(stop.position);
+    const savedPos = normalizeLatLng(saved?.position);
+    return saved?.id === stop.id &&
+      saved?.type === stop.type &&
+      currentPos && savedPos &&
+      Math.abs(currentPos.lat - savedPos.lat) < 0.00001 &&
+      Math.abs(currentPos.lng - savedPos.lng) < 0.00001;
+  });
+}
+
+function offlinePreparationState() {
+  const tripSnapshot = loadOfflineTripSnapshot();
+  const mapReady = offlineMapIsPrepared();
+  const savedRoutes = loadOfflineDayRoutes();
+  const routeDays = TRIP_DAYS.filter(day => {
+    const count = getRoutingStopsForDay(day.id).length;
+    return count >= 2 && count <= 27;
+  });
+  const routesCurrent = routeDays.every(day => offlineRouteMatchesCurrentPlan(day.id, savedRoutes[day.id]));
+  const anyPrepared = Boolean(tripSnapshot || mapReady || Object.keys(savedRoutes).length);
+  const complete = Boolean(tripSnapshot && mapReady && routesCurrent);
+  return { anyPrepared, complete, needsUpdate: anyPrepared && !complete, routeDays: routeDays.length };
+}
+
+function updateOfflinePrepareButton() {
+  const button = document.getElementById("prepareOfflineRoutesBtn");
+  if (!button || button.disabled) return;
+  const state = offlinePreparationState();
+  if (!state.anyPrepared) {
+    button.textContent = "📥 Offline-Daten vorbereiten";
+    button.dataset.offlineAction = "prepare";
+  } else if (!state.complete) {
+    button.textContent = "🔄 Offline-Daten aktualisieren";
+    button.dataset.offlineAction = "update";
+  } else {
+    button.textContent = "🗑️ Offline-Daten entfernen";
+    button.dataset.offlineAction = "remove";
+  }
+}
+
+async function removeAllOfflineData() {
+  if (!currentTripId) return;
+  await deleteOfflineMapPackage(currentTripId);
+  [offlineMapPreparedKey(currentTripId), offlineTripStorageKey(currentTripId),
+   offlineWeatherStorageKey(currentTripId), offlineRoutesStorageKey(currentTripId)]
+    .filter(Boolean).forEach(key => localStorage.removeItem(key));
+  deactivateOfflineMap();
+  renderOfflineMapPackageStatus();
+  renderOfflineRouteStatus();
+  updateOfflinePrepareButton();
+  setStatus("Offline-Daten für diese Reise wurden entfernt.");
+}
+
+async function prepareAllOfflineData() {
+  if (navigator.onLine === false) {
+    setStatus("Offline-Daten können nur mit Internetverbindung vorbereitet werden.");
+    return;
+  }
+  const button = document.getElementById("prepareOfflineRoutesBtn");
+  if (button) { button.disabled = true; button.textContent = "⏳ Offline-Daten werden vorbereitet …"; }
+  try {
+    saveOfflineTripSnapshot();
+    await buildOfflineMapPackage();
+    await prepareOfflineRoutes();
+    saveOfflineTripSnapshot();
+    renderOfflineRouteStatus();
+  } finally {
+    if (button) button.disabled = false;
+    updateOfflinePrepareButton();
+  }
+}
+
+async function handleOfflineDataAction() {
+  const state = offlinePreparationState();
+  if (state.complete) await removeAllOfflineData();
+  else await prepareAllOfflineData();
 }
 
 async function prepareOfflineRoutes() {
@@ -3436,7 +3522,8 @@ async function prepareOfflineRoutes() {
     renderOfflineRouteStatus();
     setStatus(`Offline-Reise vorbereitet: ${savedCount} Route(n) gespeichert${skippedCount ? ` · ${skippedCount} ohne Route` : ""}${failedCount ? ` · ${failedCount} fehlgeschlagen` : ""}.`);
   } finally {
-    if (button) { button.disabled = false; button.textContent = "📥 Offline-Daten vorbereiten"; }
+    if (button) button.disabled = false;
+    updateOfflinePrepareButton();
   }
 }
 
@@ -7717,34 +7804,8 @@ function wireControls() {
   document.getElementById("distanceSortBtn")?.addEventListener("click", toggleDistanceSort);
   document.getElementById("mobileDistanceSortBtn")?.addEventListener("click", toggleDistanceSort);
   document.getElementById("routeToggleBtn").addEventListener("click", toggleDayRoute);
-  document.getElementById("prepareOfflineRoutesBtn")?.addEventListener("click", prepareOfflineRoutes);
-  document.getElementById("buildOfflineMapBtn")?.addEventListener("click", buildOfflineMapPackage);
-  document.getElementById("importOfflineMapBtn")?.addEventListener("click", () => document.getElementById("offlineMapFileInput")?.click());
-  document.getElementById("offlineMapFileInput")?.addEventListener("change", async event => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    try {
-      setStatus("Kartenpaket wird geprüft und gespeichert …");
-      await importOfflineMapPackage(file);
-      setStatus(`Offline-Kartenpaket für ${currentTrip?.destination || "die Reise"} gespeichert.`);
-    } catch (error) {
-      console.warn("Kartenpaket:", error);
-      setStatus(`Kartenpaket konnte nicht importiert werden: ${error?.message || error}`);
-    } finally {
-      event.target.value = "";
-    }
-  });
-  document.getElementById("removeOfflineMapBtn")?.addEventListener("click", async () => {
-    try {
-      await deleteOfflineMapPackage();
-      if (offlineMap) { offlineMap.remove(); offlineMap = null; offlineMapReady = false; }
-      renderOfflineMapPackageStatus();
-      renderOfflineRouteStatus();
-      setStatus("Offline-Kartenpaket entfernt.");
-    } catch (error) {
-      setStatus(`Kartenpaket konnte nicht entfernt werden: ${error?.message || error}`);
-    }
-  });
+  document.getElementById("prepareOfflineRoutesBtn")?.addEventListener("click", handleOfflineDataAction);
+
   renderOfflineRouteStatus();
   document.getElementById("routeGoogleBtn").addEventListener("click", () => openDayRouteInGoogleMaps());
   document.getElementById("routeStartMode").addEventListener("change", event => setRouteStartMode(event.target.value));
@@ -8361,21 +8422,24 @@ function watchServiceWorkerRegistration(registration) {
 }
 
 async function applyAppUpdate() {
-  const registration = appUpdateRegistration || await navigator.serviceWorker.getRegistration("./");
-  const worker = registration?.waiting;
-  if (!worker) {
-    await checkForAppUpdate({ manual: true });
-    return;
-  }
-  appUpdateReloadPending = true;
   const status = document.getElementById("appUpdateStatus");
   if (status) status.textContent = "Aktualisierung wird installiert …";
-  worker.postMessage({ type: "SKIP_WAITING" });
-  // Android/Chrome liefert controllerchange gelegentlich verspätet oder gar nicht
-  // an die geöffnete PWA. Dann erzwingen wir nach kurzer Wartezeit den Neustart.
-  setTimeout(() => {
-    if (appUpdateReloadPending) window.location.reload();
-  }, 1800);
+  appUpdateReloadPending = true;
+  try {
+    const registration = appUpdateRegistration || await navigator.serviceWorker.getRegistration("./");
+    if (!registration) throw new Error("Kein Service Worker registriert.");
+    appUpdateRegistration = registration;
+    await registration.update();
+    const worker = registration.waiting || registration.installing;
+    if (worker) worker.postMessage({ type: "SKIP_WAITING" });
+    // Ein explizit bestätigtes Update endet immer mit einem automatischen Neustart.
+    // controllerchange lädt früher neu; dieser Timer ist der zuverlässige Fallback.
+    setTimeout(() => window.location.reload(), 2200);
+  } catch (error) {
+    appUpdateReloadPending = false;
+    console.warn("App-Aktualisierung:", error);
+    if (status) status.textContent = "Aktualisierung fehlgeschlagen. Bitte erneut versuchen.";
+  }
 }
 
 function initPwaOfflineMode() {
